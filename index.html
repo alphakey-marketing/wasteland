@@ -252,6 +252,8 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     <button class="wide" id="bCopy">將規則複製去全隊</button>
     <div class="eyebrow">一撳套用</div>
     <div class="presets" id="presets"></div>
+    <div class="eyebrow">勢力關係</div>
+    <ul class="ws" id="factions"></ul>
     <div class="eyebrow">試玩設定</div>
     <ul class="rules">
       <li class="rule"><div class="tx"><b>硬派模式</b><span>會斷肢、會流血致死、會陣亡。關咗就只會倒地</span></div><input type="checkbox" class="sw2" id="optHard" checked aria-label="硬派模式"></li>
@@ -281,6 +283,8 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
       <dt>角色</dt><dd>傷勢、義肢、裝備、背包同技能</dd>
       <dt>❚❚ 暫停</dt><dd>暫停時連續落指令會排隊</dd>
     </dl>
+    <p class="note">倒地唔再係計時：要等頭同身慢慢回復先醒，流緊血就唔會回復，冇人止血會死。野狗會咬倒地嘅人，流寇有機會補刀。敵人倒地一陣都會醒返。</p>
+    <p class="note">綠洲鎮對你係中立。交懸賞會加關係，攻擊守衛會即刻變敵對。友好時買嘢有折扣。掉低嘅嘢會留喺地上 5 分鐘。</p>
     <p class="note">負重超過上限會行慢，但揹重嘢同採礦會練力量。揹人好重，記住揀強壯嘅隊友。只有生擒嘅懸賞犯先有賞金。</p>
     <p class="note">傷勢分三層：殘廢可以醫返；手腳斷咗就要去商人度買義肢；頭或身打得太重、或者倒地冇人止血，就會陣亡。</p>
     <button class="close primary" id="bStart" style="margin-top:14px">開始玩</button>
@@ -339,8 +343,10 @@ function desc(id){const it=ITEMS[id];
   if(it.type==='tool')return '修理一個義肢部位';
   return `${it.w}kg`;
 }
-const sellPrice=id=>{const it=ITEMS[id];return Math.max(1,Math.floor(it.v*(it.type==='ore'||it.type==='goods'?.8:.5)))};
-let money=100,hardcore=true;
+const sellPrice=id=>{const it=ITEMS[id];return Math.max(1,Math.floor(it.v*(it.type==='ore'||it.type==='goods'?.8:.5)*(repTown>=30?1.1:1)))};
+let money=100,hardcore=true,repTown=20;
+const repLabel=v=>v<=-30?'敵對':v>=30?'友好':'中立';
+const buyPrice=id=>Math.round(ITEMS[id].v*(repTown>=30?.9:1));
 
 /* ---------- ground (pre-rendered once) ---------- */
 const gw=MAP*TW,gh=MAP*TH;
@@ -423,7 +429,9 @@ const GUARD=mk({team:'g',name:'守衛',color:'#6f8fc4',base:110,eq:{weapon:'axe'
 units.push(TRADER,GUARD);
 const allies=()=>units.filter(u=>u.team==='a');
 const bandits=()=>units.filter(u=>u.team==='e');
-function hostile(a,b){if(a.team===b.team||a.team==='n'||b.team==='n')return false;if((a.team==='g'&&b.team==='a')||(a.team==='a'&&b.team==='g'))return false;return true}
+function hostile(a,b){if(a.team===b.team||a.team==='n'||b.team==='n')return false;if((a.team==='g'&&b.team==='a')||(a.team==='a'&&b.team==='g'))return repTown<=-30;return true}
+function changeRep(d,why){const before=repLabel(repTown);repTown=clamp(Math.round(repTown+d),-100,100);const after=repLabel(repTown);
+  toast(after!==before?`綠洲鎮而家對你${after}（${why}）`:`綠洲鎮關係 ${d>0?'+':''}${Math.round(d)}（${why}）`);if(after==='敵對'){GUARD.aggro=true}}
 const hostiles=u=>units.filter(o=>!o.down&&hostile(u,o));
 const weapon=u=>u.eq.weapon?ITEMS[u.eq.weapon]:(u.natural||FIST);
 const range=u=>weapon(u).range||.95;
@@ -452,6 +460,10 @@ spawnWave();
 const sel=new Set(allies());
 let paused=false,modal=false,speed=1,autoPause=true,selectMode=false,simT=0;
 const fx={floats:[],shots:[],pings:[],drops:[]};
+let piles=[];
+function dropToGround(u,s){let p=piles.find(q=>dist(q,u)<.9);
+  if(!p){p={pile:true,name:'地上布袋',x:clamp(u.x+.35,.5,MAP-.5),y:clamp(u.y+.25,.5,MAP-.5),pack:[],eq:{weapon:null,armor:null},t:simT,id:Math.random()};piles.push(p)}
+  const it=ITEMS[s.id];const ex=it.stack&&p.pack.find(x=>x.id===s.id);if(ex)ex.n+=s.n;else p.pack.push({id:s.id,n:s.n});p.t=simT}
 function float(u,txt,col,big){fx.floats.push({x:u.x,y:u.y,txt,col,t:0,big})}
 
 /* ---------- inventory ---------- */
@@ -484,6 +496,7 @@ function step(u,tx,ty,dt,mul=1){
 }
 function pickPart(){let r=Math.random()*HIT_TOTAL;for(const p of PARTS){r-=p[3];if(r<=0)return p}return PARTS[1]}
 function attack(u,t){
+  if(u.team==='a'&&t.team==='g'&&repTown>-30){changeRep(-60,'攻擊守衛');repTown=Math.min(repTown,-40)}
   const wpn=weapon(u);u.cd=wpn.cd;u.lunge=1;const tArm=t.eq.armor?ITEMS[t.eq.armor]:null;
   const hitP=clamp(.6+(u.sk.atk.lv-(t.sk.dod.lv+((tArm&&tArm.dod)||0)))*.008,.12,.95);
   if(Math.random()>hitP){train(u,'atk',.6);train(t,'dod',1.5);float(t,'閃','#cfc4b0');
@@ -524,13 +537,14 @@ function treat(healer,pat,dt){
   if(!worst)return false;const p=pat.p[worst];p.hp=Math.min(p.max,p.hp+healRate(healer)*dt);train(healer,'aid',1.2*dt);return true;
 }
 function getUp(u,f){if(u.dead)return;if(u.carriedBy)drop(u.carriedBy);u.down=false;['head','torso'].forEach(k=>{u.p[k].hp=Math.max(u.p[k].hp,u.p[k].max*f)})}
+function recov(u){return clamp(Math.min(u.p.head.hp/(u.p.head.max*.1),u.p.torso.hp/(u.p.torso.max*.1)),0,1)}
 function hurt(u){return u.bleed>0||PARTS.some(([k])=>{const q=u.p[k];return !q.lost&&!q.pros&&q.hp<q.max})}
 
 function runCmd(u,dt,ne,nd){
   const c=u.cmd[0],forced=u.forceT>0?'強制執行':null;
   switch(c.t){
     case 'move':u.state=forced||'移動';if(step(u,c.x,c.y,dt))u.cmd.shift();break;
-    case 'attack':if(c.u.down)u.cmd.shift();else{u.state=forced||'攻擊目標';engage(u,c.u,dt)}break;
+    case 'attack':if(c.u.dead||(c.u.down&&!c.finish))u.cmd.shift();else{u.state=forced||'攻擊目標';engage(u,c.u,dt)}break;
     case 'mine':{
       if(ne&&nd<3&&!u.carry){u.state='自衛';engage(u,ne,dt);break}
       const r=c.node.s*.62+.6;if(dist(u,c.node)>r){u.state='去採礦';step(u,c.node.x,c.node.y,dt);break}
@@ -547,7 +561,7 @@ function updAlly(u,dt){
   u.flash=Math.max(0,u.flash-dt);
   u.forceT=Math.max(0,u.forceT-dt);if(u.cmd.length&&u.forceT>0)u.forceT=3;
   if(u.dead){u.state='陣亡';return}
-  if(u.down){u.state=u.carriedBy?'俾人揹緊':'倒地';u.downT-=dt;if(u.downT<=0){getUp(u,.15);float(u,'自己爬起身','#a9e08a')}return}
+  if(u.down){u.state=u.carriedBy?'俾人揹緊':u.bleed>0?'倒地流血':'倒地';return}
   const hs=hostiles(u);const ne=nearest(hs,u);const nd=ne?dist(u,ne):99;
   if(u.rules.flee&&!(u.forceT>0)&&(pct(u)<.3||ratio(u,'torso')<.3||ratio(u,'head')<.35)&&nd<5){u.state='逃跑';const dx=u.x-ne.x,dy=u.y-ne.y,d=Math.hypot(dx,dy)||1;step(u,u.x+dx/d*2,u.y+dy/d*2,dt,1.15);return}
   if(u.rules.rescue&&!u.carry){
@@ -569,6 +583,12 @@ function updOther(u,dt){
   if(!t)t=nearest(hostiles(u),u);const d=t?dist(u,t):99;
   if(!u.aggro&&d<u.aggroR)u.aggro=true;
   if(u.aggro&&t&&d<u.leash&&dist(t,u.home)<u.leash+3){u.state='戰鬥';engage(u,t,dt);return}
+  if(u.victim&&(u.victim.dead||!u.victim.down||u.victim.carriedBy))u.victim=null;
+  if(!u.victim&&hardcore&&(u.team==='w'||u.team==='e')){u.rolled=u.rolled||{};
+    for(const o of units){if(o.team!=='a'||!o.down||o.dead||o.carriedBy||dist(o,u)>(u.team==='w'?3:4))continue;
+      if(u.rolled[o.id]===undefined)u.rolled[o.id]=Math.random()<(u.team==='w'?.6:.35);
+      if(u.rolled[o.id]){u.victim=o;toast(u.team==='w'?`野狗咬緊倒地嘅${o.name}！`:`流寇想補刀${o.name}！快啲去救`);break}}}
+  if(u.victim){u.state=u.team==='w'?'咬緊':'補刀';engage(u,u.victim,dt);return}
   u.aggro=false;u.lastHit=null;u.state='巡邏';
   if(u.team==='g'){for(const [k] of PARTS){const p=u.p[k];if(!p.lost&&p.hp<p.max)p.hp=Math.min(p.max,p.hp+3*dt)}u.bleed=0}
   if(dist(u,u.home)>2.2)step(u,u.home.x,u.home.y,dt,.55);
@@ -579,14 +599,19 @@ function simulate(dt){
   for(const u of units){if(u.dead||!(u.bleed>0))continue;
     u.p.torso.hp-=u.bleed*(u.down?1.4:1)*dt;u.bleed=Math.max(0,u.bleed-(u.down?.03:.1)*dt);
     if(!hardcore)u.p.torso.hp=Math.max(-u.p.torso.max*.5,u.p.torso.hp);checkWounds(u,'torso','身')}
+  for(const u of units){if(!u.down||u.dead||u.bleed>0)continue;const r=.6+u.sk.tough.lv*.03;
+    ['head','torso'].forEach(k=>{u.p[k].hp=Math.min(u.p[k].max,u.p[k].hp+r*dt)});
+    if(recov(u)>=1){getUp(u,0);float(u,u.team==='a'?'自己爬起身':'醒返','#a9e08a');u.victim=null;if(u.team!=='a'){u.aggro=false;u.lastHit=null}}}
+  piles=piles.filter(p=>p.pack.length&&simT-p.t<300);
+  if(repTown<0)repTown=Math.min(0,repTown+dt/30);
   for(const u of units){u.moving=false;u.cd=Math.max(0,u.cd-dt);u.lunge=Math.max(0,u.lunge-dt*5);if(u.carriedBy)continue;(u.team==='a'?updAlly:updOther)(u,dt)}
   for(const u of units){if(!u.carriedBy)continue;const c=u.carriedBy;if(c.down||c.carry!==u){u.carriedBy=null;if(c.carry===u)c.carry=null}else{u.x=c.x;u.y=c.y;
-    if(u.team==='a'&&u.down&&!u.dead){u.downT-=dt;if(u.downT<=0){getUp(u,.15);float(u,'自己爬起身','#a9e08a')}}}}
+}}
   dogTimer+=dt;
   if(dogTimer>12){dogTimer=0;
     for(let i=units.length-1;i>=0;i--){const d=units[i];if(d.kind==='dog'&&d.down&&!d.carriedBy&&dist(d,nearest(allies(),d))>3)units.splice(i,1)}
     if(units.filter(u=>u.kind==='dog'&&!u.down).length<3)spawnDog()}
-  if(GUARD.down){guardTimer+=dt;if(guardTimer>40){guardTimer=0;GUARD.p=mkParts(GUARD.base);GUARD.down=GUARD.dead=false;GUARD.bleed=0;GUARD.x=GUARD.home.x;GUARD.y=GUARD.home.y;float(GUARD,'新守衛上更','#cfd8de',true)}}
+  if(GUARD.dead){guardTimer+=dt;if(guardTimer>40){guardTimer=0;GUARD.p=mkParts(GUARD.base);GUARD.down=GUARD.dead=false;GUARD.bleed=0;GUARD.x=GUARD.home.x;GUARD.y=GUARD.home.y;float(GUARD,'新守衛上更','#cfd8de',true)}}
   for(let i=0;i<units.length;i++){const a=units[i];if(a.down)continue;
     for(let j=i+1;j<units.length;j++){const b=units[j];if(b.down)continue;const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);
       if(d<.55&&d>1e-4){const p=(.55-d)/2,fa=a.team==='n'?0:b.team==='n'?2:1,fb=2-fa;a.x-=dx/d*p*fa;a.y-=dy/d*p*fa;b.x+=dx/d*p*fb;b.y+=dy/d*p*fb}}
@@ -619,6 +644,11 @@ function drawProp(p){
     [[-6,-1],[4,2],[1,-4],[7,-2]].forEach(([dx,dy])=>{ell(t.x+dx*cam.z,t.y+dy*cam.z,1.8*cam.z,1.2*cam.z);ctx.fill()});
     label(ITEMS[p.ore].name,t.x,t.y-8*cam.z,'#f2e7d4',10)}
 }
+function drawPile(p){const s=scr(p.x,p.y),z=cam.z;const fade=simT-p.t>240?.5+.5*Math.sin(simT*6):1;ctx.globalAlpha=fade;
+  ctx.fillStyle='rgba(35,20,8,.35)';ell(s.x,s.y+1*z,9*z,3.5*z);ctx.fill();
+  ctx.fillStyle='#9b7a4f';ell(s.x,s.y-4*z,7.5*z,6*z);ctx.fill();ctx.fillStyle='#7d5f3b';ell(s.x+2*z,s.y-3*z,4.5*z,4.5*z);ctx.fill();
+  ctx.fillStyle='#6a4f30';ctx.fillRect(s.x-2*z,s.y-12*z,4*z,3*z);ctx.globalAlpha=1;
+  if(p.pack.length>1)label(p.pack.length+'',s.x+9*z,s.y-10*z,'#f0c45a',9)}
 function hpBar(u,x,y,k){const w=(u.kind==='dog'?18:26)*k,bx=x-w/2,p=pct(u);
   ctx.fillStyle='rgba(20,14,8,.75)';ctx.fillRect(bx-1,y-1,w+2,4*k+2);
   ctx.fillStyle=u.team==='g'?'#7ea4dc':u.team==='w'?'#c98a4a':u.team==='e'?'#d65b41':p<.3?'#e5813c':'#8fc56e';ctx.fillRect(bx,y,w*p,4*k)}
@@ -651,7 +681,7 @@ function drawUnit(u){
   if(u.dead){ctx.globalAlpha=.8;drawBodyLying(u,s,z,0);ctx.fillStyle='rgba(120,20,10,.45)';ell(s.x+2*z,s.y,14*z,5*z);ctx.fill();ctx.globalAlpha=1;
     if(u.team==='a')label('亡',s.x,s.y-14*z,'#ff7a5c',9);return}
   if(u.down){drawBodyLying(u,s,z,0);
-    if(u.team==='a'){ctx.strokeStyle='#f2c14e';ctx.lineWidth=2*z;ctx.beginPath();ctx.arc(s.x,s.y-18*z,6*z,-Math.PI/2,-Math.PI/2+Math.PI*2*(1-u.downT/14));ctx.stroke();label('倒',s.x,s.y-15*z,'#f2c14e',9)}
+    if(u.team==='a'){ctx.strokeStyle='#f2c14e';ctx.lineWidth=2*z;ctx.strokeStyle=u.bleed>0?'#d8553d':'#f2c14e';ctx.beginPath();ctx.arc(s.x,s.y-18*z,6*z,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.max(.02,recov(u)));ctx.stroke();label(u.bleed>0?'血':'倒',s.x,s.y-15*z,u.bleed>0?'#ff7a5c':'#f2c14e',9)}
     if(u.bounty)label(`懸賞 $${u.bounty}`,s.x,s.y-22*z,'#f0c45a',10);
     if(u.team==='e'&&(u.pack.length||u.eq.weapon||u.eq.armor)){ctx.fillStyle='#f0c45a';ell(s.x-12*z,s.y-8*z,2.5*z,2.5*z);ctx.fill()}
     return}
@@ -710,7 +740,7 @@ function render(){
   fx.pings=fx.pings.filter(p=>now-p.t<600);
   for(const p of fx.pings){const k=(now-p.t)/600,s=scr(p.x,p.y);ctx.strokeStyle=p.col;ctx.globalAlpha=1-k;ctx.lineWidth=2;ell(s.x,s.y,(6+k*14)*cam.z,(3+k*7)*cam.z);ctx.stroke();ctx.globalAlpha=1}
   drawPaths();
-  const list=[...props.map(p=>({d:p.x+p.y,f:()=>drawProp(p)})),...units.map(u=>({d:u.x+u.y+(u.carriedBy?.02:u.down?-.3:0),f:()=>drawUnit(u)}))];
+  const list=[...piles.map(p=>({d:p.x+p.y-.25,f:()=>drawPile(p)})),...props.map(p=>({d:p.x+p.y,f:()=>drawProp(p)})),...units.map(u=>({d:u.x+u.y+(u.carriedBy?.02:u.down?-.3:0),f:()=>drawUnit(u)}))];
   list.sort((a,b)=>a.d-b.d).forEach(o=>o.f());
   for(const s of fx.shots){const a=scr(s.a.x,s.a.y,18),b=scr(s.b.x,s.b.y,18),k=s.t/.18;
     ctx.strokeStyle='#f6e2b0';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(a.x+(b.x-a.x)*k*.6,a.y+(b.y-a.y)*k*.6);ctx.lineTo(a.x+(b.x-a.x)*Math.min(1,k+.4),a.y+(b.y-a.y)*Math.min(1,k+.4));ctx.stroke()}
@@ -778,6 +808,7 @@ function finishBox(){
 }
 function pick(sx,sy){let best=null,bd=1e9;for(const u of units){const s=scr(u.x,u.y,u.carriedBy?22:u.down?4:u.kind==='dog'?8:14);const d=Math.hypot(s.x-sx,(s.y-sy)*.8);
   const r=(u.down?20:26)*Math.max(.8,cam.z);if(d<r&&d<bd){bd=d;best=u}}return best}
+function pickPile(sx,sy){for(const p of piles){const s=scr(p.x,p.y,4);if(Math.hypot(s.x-sx,s.y-sy)<22*Math.max(.8,cam.z))return p}return null}
 function pickOre(sx,sy){for(const o of ORES){const s=scr(o.x,o.y,o.h*.6);if(Math.hypot(s.x-sx,s.y-sy)<28*Math.max(.8,cam.z))return o}return null}
 function formation(n,i){const cols=Math.ceil(Math.sqrt(n)),rows=Math.ceil(n/cols),r=Math.floor(i/cols),c=i%cols;return{dx:(c-(cols-1)/2)*.85,dy:(r-(rows-1)/2)*.85}}
 function fleeCheck(list){
@@ -806,10 +837,15 @@ function tap(sx,sy){
   if(u){
     if(u.carriedBy){toast(`${u.carriedBy.name} 揹緊 ${u.name}`);return}
     if(u.team==='n'){const v=issueOne({t:'talk',npc:u},u);if(v)toast(`${v.name} 行去搵商人`);return}
-    if(u.team==='g'){const v=issueOne({t:'talk',npc:u},u);if(v)toast(v.carry?`${v.name} 揹住 ${v.carry.name} 去見守衛`:`${v.name} 行去搵守衛`);return}
+    if(u.team==='g'){if(u.down){bodyMenu(u,sx,sy);return}
+      showMenu(sx,sy,`綠洲鎮守衛 · 關係${repLabel(repTown)}`,[
+        {label:'交談／交懸賞犯',sub:'揹住生擒嘅懸賞犯過去就有賞金',fn:()=>{const v=issueOne({t:'talk',npc:u},u);if(v)toast(v.carry?`${v.name} 揹住 ${v.carry.name} 去見守衛`:`${v.name} 行去搵守衛`)}},
+        {label:'攻擊守衛',sub:repTown>-30?'綠洲鎮會即刻同你敵對，商人唔再做你生意':'已經敵對',fn:()=>{issue(()=>({t:'attack',u}))}}]);return}
     if(u.down){bodyMenu(u,sx,sy);return}
     if(u.team==='a'){sel.clear();sel.add(u);updatePortraits(true);toast(`揀咗 ${u.name}（${u.role}）`);return}
     if(issue(()=>({t:'attack',u})))fx.pings.push({x:u.x,y:u.y,t:performance.now(),col:'#d65b41'});return}
+  const pl=pickPile(sx,sy);
+  if(pl){showMenu(sx,sy,`地上布袋 · ${pl.pack.length} 樣嘢 · ${Math.max(0,Math.ceil((300-(simT-pl.t))/60))} 分鐘內會消失`,[{label:'執起',sub:'行過去揀要拎咩',fn:()=>{const v=issueOne({t:'loot',body:pl},pl);if(v)toast(`${v.name} 去執布袋`)}}]);return}
   const o=pickOre(sx,sy);
   if(o){const list=[...sel].filter(a=>!a.down&&!a.carry);if(!list.length){toast('先揀冇揹人嘅隊友');return}
     fleeCheck(list);list.forEach(a=>push(a,{t:'mine',node:o}));toast(`${list.map(a=>a.name).join('、')} 去採${ITEMS[o.ore].name}`);return}
@@ -831,18 +867,19 @@ function hasLoot(b){return b.pack.length>0||!!b.eq.weapon||!!b.eq.armor}
 function bodyMenu(b,sx,sy){
   const opts=[];
   if(hasLoot(b)&&(b.team!=='a'||b.dead))opts.push({label:'執嘢',sub:'行過去睇佢身上有咩',fn:()=>{const v=issueOne({t:'loot',body:b},b);if(v)toast(`${v.name} 去執嘢`)}});
-  if(b.kind!=='dog'||true)opts.push({label:b.bounty&&!b.dead?`揹起佢（懸賞 $${b.bounty}）`:'揹起佢',sub:b.bounty&&!b.dead?'揹去綠洲鎮守衛度領賞':b.team==='a'&&!b.dead?'揹佢離開險地，等人救':'好重，會行得好慢',
+  if(!b.dead&&b.team!=='a')opts.push({label:'補刀',sub:'打到佢死為止，唔會再醒',fn:()=>{if(issue(()=>({t:'attack',u:b,finish:true})))fx.pings.push({x:b.x,y:b.y,t:performance.now(),col:'#d65b41'})}});
+  opts.push({label:b.bounty&&!b.dead?`揹起佢（懸賞 $${b.bounty}）`:'揹起佢',sub:b.bounty&&!b.dead?'揹去綠洲鎮守衛度領賞':b.team==='a'&&!b.dead?'揹佢離開險地，等人救':'好重，會行得好慢',
     fn:()=>{const v=issueOne({t:'carry',body:b},b,'揀咗嘅隊友已經揹緊人',a=>!a.carry);if(v)toast(`${v.name} 去揹 ${b.name}`)}});
-  const title=`${b.name} · ${b.dead?'屍體':'倒地'}${b.team==='a'&&!b.dead?`（${Math.ceil(b.downT)} 秒後起身）`:''}`;
+  const title=`${b.name} · ${b.dead?'屍體':'倒地'}${!b.dead?`（${b.bleed>0?'流緊血':'回復 '+Math.round(recov(b)*100)+'%'}）`:''}`;
   showMenu(sx,sy,title,opts);
 }
 
 /* ---------- trader & guard ---------- */
 function arriveTalk(u,npc){
-  if(npc===TRADER){if(anyModal()){toast(`${u.name} 到咗商人度`);return}openShop(u);return}
-  if(npc===GUARD){const c=u.carry;
+  if(npc===TRADER){if(repTown<=-30){toast('商人：你哋係綠洲鎮嘅敵人，我唔做你生意');return}if(anyModal()){toast(`${u.name} 到咗商人度`);return}openShop(u);return}
+  if(npc===GUARD){if(repTown<=-30){toast('守衛：滾！');return}const c=u.carry;
     if(c&&c.team==='e'&&c.bounty&&!c.dead){money+=c.bounty;float(u,`+$${c.bounty} 賞金`,'#f0c45a',true);toast(`守衛收咗 ${c.name}，賞金 $${c.bounty}`);
-      u.carry=null;c.carriedBy=null;units.splice(units.indexOf(c),1);return}
+      u.carry=null;c.carriedBy=null;units.splice(units.indexOf(c),1);changeRep(10,'交懸賞犯');return}
     if(c&&c.bounty&&c.dead){toast('守衛：死咗嘅唔收，要生擒先有賞金');return}
     if(c&&c.team==='e'){toast('守衛：呢個人冇懸賞');return}
     toast('守衛：有懸賞犯就揹過嚟，生擒先有錢')}
@@ -857,14 +894,14 @@ function renderShop(){
   $('#segBuy').setAttribute('aria-selected',shopTab==='buy');$('#segSell').setAttribute('aria-selected',shopTab==='sell');
   $('#shopLoad').textContent=`${u.name} 負重 ${load(u)} / ${cap(u)} kg`;
   if(shopTab==='buy'){
-    shopList.innerHTML=STOCK.map(id=>{const it=ITEMS[id];return `<li><div class="nm"><b>${it.name}</b><span>${desc(id)}</span></div><span class="price">$${it.v}</span><div class="btns"><button class="buy" data-buy="${id}" ${money<it.v?'disabled':''}>買</button></div></li>`}).join('');
+    shopList.innerHTML=(repTown>=30?'<li><span class="empty">綠洲鎮當你係朋友：買嘢九折，賣嘢多一成</span></li>':'')+STOCK.map(id=>{const it=ITEMS[id],pr=buyPrice(id);return `<li><div class="nm"><b>${it.name}</b><span>${desc(id)}</span></div><span class="price">$${pr}</span><div class="btns"><button class="buy" data-buy="${id}" ${money<pr?'disabled':''}>買</button></div></li>`}).join('');
   }else{
     if(!u.pack.length){shopList.innerHTML='<li><span class="empty">背包係空嘅。打倒敵人去執嘢，或者去採礦。裝備緊嘅嘢要先喺角色卡卸低先賣得。</span></li>';return}
     shopList.innerHTML=u.pack.map((s,i)=>{const it=ITEMS[s.id],p=sellPrice(s.id);return `<li><div class="nm"><b>${it.name}${s.n>1?' ×'+s.n:''}</b><span>每件 $${p} · ${desc(s.id)}</span></div><div class="btns"><button data-sell="${i}">賣 1</button>${s.n>1?`<button data-sellall="${i}">全部 +$${p*s.n}</button>`:''}</div></li>`}).join('');
   }
 }
 shopList.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;const u=shopUnit;
-  if(b.dataset.buy){const id=b.dataset.buy;if(money<ITEMS[id].v)return;money-=ITEMS[id].v;addItem(u,id,1);toast(`買咗${ITEMS[id].name}，放咗入${u.name}背包`)}
+  if(b.dataset.buy){const id=b.dataset.buy;if(money<buyPrice(id))return;money-=buyPrice(id);addItem(u,id,1);toast(`買咗${ITEMS[id].name}，放咗入${u.name}背包`)}
   else if(b.dataset.sell){const i=+b.dataset.sell,id=takeOne(u,i);if(id){money+=sellPrice(id)}}
   else if(b.dataset.sellall){const i=+b.dataset.sellall,s=u.pack[i];if(s){money+=sellPrice(s.id)*s.n;u.pack.splice(i,1)}}
   renderShop();updatePortraits(true)});
@@ -876,13 +913,15 @@ const lootSheet=$('#lootSheet'),lootList=$('#lootList');let lootUnit=null,lootBo
 function openLoot(u,b){if(anyModal())return;lootUnit=u;lootBody=b;renderLoot();lootSheet.hidden=false;setModal(true)}
 function lootRows(b){const rows=[];if(b.eq.weapon)rows.push({slot:'weapon',id:b.eq.weapon});if(b.eq.armor)rows.push({slot:'armor',id:b.eq.armor});b.pack.forEach((s,i)=>rows.push({idx:i,id:s.id,n:s.n}));return rows}
 function renderLoot(){
-  const b=lootBody,u=lootUnit;$('#lootTitle').textContent=`執嘢 · ${b.name}${b.dead?'（屍體）':''}`;
+  const b=lootBody,u=lootUnit;
+  if(b.pile&&!piles.includes(b))b.pack=[];
+  $('#lootTitle').textContent=b.pile?'執起地上嘅嘢':`執嘢 · ${b.name}${b.dead?'（屍體）':''}`;
   $('#lootSub').textContent=`${u.name} 負重 ${load(u)} / ${cap(u)} kg · 超重會行慢，銅幣直接入全隊錢包`;
   const rows=lootRows(b);
   lootList.innerHTML=rows.length?rows.map((r,i)=>{const it=ITEMS[r.id];return `<li><div class="nm"><b>${it.name}${r.n>1?' ×'+r.n:''}${r.slot?' · 身上著緊':''}</b><span>${r.id==='coin'?'全隊錢包':desc(r.id)+` · 賣 $${sellPrice(r.id)}`}</span></div><div class="btns"><button data-i="${i}">拎</button></div></li>`}).join('')
     :'<li><span class="empty">已經執清光</span></li>';
   $('#bLootAll').disabled=!rows.length;
-  const canCarry=!b.carriedBy&&!u.carry&&b.down;$('#bLootCarry').hidden=!canCarry;
+  const canCarry=!b.pile&&!b.carriedBy&&!u.carry&&b.down;$('#bLootCarry').hidden=!canCarry;
   $('#bLootCarry').textContent=b.bounty&&!b.dead?`揹起佢（懸賞 $${b.bounty}）`:'揹起佢';
 }
 function takeRow(r){const b=lootBody,u=lootUnit;
@@ -921,7 +960,7 @@ function updatePortraits(force){
     const p=pct(u);e.hp.style.width=(p*100).toFixed(1)+'%';e.hp.style.background=p<.3?'#e5813c':'#8fc56e';
     PARTS.forEach(([k],i)=>e.pips[i].style.background=partCol(u,k));
     const q=u.cmd.length>1?` · 排隊 ${u.cmd.length}`:'';
-    e.st.textContent=(u.dead?'陣亡':u.down?(u.carriedBy?'俾人揹緊':`倒地 ${Math.ceil(u.downT)}s`):u.state)+(u.bleed>.15&&!u.dead?' · 流血':'')+q;e.nm.textContent=u.name;
+    e.st.textContent=(u.dead?'陣亡':u.down?(u.carriedBy?'俾人揹緊':u.bleed>0?'倒地 · 流血中':`倒地 · 回復 ${Math.round(recov(u)*100)}%`):u.state)+(u.bleed>.15&&!u.dead?' · 流血':'')+q;e.nm.textContent=u.name;
     const f=cam.follow===u;
     if(f&&!e.cam){e.cam=document.createElement('span');e.cam.className='cam';e.cam.textContent='鏡頭';e.b.appendChild(e.cam)}
     if(!f&&e.cam){e.cam.remove();e.cam=null}
@@ -944,7 +983,7 @@ function openCard(u){cardUnit=u||[...sel][0]||allies()[0];buildCard();charSheet.
 function buildCard(){allies().forEach(a=>a.tab.setAttribute('aria-selected',a===cardUnit));wsSig=eqSig=packSig='';fillCard()}
 function fillCard(){
   const u=cardUnit;$('#chName').textContent=`${u.name} · ${u.role}`;u.tab.lastChild.textContent=u.name;
-  const notes=[];if(u.dead)notes.push('已陣亡 · 可以喺戰術頁招募新人補位');else if(u.down)notes.push(u.carriedBy?`俾 ${u.carriedBy.name} 揹緊`:`倒地中，${Math.ceil(u.downT)} 秒後自己爬起身`);
+  const notes=[];if(u.dead)notes.push('已陣亡 · 可以喺戰術頁招募新人補位');else if(u.down)notes.push(u.carriedBy?`俾 ${u.carriedBy.name} 揹緊`:u.bleed>0?'倒地中 · 流緊血，冇人止血會死':`倒地中 · 回復緊 ${Math.round(recov(u)*100)}%`);
   if(u.bleed>.05&&!u.dead)notes.push(`流血中，每秒 −${u.bleed.toFixed(1)}`);
   PARTS.forEach(([k,l])=>{if(u.p[k].lost)notes.push(`${l}斷咗`)});
   if(!u.p.legs.lost&&ratio(u,'legs')<=0)notes.push('腳殘廢，只可以爬');else if(ratio(u,'legs')>0&&ratio(u,'legs')<.6)notes.push(`腳傷，速度 ${Math.round(legMul(u)*100)}%`);
@@ -982,19 +1021,21 @@ workshop.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||
   else{const id=b.dataset.id;if(useItem(u,id)){const d=PROS[ITEMS[id].pros];p.lost=false;p.pros=ITEMS[id].pros;p.max=Math.round(p.base*d.hp);p.hp=p.max;toast(`${u.name} 裝咗${d.name}`)}}
   wsSig=packSig='';updatePortraits(true)});
 function fillEquip(u){
-  const sig=u.id+'|'+u.eq.weapon+'|'+u.eq.armor+'|'+u.pack.map(s=>s.id+s.n).join()+'|'+u.dead;
+  const mate=u.dead||u.down?null:nearest(allies().filter(a=>a!==u&&!a.dead&&!a.down&&dist(a,u)<2),u);
+  const sig=u.id+'|'+u.eq.weapon+'|'+u.eq.armor+'|'+u.pack.map(s=>s.id+s.n).join()+'|'+u.dead+'|'+(mate?mate.id:'');
   if(sig!==eqSig){eqSig=sig;
     equipEl.innerHTML=[['weapon','武器'],['armor','盔甲']].map(([slot,l])=>{const id=u.eq[slot];
       return `<li><div class="nm"><b>${l}：${id?ITEMS[id].name:(slot==='weapon'?'冇（用拳頭）':'冇')}</b><span>${id?desc(id):slot==='weapon'?'傷害 2–4':'冇減傷'}</span></div>${id&&!u.dead?`<div class="btns"><button data-unequip="${slot}">卸低</button></div>`:''}</li>`}).join('');}
   if(sig!==packSig){packSig=sig;
     packEl.innerHTML=u.pack.length?u.pack.map((s,i)=>{const it=ITEMS[s.id];const eqable=(it.type==='weapon'||it.type==='armor')&&!u.dead;
-      return `<li><div class="nm"><b>${it.name}${s.n>1?' ×'+s.n:''}</b><span>${desc(s.id)} · 賣 $${sellPrice(s.id)}</span></div><div class="btns">${eqable?`<button data-equip="${i}">裝備</button>`:''}<button data-drop="${i}">掉</button></div></li>`}).join('')
+      return `<li><div class="nm"><b>${it.name}${s.n>1?' ×'+s.n:''}</b><span>${desc(s.id)} · 賣 $${sellPrice(s.id)}</span></div><div class="btns">${eqable?`<button data-equip="${i}">裝備</button>`:''}${mate?`<button data-give="${i}" data-mate="${allies().indexOf(mate)}">俾${mate.name}</button>`:''}<button data-drop="${i}">掉落地</button></div></li>`}).join('')
       :'<li><span class="empty">背包係空嘅</span></li>';}
 }
 equipEl.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const u=cardUnit,slot=b.dataset.unequip;if(u.eq[slot]){addItem(u,u.eq[slot],1);u.eq[slot]=null}eqSig=packSig='';updatePortraits(true)});
 packEl.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const u=cardUnit;
   if(b.dataset.equip){const i=+b.dataset.equip,id=u.pack[i].id,slot=ITEMS[id].type;takeOne(u,i);if(u.eq[slot])addItem(u,u.eq[slot],1);u.eq[slot]=id;toast(`${u.name} 裝備咗${ITEMS[id].name}`)}
-  else if(b.dataset.drop){const i=+b.dataset.drop,s=u.pack[i];u.pack.splice(i,1);toast(`掉咗${ITEMS[s.id].name}${s.n>1?' ×'+s.n:''}`)}
+  else if(b.dataset.drop){const i=+b.dataset.drop,s=u.pack[i];u.pack.splice(i,1);dropToGround(u,s);toast(`${ITEMS[s.id].name}${s.n>1?' ×'+s.n:''} 掉咗喺地上，5 分鐘內冇人執就會消失`)}
+  else if(b.dataset.give){const i=+b.dataset.give,s=u.pack[i],m=allies()[+b.dataset.mate];if(s&&m){u.pack.splice(i,1);addItem(m,s.id,s.n);toast(`${u.name} 將${ITEMS[s.id].name}${s.n>1?' ×'+s.n:''}交咗俾${m.name}`)}}
   eqSig=packSig=wsSig='';updatePortraits(true)});
 $('#bChar').addEventListener('click',()=>openCard());
 $('#bCharClose').addEventListener('click',()=>charSheet.hidden=true);
@@ -1038,7 +1079,13 @@ function syncSheet(){
   bc.textContent=list.length===1?`將${src.name}嘅規則複製去全隊`:'淨係揀一個人，就可以將佢嘅規則複製去全隊';
 }
 $('#bCopy').addEventListener('click',()=>{const src=[...sel][0];if(!src)return;allies().forEach(u=>u.rules={...src.rules});toast(`全隊而家用${src.name}嘅規則`);syncSheet()});
-$('#bTac').addEventListener('click',()=>{syncSheet();sheet.hidden=false});
+function renderFactions(){const v=Math.round(repTown),lbl=repLabel(v),col=lbl==='敵對'?'#d8553d':lbl==='友好'?'#8fc56e':'#e5a23c';
+  $('#factions').innerHTML=`<li class="col"><div style="display:flex;gap:8px;align-items:baseline"><b style="flex:1">綠洲鎮</b><span style="color:${col};font-weight:700">${lbl} ${v>0?'+':''}${v}</span></div>
+    <div class="loadbar" style="margin:0"><i style="width:${(v+100)/2}%;background:${col}"></i></div>
+    <span class="empty">${lbl==='敵對'?'守衛會打你，商人唔做你生意。關係會好慢咁回升返中立。':lbl==='友好'?'買嘢九折、賣嘢多一成，守衛會幫你打走敵人。':'交懸賞犯 +10。到 +30 變友好；攻擊守衛會即刻變敵對。'}</span></li>
+    <li><div class="nm"><b>流寇</b><span>永遠敵對 · 有機會補刀倒地嘅人</span></div></li>
+    <li><div class="nm"><b>野狗</b><span>野獸 · 見人就咬，包括流寇，亦會咬倒地嘅人</span></div></li>`}
+$('#bTac').addEventListener('click',()=>{syncSheet();renderFactions();sheet.hidden=false});
 $('#bClose').addEventListener('click',()=>sheet.hidden=true);
 sheet.addEventListener('click',e=>{if(e.target===sheet)sheet.hidden=true});
 $('#optHard').addEventListener('change',e=>{hardcore=e.target.checked;toast(hardcore?'硬派模式：會斷肢、會陣亡':'休閒模式：最多只會倒地')});
@@ -1051,9 +1098,9 @@ $('#bRecruit').addEventListener('click',()=>{const dead=allies().filter(u=>u.dea
 $('#bWave').addEventListener('click',()=>{spawnWave();sheet.hidden=true;toast(`第 ${wave} 波流寇出現咗（每波都強啲）`)});
 $('#bHelp2').addEventListener('click',()=>{sheet.hidden=true;help.hidden=false});
 const help=$('#help');
-let seen=false;try{seen=localStorage.getItem('wl_help5')==='1'}catch(e){}
+let seen=false;try{seen=localStorage.getItem('wl_help6')==='1'}catch(e){}
 if(seen)help.hidden=true;
-$('#bStart').addEventListener('click',()=>{help.hidden=true;try{localStorage.setItem('wl_help5','1')}catch(e){}});
+$('#bStart').addEventListener('click',()=>{help.hidden=true;try{localStorage.setItem('wl_help6','1')}catch(e){}});
 
 /* ---------- loop ---------- */
 let lt=performance.now();
