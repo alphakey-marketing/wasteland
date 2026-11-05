@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>荒原小隊原型</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;600;800&family=Chakra+Petch:wght@500;700&display=swap">
+<style>
+/* Layout: full-bleed isometric desert field; HUD floats along the top and bottom edges like a field radio */
+:root{
+  --ink:#17120d; --panel:rgba(31,24,18,.92); --panel2:#2a2018; --line:#54422f;
+  --text:#f2e7d4; --muted:#b4a084; --accent:#eaa93a; --ally:#5fb3a8; --enemy:#d65b41; --ok:#8fc56e;
+  --font-body:"Noto Sans HK",system-ui,-apple-system,"PingFang HK","Microsoft JhengHei",sans-serif;
+  --font-num:"Chakra Petch","Noto Sans HK",ui-monospace,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%;overflow:hidden;background:var(--ink);color:var(--text);font-family:var(--font-body)}
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+#cv{position:fixed;inset:0;display:block;touch-action:none;cursor:crosshair}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.top{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;gap:8px;
+  padding-top:calc(env(safe-area-inset-top,0px) + 10px);padding-bottom:8px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  pointer-events:none;background:linear-gradient(rgba(23,18,13,.75),rgba(23,18,13,0))}
+.top>*{pointer-events:auto}
+.status{display:flex;align-items:center;gap:8px;min-width:0;font-family:var(--font-num);font-weight:700;font-size:13px;letter-spacing:.06em;
+  background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:7px 12px}
+.status .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok);flex:none}
+.status.paused .dot{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.status.slow .dot{background:var(--ally);box-shadow:0 0 8px var(--ally)}
+#statusTxt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tools{display:flex;gap:6px;align-items:center;flex:none}
+.tool{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;font-weight:600;min-height:40px}
+.tool[aria-pressed="true"]{background:var(--accent);color:#24180a;border-color:var(--accent)}
+.pause{width:52px;height:52px;border-radius:14px;border:2px solid var(--accent);background:var(--panel);display:grid;place-items:center}
+.pause svg{width:22px;height:22px;fill:var(--accent)}
+.pause.on{background:var(--accent)} .pause.on svg{fill:#24180a}
+
+.banner{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 74px);
+  background:rgba(234,169,58,.14);border:1px dashed var(--accent);color:var(--accent);border-radius:10px;
+  padding:7px 12px;font-size:12.5px;font-weight:600;white-space:nowrap;max-width:calc(100vw - 32px);overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+
+.bottom{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;align-items:stretch;
+  padding-top:22px;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 10px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  background:linear-gradient(rgba(23,18,13,0),rgba(23,18,13,.85) 40%);pointer-events:none}
+.bottom>*{pointer-events:auto}
+.squad{flex:1;min-width:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.pt{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:7px 8px 8px;text-align:left;display:flex;flex-direction:column;gap:4px;min-width:0}
+.pt.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.pt.down{opacity:.6}
+.pt .row{display:flex;align-items:center;gap:6px;min-width:0}
+.pt .sw{width:10px;height:10px;border-radius:3px;flex:none}
+.pt .nm{font-weight:800;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pt .lv{margin-left:auto;font-family:var(--font-num);font-size:11px;color:var(--muted);flex:none}
+.pt .hp{height:5px;border-radius:3px;background:#3b2e22;overflow:hidden}
+.pt .hp i{display:block;height:100%;background:var(--ok);width:100%}
+.pt .st{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pt .cam{position:absolute;top:-9px;right:6px;font-size:10px;font-weight:700;background:var(--ally);color:#0f1d1b;border-radius:6px;padding:1px 5px}
+.actions{display:flex;flex-direction:column;gap:6px;flex:none}
+.actions button{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:0 12px;font-weight:700;font-size:13px;min-height:40px}
+.actions .tac{border-color:var(--ally);color:var(--ally)}
+
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 112px);transform:translateX(-50%) translateY(8px);
+  background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:8px 14px;border-radius:10px;font-size:13px;
+  opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap;max-width:calc(100vw - 32px);overflow:hidden;text-overflow:ellipsis}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.scrim{position:fixed;inset:0;background:rgba(10,7,4,.55);display:flex;align-items:flex-end;justify-content:center}
+.card{width:100%;max-width:520px;max-height:calc(100% - 40px);overflow:auto;background:var(--panel2);border:1px solid var(--line);border-bottom:none;border-radius:18px 18px 0 0;
+  padding-block:18px calc(env(safe-area-inset-bottom,0px) + 18px);padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px))}
+@media (min-width:640px){.scrim{align-items:center}.card{border-radius:18px;border-bottom:1px solid var(--line)}}
+.card h2{margin:0 0 4px;font-size:19px;font-weight:800;text-wrap:balance}
+.card .sub{margin:0 0 14px;color:var(--muted);font-size:13px}
+.eyebrow{font-family:var(--font-num);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:16px 0 8px}
+.rules{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.rule{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.rule .n{font-family:var(--font-num);font-weight:700;color:var(--muted);width:16px;flex:none}
+.rule .tx{flex:1;min-width:0}
+.rule .tx b{display:block;font-size:14.5px}
+.rule .tx span{display:block;font-size:12px;color:var(--muted)}
+.sw2{appearance:none;-webkit-appearance:none;width:46px;height:28px;border-radius:999px;background:#463728;position:relative;flex:none;cursor:pointer;transition:background .15s}
+.sw2::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--text);transition:transform .15s}
+.sw2:checked{background:var(--ally)} .sw2:checked::after{transform:translateX(18px)}
+.sw2:indeterminate{background:#6a5440}
+.sw2:disabled{opacity:.4}
+.presets{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.presets button,.btnrow button{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 4px;font-weight:700;font-size:13px}
+.presets button:disabled{opacity:.4}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.btnrow button{flex:1 1 120px;padding:10px 8px}
+.primary{background:var(--accent)!important;color:#24180a;border-color:var(--accent)!important}
+.close{margin-top:16px;width:100%;background:transparent;border:1px solid var(--line);border-radius:12px;padding:11px;font-weight:700}
+.gest{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;margin:0;font-size:14px;align-items:baseline}
+.gest dt{font-weight:800;color:var(--accent);white-space:nowrap}
+.gest dd{margin:0;color:var(--text)}
+.note{font-size:12px;color:var(--muted);margin:14px 0 0;line-height:1.6}
+@media (prefers-reduced-motion:reduce){.toast,.sw2,.sw2::after{transition:none}}
+@media (max-width:380px){.pt .lv{display:none}.tool{padding:8px 7px;font-size:12px}}
+</style>
+
+<canvas id="cv"></canvas>
+
+<header class="top">
+  <div class="status" id="status"><span class="dot"></span><span id="statusTxt">進行中</span></div>
+  <div class="tools">
+    <button id="bSel" class="tool" aria-pressed="false">框選</button>
+    <button id="bSlow" class="tool" aria-pressed="false">慢鏡 ¼</button>
+    <button id="bPause" class="pause" aria-label="暫停"><svg viewBox="0 0 24 24" id="pIcon"><rect x="5" y="4" width="5" height="16" rx="1.5"/><rect x="14" y="4" width="5" height="16" rx="1.5"/></svg></button>
+  </div>
+</header>
+<div id="banner" class="banner" hidden>已暫停 · 依家落嘅指令會排隊，撳 ▶ 一齊執行</div>
+
+<footer class="bottom">
+  <div class="squad" id="squad"></div>
+  <div class="actions">
+    <button id="bAll">全選</button>
+    <button id="bTac" class="tac">戰術</button>
+  </div>
+</footer>
+
+<div id="toast" class="toast" role="status"></div>
+
+<div id="sheet" class="scrim" hidden>
+  <div class="card">
+    <h2 id="tacTitle">戰術規則</h2>
+    <p class="sub" id="tacSub">由上至下，邊條先成立就做邊條。冇規則成立就聽你落嘅指令。</p>
+    <ol class="rules" id="rules"></ol>
+    <div class="eyebrow">一撳套用</div>
+    <div class="presets" id="presets"></div>
+    <div class="eyebrow">試玩設定</div>
+    <ul class="rules">
+      <li class="rule"><div class="tx"><b>遇敵自動暫停</b><span>流寇一發現你，遊戲即刻停</span></div><input type="checkbox" class="sw2" id="optAuto" checked aria-label="遇敵自動暫停"></li>
+    </ul>
+    <div class="btnrow" style="margin-top:8px">
+      <button id="bWave">再嚟一波流寇</button>
+      <button id="bHelp2">操作說明</button>
+    </div>
+    <button class="close" id="bClose">收埋</button>
+  </div>
+</div>
+
+<div id="help" class="scrim">
+  <div class="card">
+    <h2>荒原小隊 · 操作原型</h2>
+    <p class="sub">用幾何公仔試手感。你帶住 4 個人，右下方有一班流寇。</p>
+    <dl class="gest">
+      <dt>單指拖</dt><dd>移動鏡頭</dd>
+      <dt>兩指捏</dt><dd>縮放（電腦用滾輪）</dd>
+      <dt>長按再拖</dt><dd>框選隊友；或者開右上「框選」掣直接拖</dd>
+      <dt>點一下</dt><dd>點隊友揀佢 · 點地面行過去 · 點流寇攻擊</dd>
+      <dt>雙擊頭像</dt><dd>鏡頭跟住佢，拖一下畫面解除</dd>
+      <dt>❚❚ 暫停</dt><dd>暫停時連續點地面，指令會排隊（虛線顯示）</dd>
+      <dt>戰術</dt><dd>設定「低血就逃」「救倒地隊友」「見敵就打」</dd>
+    </dl>
+    <p class="note">倒地唔等於死：隊友會自己爬返起身，或者等醫療兵救。被打得多，「耐打」會慢慢升級。</p>
+    <button class="close primary" id="bStart" style="margin-top:14px">開始玩</button>
+  </div>
+</div>
+
+<script>
+(()=>{
+'use strict';
+const $=s=>document.querySelector(s);
+const cv=$('#cv'),ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1;
+function resize(){DPR=Math.min(2,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);cv.style.width=W+'px';cv.style.height=H+'px'}
+addEventListener('resize',resize);resize();
+
+/* ---------- iso math ---------- */
+const TW=64,TH=32,MAP=32;
+const cam={x:0,y:0,z:1,follow:null};
+const isoX=(x,y)=>(x-y)*TW/2, isoY=(x,y)=>(x+y)*TH/2;
+function scr(x,y,h=0){return{x:(isoX(x,y)-cam.x)*cam.z+W/2,y:(isoY(x,y)-h-cam.y)*cam.z+H/2}}
+function world(sx,sy){const ix=(sx-W/2)/cam.z+cam.x,iy=(sy-H/2)/cam.z+cam.y;const a=ix/(TW/2),b=iy/(TH/2);return{x:(a+b)/2,y:(b-a)/2}}
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const rand=(a,b)=>a+Math.random()*(b-a);
+let seed=11;const srnd=()=>(seed=(seed*16807)%2147483647,(seed-1)/2147483646);
+
+/* ---------- ground (pre-rendered once) ---------- */
+const gw=MAP*TW,gh=MAP*TH;
+const ground=document.createElement('canvas');ground.width=gw;ground.height=gh;
+(function paintGround(){
+  const g=ground.getContext('2d');const ox=gw/2;
+  const hash=(i,j)=>{const n=Math.sin(i*127.1+j*311.7)*43758.5453;return n-Math.floor(n)};
+  const mix=(a,b,t)=>a.map((v,k)=>Math.round(v+(b[k]-v)*t));
+  const sandA=[196,151,92],sandB=[216,180,124],bed=[160,120,76],dark=[150,108,70];
+  for(let i=0;i<MAP;i++)for(let j=0;j<MAP;j++){
+    const dune=(Math.sin(i*.33)+Math.cos(j*.27)+Math.sin((i+j)*.19))/6+.5;
+    let c=mix(sandA,sandB,Math.min(1,Math.max(0,dune*.8+hash(i,j)*.25)));
+    const river=Math.abs(i-j*.55-9);
+    if(river<1.4)c=mix(c,bed,.75-river*.35);
+    const camp=Math.hypot(i-20,j-17);if(camp<3)c=mix(c,dark,.45*(1-camp/3));
+    const p=[[i,j],[i+1,j],[i+1,j+1],[i,j+1]].map(([a,b])=>[isoX(a,b)+ox,isoY(a,b)]);
+    g.beginPath();p.forEach(([x,y],k)=>k?g.lineTo(x,y):g.moveTo(x,y));g.closePath();
+    g.fillStyle=`rgb(${c})`;g.fill();
+    g.strokeStyle='rgba(70,45,20,.10)';g.lineWidth=1;g.stroke();
+    if(hash(j,i)>.72){const cx=isoX(i+.5,j+.5)+ox+(hash(i+3,j)-.5)*20,cy=isoY(i+.5,j+.5)+(hash(i,j+5)-.5)*10;
+      g.fillStyle='rgba(90,60,30,.35)';g.beginPath();g.ellipse(cx,cy,2+hash(i,j)*2,1+hash(i,j),0,0,Math.PI*2);g.fill();}
+    if(river<1&&hash(i+9,j)>.5){g.strokeStyle='rgba(80,50,25,.35)';g.beginPath();const cx=isoX(i+.5,j+.5)+ox,cy=isoY(i+.5,j+.5);
+      g.moveTo(cx-10,cy);g.lineTo(cx-2,cy+3);g.lineTo(cx+8,cy-2);g.stroke();}
+  }
+})();
+
+/* ---------- props (2.5D blocks) ---------- */
+const props=[];
+const keepClear=[[8,9,3.5],[20,17,3],[22,8,2.5],[10,23,2.5],[25,23,2.5]];
+for(let n=0;n<34;n++){
+  const x=1.5+srnd()*29,y=1.5+srnd()*29;
+  if(keepClear.some(([a,b,r])=>Math.hypot(x-a,y-b)<r))continue;
+  const s=.45+srnd()*.75;props.push({x,y,s,h:8+srnd()*22,c:[120+srnd()*20,98+srnd()*15,78+srnd()*10]});
+}
+[[14,11,48],[15.4,11.3,30],[14.2,12.8,22]].forEach(([x,y,h])=>props.push({x,y,s:.6,h,c:[150,128,104]}));
+[[18.6,15.4],[21.8,15.8]].forEach(([x,y])=>props.push({x,y,s:.55,h:12,c:[120,84,50],crate:1}));
+
+/* ---------- units ---------- */
+const units=[];
+function mk(o){return Object.assign({hp:o.max,cmd:[],cd:0,state:'待命',down:false,downT:0,tough:1,lunge:0,rescueT:0,aggro:false,face:1,id:Math.random()},o)}
+const squadDef=[
+  {name:'阿岩',role:'坦克',color:'#5fb3a8',max:140,range:.95,dmg:[6,9],cd0:1.1,rules:{flee:false,rescue:false,fight:true}},
+  {name:'小白',role:'醫療',color:'#ece2cf',max:80,range:.95,dmg:[3,5],cd0:1.2,rules:{flee:true,rescue:true,fight:false}},
+  {name:'鐵頭',role:'戰士',color:'#7ea4dc',max:110,range:.95,dmg:[8,12],cd0:1.0,rules:{flee:true,rescue:false,fight:true}},
+  {name:'阿影',role:'弓手',color:'#c995d4',max:85,range:3.6,dmg:[5,8],cd0:1.3,rules:{flee:true,rescue:false,fight:true}},
+];
+squadDef.forEach((d,i)=>units.push(mk(Object.assign({team:'a',x:7.2+(i%2)*.9,y:8.4+Math.floor(i/2)*.9},d))));
+const allies=()=>units.filter(u=>u.team==='a');
+const enemies=()=>units.filter(u=>u.team==='e');
+
+let wave=0,alerted=false,cleared=false;
+function spawnWave(){
+  for(let i=units.length-1;i>=0;i--)if(units[i].team==='e'&&units[i].down)units.splice(i,1);
+  const spots=[[20,17],[22,8],[10,23],[25,23]];const [cx,cy]=spots[wave%spots.length];wave++;
+  const n=3+Math.min(3,wave);
+  for(let i=0;i<n;i++){const a=i/n*Math.PI*2;
+    units.push(mk({team:'e',name:'流寇',color:'#b9563c',max:70,range:.95,dmg:[5,9],cd0:1.15,x:cx+Math.cos(a)*1.3,y:cy+Math.sin(a)*1.3,home:{x:cx,y:cy}}));}
+  alerted=false;cleared=false;
+}
+spawnWave();
+
+const sel=new Set(allies());
+let paused=false,speed=1,autoPause=true,selectMode=false,simT=0;
+const fx={floats:[],shots:[],pings:[]};
+function float(u,txt,col){fx.floats.push({x:u.x,y:u.y,txt,col,t:0})}
+
+/* ---------- simulation ---------- */
+function nearest(list,u){let best=null,bd=1e9;for(const o of list){const d=dist(u,o);if(d<bd){bd=d;best=o}}return best}
+function step(u,tx,ty,dt,spd=2.3){
+  const dx=tx-u.x,dy=ty-u.y,d=Math.hypot(dx,dy);if(d<.05)return true;
+  const s=Math.min(d,spd*dt);u.x+=dx/d*s;u.y+=dy/d*s;
+  const sdx=dx-dy;if(Math.abs(sdx)>.01)u.face=sdx>0?1:-1;u.moving=true;return d<.15;
+}
+function attack(u,t){
+  u.cd=u.cd0;u.lunge=1;const raw=rand(u.dmg[0],u.dmg[1]);const dmg=raw/t.tough;t.hp-=dmg;
+  float(t,'-'+Math.round(dmg),t.team==='a'?'#ff9b84':'#fff3dc');
+  if(u.range>2)fx.shots.push({a:{x:u.x,y:u.y},b:{x:t.x,y:t.y},t:0});
+  if(t.team==='a'){const before=Math.floor(t.tough*10);t.tough+=.006;if(Math.floor(t.tough*10)>before)float(t,'耐打↑','#a9e08a')}
+  if(t.team==='e')t.aggro=true;
+  if(t.hp<=0){t.hp=0;t.down=true;t.downT=14;t.cmd=[];t.rescueT=0;float(t,'倒地','#f2c14e')}
+}
+function engage(u,t,dt){
+  const d=dist(u,t);const sdx=(t.x-u.x)-(t.y-u.y);if(Math.abs(sdx)>.01)u.face=sdx>0?1:-1;
+  if(d>u.range*.95)step(u,t.x,t.y,dt);else if(u.cd<=0)attack(u,t);
+}
+function updAlly(u,dt){
+  if(u.down){u.state='倒地';u.downT-=dt;if(u.downT<=0){u.down=false;u.hp=u.max*.15;float(u,'自己爬起身','#a9e08a')}return}
+  const live=enemies().filter(e=>!e.down);const ne=nearest(live,u);const nd=ne?dist(u,ne):99;
+  if(u.rules.flee&&u.hp<u.max*.3&&nd<5){u.state='逃跑';const dx=u.x-ne.x,dy=u.y-ne.y,d=Math.hypot(dx,dy)||1;step(u,u.x+dx/d*2,u.y+dy/d*2,dt,2.7);return}
+  if(u.rules.rescue){const da=nearest(allies().filter(a=>a.down&&a!==u),u);
+    if(da&&dist(u,da)<12){u.state='救人';if(dist(u,da)>.7){u.rescueT=0;step(u,da.x,da.y,dt)}else{u.rescueT+=dt;u.rescueOf=da;if(u.rescueT>=2){da.down=false;da.hp=da.max*.3;u.rescueT=0;float(da,'救返起身','#a9e08a')}}return}
+    u.rescueT=0}
+  if(u.cmd.length){const c=u.cmd[0];
+    if(c.t==='move'){u.state='移動';if(step(u,c.x,c.y,dt))u.cmd.shift()}
+    else if(c.u.down)u.cmd.shift();else{u.state='攻擊目標';engage(u,c.u,dt)}
+    return}
+  if(u.rules.fight&&ne&&nd<6){u.state='見敵就打';engage(u,ne,dt);return}
+  if(u.hp<u.max*.6&&nd>6){u.state='包紮緊';u.hp=Math.min(u.max*.6,u.hp+5*dt);return}
+  u.state='待命';
+}
+function updEnemy(u,dt){
+  if(u.down){u.state='倒地';return}
+  const t=nearest(allies().filter(a=>!a.down),u);const d=t?dist(u,t):99;
+  if(!u.aggro&&d<6)u.aggro=true;
+  if(u.aggro&&t&&d<13){u.state='戰鬥';engage(u,t,dt);return}
+  u.aggro=false;u.state='巡邏';
+  if(dist(u,u.home)>2.2)step(u,u.home.x,u.home.y,dt,1.3);
+  else{if(!u.wp||dist(u,u.wp)<.2)u.wp={x:u.home.x+rand(-1.6,1.6),y:u.home.y+rand(-1.6,1.6)};step(u,u.wp.x,u.wp.y,dt,.5)}
+}
+function simulate(dt){
+  simT+=dt;
+  for(const u of units){u.moving=false;u.cd=Math.max(0,u.cd-dt);u.lunge=Math.max(0,u.lunge-dt*5);(u.team==='a'?updAlly:updEnemy)(u,dt)}
+  for(let i=0;i<units.length;i++){const a=units[i];if(a.down)continue;
+    for(let j=i+1;j<units.length;j++){const b=units[j];if(b.down)continue;const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);
+      if(d<.55&&d>1e-4){const p=(.55-d)/2;a.x-=dx/d*p;a.y-=dy/d*p;b.x+=dx/d*p;b.y+=dy/d*p}}
+    for(const p of props){const r=p.s*.62+.22,dx=a.x-p.x,dy=a.y-p.y,d=Math.hypot(dx,dy);if(d<r&&d>1e-4){a.x=p.x+dx/d*r;a.y=p.y+dy/d*r}}
+    a.x=Math.min(MAP-.5,Math.max(.5,a.x));a.y=Math.min(MAP-.5,Math.max(.5,a.y));}
+  fx.floats.forEach(f=>f.t+=dt);fx.floats=fx.floats.filter(f=>f.t<1.1);
+  fx.shots.forEach(f=>f.t+=dt);fx.shots=fx.shots.filter(f=>f.t<.18);
+  if(autoPause&&!alerted&&enemies().some(e=>e.aggro)){alerted=true;setPaused(true);toast('發現流寇 · 已自動暫停，慢慢落指令')}
+  if(!cleared&&enemies().every(e=>e.down)){cleared=true;toast('流寇全部倒地 · 「戰術」入面可以再嚟一波')}
+}
+
+/* ---------- drawing ---------- */
+function ell(x,y,rx,ry){ctx.beginPath();ctx.ellipse(x,y,Math.max(.1,rx),Math.max(.1,ry),0,0,Math.PI*2)}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+const rgb=(c,k=1)=>`rgb(${c.map(v=>Math.round(v*k)).join(',')})`;
+function drawProp(p){
+  const hs=p.s/2,h=p.h;
+  const N=[p.x-hs,p.y-hs],E=[p.x+hs,p.y-hs],S=[p.x+hs,p.y+hs],Wc=[p.x-hs,p.y+hs];
+  const P=(q,hh)=>scr(q[0],q[1],hh);
+  const poly=(pts,fill)=>{ctx.beginPath();pts.forEach((q,i)=>i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.closePath();ctx.fillStyle=fill;ctx.fill()};
+  const sc=scr(p.x,p.y);ctx.fillStyle='rgba(40,24,10,.28)';ell(sc.x+6*cam.z,sc.y+3*cam.z,p.s*40*cam.z,p.s*18*cam.z);ctx.fill();
+  poly([P(Wc,0),P(S,0),P(S,h),P(Wc,h)],rgb(p.c,.82));
+  poly([P(S,0),P(E,0),P(E,h),P(S,h)],rgb(p.c,.62));
+  poly([P(N,h),P(E,h),P(S,h),P(Wc,h)],rgb(p.c,1.12));
+  if(p.crate){const a=P(Wc,h*.5),b=P(S,h*.5);ctx.strokeStyle='rgba(40,25,10,.6)';ctx.lineWidth=1.2*cam.z;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}
+}
+function drawUnit(u){
+  const z=cam.z,s=scr(u.x,u.y),isSel=sel.has(u);
+  ctx.fillStyle='rgba(35,20,8,.38)';ell(s.x,s.y,11*z,5*z);ctx.fill();
+  if(isSel){const pulse=1+Math.sin(performance.now()/220)*.06;ctx.strokeStyle='#eaa93a';ctx.lineWidth=2*z;ell(s.x,s.y,15*z*pulse,7.5*z*pulse);ctx.stroke()}
+  if(u.team==='e'&&u.aggro&&!u.down){ctx.strokeStyle='rgba(214,91,65,.7)';ctx.lineWidth=1.5*z;ell(s.x,s.y,13*z,6.5*z);ctx.stroke()}
+  if(u.down){
+    ctx.fillStyle=u.color;ell(s.x-2*z,s.y-3*z,10*z,4*z);ctx.fill();
+    ctx.fillStyle='#d6ad84';ell(s.x+10*z,s.y-4*z,4.5*z,4*z);ctx.fill();
+    if(u.team==='a'){ctx.strokeStyle='#f2c14e';ctx.lineWidth=2*z;ctx.beginPath();ctx.arc(s.x,s.y-18*z,6*z,-Math.PI/2,-Math.PI/2+Math.PI*2*(1-u.downT/14));ctx.stroke();
+      ctx.fillStyle='#f2c14e';ctx.font=`700 ${9*z}px "Noto Sans HK",sans-serif`;ctx.textAlign='center';ctx.fillText('倒',s.x,s.y-15*z)}
+    return}
+  const bob=u.moving?Math.abs(Math.sin(simT*11+u.id*20))*-2:0;
+  const x=s.x+u.lunge*5*u.face*z,y=s.y+bob*z,k=z;
+  ctx.fillStyle='#2b2118';ctx.fillRect(x-4*k,y-9*k,3*k,9*k);ctx.fillRect(x+1*k,y-9*k,3*k,9*k);
+  ctx.save();rr(x-6.5*k,y-23*k,13*k,15*k,3.5*k);ctx.fillStyle=u.color;ctx.fill();ctx.clip();
+  ctx.fillStyle='rgba(0,0,0,.2)';ctx.fillRect(x+(u.face>0?-6.5:0)*k,y-23*k,6.5*k,15*k);ctx.restore();
+  ctx.fillStyle='#d6ad84';ell(x,y-28*k,5.6*k,5.6*k);ctx.fill();
+  ctx.fillStyle=u.team==='e'?'#7e2416':u.color;ctx.fillRect(x-5.6*k,y-31.5*k,11.2*k,2.6*k);
+  if(u.team==='e'){ctx.fillStyle='#7e2416';ctx.fillRect(x-5.6*k,y-28*k,11.2*k,2*k)}
+  ctx.strokeStyle='#d8cfbd';ctx.lineWidth=1.7*k;ctx.beginPath();
+  if(u.range>2){ctx.arc(x+7*k*u.face,y-17*k,7*k,u.face>0?-1.2:Math.PI-1.9,u.face>0?1.2:Math.PI+1.9-.7)}
+  else{ctx.moveTo(x+6*k*u.face,y-14*k);ctx.lineTo(x+(13+u.lunge*3)*k*u.face,y-25*k)}
+  ctx.stroke();
+  if(u.hp<u.max||isSel||paused){const w=26*k,bx=x-w/2,by=y-42*k,p=u.hp/u.max;
+    ctx.fillStyle='rgba(20,14,8,.75)';ctx.fillRect(bx-1,by-1,w+2,4*k+2);
+    ctx.fillStyle=u.team==='e'?'#d65b41':p<.3?'#e5813c':'#8fc56e';ctx.fillRect(bx,by,w*p,4*k)}
+  if(u.state==='救人'&&u.rescueT>0){ctx.strokeStyle='#a9e08a';ctx.lineWidth=2*k;ctx.beginPath();ctx.arc(x,y-50*k,5*k,-Math.PI/2,-Math.PI/2+Math.PI*2*u.rescueT/2);ctx.stroke()}
+  if(u.state==='包紮緊'){ctx.fillStyle='#a9e08a';ctx.font=`800 ${11*k}px sans-serif`;ctx.textAlign='center';ctx.fillText('+',x+10*k,y-34*k-((simT*20)%8)*k)}
+  if(u.state==='逃跑'){ctx.fillStyle='#e5813c';ctx.font=`800 ${10*k}px "Noto Sans HK",sans-serif`;ctx.textAlign='center';ctx.fillText('逃',x,y-46*k)}
+}
+function drawPaths(){
+  ctx.save();ctx.setLineDash([6,5]);ctx.lineCap='round';
+  for(const u of allies()){if(u.down||!u.cmd.length)continue;
+    const strong=paused||sel.has(u);ctx.globalAlpha=strong?1:.35;
+    let prev=scr(u.x,u.y);
+    u.cmd.forEach((c,i)=>{const tgt=c.t==='move'?c:c.u;const p=scr(tgt.x,tgt.y);
+      ctx.strokeStyle=c.t==='move'?'#eaa93a':'#d65b41';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(prev.x,prev.y);ctx.lineTo(p.x,p.y);ctx.stroke();
+      if(c.t==='move'){ctx.setLineDash([]);ctx.fillStyle='rgba(234,169,58,.9)';ell(p.x,p.y,7*cam.z,3.5*cam.z);ctx.fill();
+        if(paused&&u.cmd.length>1){ctx.fillStyle='#24180a';ctx.font=`700 ${9*cam.z}px "Chakra Petch",sans-serif`;ctx.textAlign='center';ctx.fillText(i+1,p.x,p.y+3*cam.z)}
+        ctx.setLineDash([6,5])}
+      prev=p});}
+  ctx.restore();
+}
+function render(){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.fillStyle='#1d1610';ctx.fillRect(0,0,W,H);
+  ctx.imageSmoothingEnabled=true;
+  ctx.drawImage(ground,(-gw/2-cam.x)*cam.z+W/2,(-cam.y)*cam.z+H/2,gw*cam.z,gh*cam.z);
+  const now=performance.now();
+  fx.pings=fx.pings.filter(p=>now-p.t<600);
+  for(const p of fx.pings){const k=(now-p.t)/600,s=scr(p.x,p.y);ctx.strokeStyle=p.col;ctx.globalAlpha=1-k;ctx.lineWidth=2;ell(s.x,s.y,(6+k*14)*cam.z,(3+k*7)*cam.z);ctx.stroke();ctx.globalAlpha=1}
+  drawPaths();
+  const list=[...props.map(p=>({d:p.x+p.y,f:()=>drawProp(p)})),...units.map(u=>({d:u.x+u.y+(u.down?-.3:0),f:()=>drawUnit(u)}))];
+  list.sort((a,b)=>a.d-b.d).forEach(o=>o.f());
+  for(const s of fx.shots){const a=scr(s.a.x,s.a.y,18),b=scr(s.b.x,s.b.y,18),k=s.t/.18;
+    ctx.strokeStyle='#f6e2b0';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(a.x+(b.x-a.x)*k*.6,a.y+(b.y-a.y)*k*.6);ctx.lineTo(a.x+(b.x-a.x)*Math.min(1,k+.4),a.y+(b.y-a.y)*Math.min(1,k+.4));ctx.stroke()}
+  ctx.textAlign='center';
+  for(const f of fx.floats){const s=scr(f.x,f.y,44+f.t*24);ctx.globalAlpha=Math.min(1,(1.1-f.t)*2);ctx.font=`700 ${12*Math.max(.8,cam.z)}px "Chakra Petch","Noto Sans HK",sans-serif`;
+    ctx.lineWidth=3;ctx.strokeStyle='rgba(20,12,4,.8)';ctx.strokeText(f.txt,s.x,s.y);ctx.fillStyle=f.col;ctx.fillText(f.txt,s.x,s.y)}
+  ctx.globalAlpha=1;
+  if(box){const x=Math.min(box.x0,box.x1),y=Math.min(box.y0,box.y1),w=Math.abs(box.x1-box.x0),h=Math.abs(box.y1-box.y0);
+    ctx.fillStyle='rgba(234,169,58,.12)';ctx.fillRect(x,y,w,h);ctx.setLineDash([5,4]);ctx.strokeStyle='#eaa93a';ctx.lineWidth=1.5;ctx.strokeRect(x,y,w,h);ctx.setLineDash([])}
+  if(gest&&gest.mode==='pending'){const e=(now-gest.t)/LONG;if(e>.2){ctx.strokeStyle='rgba(234,169,58,.9)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(gest.sx,gest.sy,30,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(1,e));ctx.stroke()}}
+  const vg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*.35,W/2,H/2,Math.max(W,H)*.75);vg.addColorStop(0,'rgba(23,18,13,0)');vg.addColorStop(1,'rgba(23,18,13,.6)');ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+  if(paused){ctx.fillStyle='rgba(50,70,100,.16)';ctx.fillRect(0,0,W,H);ctx.strokeStyle='rgba(234,169,58,.45)';ctx.lineWidth=4;ctx.strokeRect(2,2,W-4,H-4)}
+}
+
+/* ---------- camera ---------- */
+function centerOn(x,y){cam.x=isoX(x,y);cam.y=isoY(x,y)}
+centerOn(11,10);cam.z=Math.min(1.3,Math.max(.8,Math.min(W,H)/520));
+function zoomAt(mx,my,nz){nz=Math.min(2.4,Math.max(.45,nz));const ix=(mx-W/2)/cam.z+cam.x,iy=(my-H/2)/cam.z+cam.y;cam.z=nz;cam.x=ix-(mx-W/2)/nz;cam.y=iy-(my-H/2)/nz}
+
+/* ---------- input ---------- */
+const LONG=320;const ptrs=new Map();let gest=null,box=null;
+const buzz=()=>{try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}};
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('pointerdown',e=>{
+  try{cv.setPointerCapture(e.pointerId)}catch(_){}
+  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ptrs.size===2){if(gest)clearTimeout(gest.timer);box=null;const [a,b]=[...ptrs.values()];
+    gest={mode:'pinch',d0:Math.hypot(a.x-b.x,a.y-b.y),z0:cam.z,m:{x:(a.x+b.x)/2,y:(a.y+b.y)/2}};cam.follow=null;return}
+  if(ptrs.size>2)return;
+  gest={mode:'pending',sx:e.clientX,sy:e.clientY,lx:e.clientX,ly:e.clientY,t:performance.now(),id:e.pointerId};
+  if(selectMode||e.shiftKey){gest.mode='box';box={x0:e.clientX,y0:e.clientY,x1:e.clientX,y1:e.clientY}}
+  else gest.timer=setTimeout(()=>{if(gest&&gest.mode==='pending'){gest.mode='box';box={x0:gest.sx,y0:gest.sy,x1:gest.lx,y1:gest.ly};buzz()}},LONG);
+});
+cv.addEventListener('pointermove',e=>{
+  if(!ptrs.has(e.pointerId))return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});if(!gest)return;
+  if(gest.mode==='pinch'&&ptrs.size>=2){const [a,b]=[...ptrs.values()];const d=Math.hypot(a.x-b.x,a.y-b.y),m={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+    cam.x-=(m.x-gest.m.x)/cam.z;cam.y-=(m.y-gest.m.y)/cam.z;gest.m=m;zoomAt(m.x,m.y,gest.z0*d/Math.max(1,gest.d0));return}
+  if(e.pointerId!==gest.id)return;
+  if(gest.mode==='pending'&&Math.hypot(e.clientX-gest.sx,e.clientY-gest.sy)>10){clearTimeout(gest.timer);gest.mode='pan';cam.follow=null;updatePortraits(true)}
+  if(gest.mode==='pan'){cam.x-=(e.clientX-gest.lx)/cam.z;cam.y-=(e.clientY-gest.ly)/cam.z}
+  if(gest.mode==='box'){box.x1=e.clientX;box.y1=e.clientY}
+  gest.lx=e.clientX;gest.ly=e.clientY;
+});
+function endPtr(e){
+  if(!ptrs.has(e.pointerId))return;ptrs.delete(e.pointerId);if(!gest)return;
+  if(gest.mode==='pinch'){if(ptrs.size===0)gest=null;else gest={mode:'done'};return}
+  if(gest.mode==='done'){if(ptrs.size===0)gest=null;return}
+  if(e.pointerId!==gest.id)return;clearTimeout(gest.timer);
+  if(gest.mode==='box'&&box){finishBox();box=null}
+  else if(gest.mode==='pending'&&e.type==='pointerup')tap(e.clientX,e.clientY);
+  gest=null;
+}
+cv.addEventListener('pointerup',endPtr);cv.addEventListener('pointercancel',endPtr);
+cv.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.clientX,e.clientY,cam.z*Math.exp(-e.deltaY*.0015))},{passive:false});
+
+function finishBox(){
+  const x0=Math.min(box.x0,box.x1),x1=Math.max(box.x0,box.x1),y0=Math.min(box.y0,box.y1),y1=Math.max(box.y0,box.y1);
+  if(x1-x0<6&&y1-y0<6){tap(box.x0,box.y0);return}
+  const hit=allies().filter(u=>{const s=scr(u.x,u.y,12);return s.x>=x0&&s.x<=x1&&s.y>=y0&&s.y<=y1});
+  if(hit.length){sel.clear();hit.forEach(u=>sel.add(u));toast(`框選咗 ${hit.length} 個隊友`)}else toast('個框入面冇隊友');
+  updatePortraits(true);
+}
+function pick(sx,sy){let best=null,bd=1e9;for(const u of units){const s=scr(u.x,u.y,14);const d=Math.hypot(s.x-sx,(s.y-sy)*.8);if(d<26*Math.max(.8,cam.z)&&d<bd){bd=d;best=u}}return best}
+function formation(n,i){const cols=Math.ceil(Math.sqrt(n)),rows=Math.ceil(n/cols),r=Math.floor(i/cols),c=i%cols;return{dx:(c-(cols-1)/2)*.85,dy:(r-(rows-1)/2)*.85}}
+function issue(make){
+  const list=[...sel].filter(u=>!u.down);if(!list.length){toast(sel.size?'揀咗嘅隊友全部倒地':'先揀隊友（點佢或者框選）');return false}
+  list.forEach((u,i)=>{const c=make(u,i,list.length);if(paused){if(u.cmd.length>=6)u.cmd.shift();u.cmd.push(c)}else u.cmd=[c]});
+  if(paused){const n=Math.max(...list.map(u=>u.cmd.length));toast(`已排隊 · 第 ${n} 個指令`)}
+  return true;
+}
+function tap(sx,sy){
+  const u=pick(sx,sy);
+  if(u&&u.team==='a'){sel.clear();sel.add(u);updatePortraits(true);toast(`揀咗 ${u.name}（${u.role}）`);return}
+  if(u&&u.team==='e'&&!u.down){if(issue(()=>({t:'attack',u})))fx.pings.push({x:u.x,y:u.y,t:performance.now(),col:'#d65b41'});return}
+  const w=world(sx,sy);if(w.x<0||w.y<0||w.x>MAP||w.y>MAP)return;
+  if(issue((u,i,n)=>{const f=formation(n,i);return{t:'move',x:Math.min(MAP-.5,Math.max(.5,w.x+f.dx)),y:Math.min(MAP-.5,Math.max(.5,w.y+f.dy))}}))
+    fx.pings.push({x:w.x,y:w.y,t:performance.now(),col:'#eaa93a'});
+}
+
+/* ---------- HUD ---------- */
+const sq=$('#squad');const pEls=new Map();
+allies().forEach(u=>{
+  const b=document.createElement('button');b.className='pt';b.setAttribute('aria-label',u.name);
+  b.innerHTML=`<span class="row"><span class="sw" style="background:${u.color}"></span><span class="nm">${u.name}</span><span class="lv"></span></span><span class="hp"><i></i></span><span class="st"></span>`;
+  let last=0;
+  b.addEventListener('click',()=>{const now=performance.now();
+    if(now-last<330){cam.follow=u;toast(`鏡頭跟住 ${u.name} · 拖一下畫面解除`);last=0}
+    else{sel.clear();sel.add(u);last=now}
+    updatePortraits(true)});
+  sq.appendChild(b);pEls.set(u,{b,lv:b.querySelector('.lv'),hp:b.querySelector('.hp i'),st:b.querySelector('.st'),cam:null});
+});
+let lastHud=0;
+function updatePortraits(force){
+  const now=performance.now();if(!force&&now-lastHud<120)return;lastHud=now;
+  pEls.forEach((e,u)=>{
+    e.b.classList.toggle('sel',sel.has(u));e.b.classList.toggle('down',u.down);
+    const p=u.hp/u.max;e.hp.style.width=(p*100).toFixed(1)+'%';e.hp.style.background=p<.3?'#e5813c':'#8fc56e';
+    e.lv.textContent='耐'+Math.floor(u.tough*10);
+    const q=u.cmd.length>1?` · 排隊 ${u.cmd.length}`:'';
+    e.st.textContent=(u.down?`倒地 ${Math.ceil(u.downT)}s`:u.state)+q;
+    const f=cam.follow===u;
+    if(f&&!e.cam){e.cam=document.createElement('span');e.cam.className='cam';e.cam.textContent='鏡頭';e.b.appendChild(e.cam)}
+    if(!f&&e.cam){e.cam.remove();e.cam=null}
+  });
+}
+const status=$('#status'),statusTxt=$('#statusTxt'),banner=$('#banner'),bPause=$('#bPause');
+const ICON_PAUSE='<rect x="5" y="4" width="5" height="16" rx="1.5"/><rect x="14" y="4" width="5" height="16" rx="1.5"/>',ICON_PLAY='<path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z"/>';
+function refreshStatus(){
+  status.classList.toggle('paused',paused);status.classList.toggle('slow',!paused&&speed<1);
+  statusTxt.textContent=paused?'已暫停':speed<1?'慢鏡 ¼':'進行中';
+  banner.hidden=!paused;bPause.classList.toggle('on',paused);bPause.setAttribute('aria-label',paused?'繼續':'暫停');
+  $('#pIcon').innerHTML=paused?ICON_PLAY:ICON_PAUSE;
+}
+function setPaused(v){paused=v;refreshStatus()}
+bPause.addEventListener('click',()=>{setPaused(!paused);if(!paused){const n=allies().filter(u=>u.cmd.length).length;if(n)toast(`繼續 · ${n} 個隊友開始執行指令`)}});
+$('#bSlow').addEventListener('click',e=>{speed=speed<1?1:.25;e.currentTarget.setAttribute('aria-pressed',speed<1);refreshStatus()});
+$('#bSel').addEventListener('click',e=>{selectMode=!selectMode;e.currentTarget.setAttribute('aria-pressed',selectMode);toast(selectMode?'框選模式：單指拖 = 拉框':'返回普通模式：單指拖 = 鏡頭')});
+$('#bAll').addEventListener('click',()=>{sel.clear();allies().forEach(u=>sel.add(u));updatePortraits(true);toast('全隊已選')});
+addEventListener('keydown',e=>{if(e.code==='Space'&&!(e.target instanceof HTMLInputElement)){e.preventDefault();bPause.click()}});
+
+let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2000)}
+
+/* ---------- tactics sheet ---------- */
+const RULES=[
+  ['flee','低血就逃','血量低過 30% 又有敵人喺附近，就向反方向走'],
+  ['rescue','救倒地隊友','附近有隊友倒地，走過去扶佢起身（2 秒）'],
+  ['fight','見敵就打','冇指令嗰陣，6 格內見到流寇就自動開打'],
+];
+const PRESETS={'坦克':{flee:false,rescue:false,fight:true},'戰士':{flee:true,rescue:false,fight:true},'醫療':{flee:true,rescue:true,fight:false},'膽小':{flee:true,rescue:false,fight:false}};
+const sheet=$('#sheet'),rulesEl=$('#rules'),presetsEl=$('#presets');
+RULES.forEach(([k,t,d],i)=>{const li=document.createElement('li');li.className='rule';
+  li.innerHTML=`<span class="n">${i+1}</span><div class="tx"><b>${t}</b><span>${d}</span></div><input type="checkbox" class="sw2" id="r_${k}" aria-label="${t}">`;
+  rulesEl.appendChild(li);li.querySelector('input').addEventListener('change',e=>{[...sel].forEach(u=>u.rules[k]=e.target.checked);syncSheet()})});
+Object.keys(PRESETS).forEach(n=>{const b=document.createElement('button');b.textContent=n;b.addEventListener('click',()=>{[...sel].forEach(u=>u.rules={...PRESETS[n]});syncSheet();toast(`已套用「${n}」`)});presetsEl.appendChild(b)});
+function syncSheet(){
+  const list=[...sel];$('#tacTitle').textContent=list.length?'戰術規則 · '+list.map(u=>u.name).join('、'):'戰術規則';
+  $('#tacSub').textContent=list.length?'由上至下，邊條先成立就做邊條；你親手落嘅指令排喺「見敵就打」之前。':'先喺底部揀隊友，先可以改佢哋嘅規則。';
+  RULES.forEach(([k])=>{const el=$('#r_'+k);const on=list.filter(u=>u.rules[k]).length;el.disabled=!list.length;el.checked=list.length>0&&on===list.length;el.indeterminate=on>0&&on<list.length});
+  presetsEl.querySelectorAll('button').forEach(b=>b.disabled=!list.length);
+}
+$('#bTac').addEventListener('click',()=>{syncSheet();sheet.hidden=false});
+$('#bClose').addEventListener('click',()=>sheet.hidden=true);
+sheet.addEventListener('click',e=>{if(e.target===sheet)sheet.hidden=true});
+$('#optAuto').addEventListener('change',e=>{autoPause=e.target.checked});
+$('#bWave').addEventListener('click',()=>{spawnWave();sheet.hidden=true;toast(`第 ${wave} 波流寇出現咗`)});
+$('#bHelp2').addEventListener('click',()=>{sheet.hidden=true;help.hidden=false});
+const help=$('#help');
+let seen=false;try{seen=localStorage.getItem('wl_help')==='1'}catch(e){}
+if(seen)help.hidden=true;
+$('#bStart').addEventListener('click',()=>{help.hidden=true;try{localStorage.setItem('wl_help','1')}catch(e){}});
+
+/* ---------- loop ---------- */
+let lt=performance.now();
+function frame(t){
+  const dt=Math.min(.05,(t-lt)/1000);lt=t;
+  if(!paused&&help.hidden)simulate(dt*speed);
+  if(cam.follow){const tx=isoX(cam.follow.x,cam.follow.y),ty=isoY(cam.follow.x,cam.follow.y);cam.x+=(tx-cam.x)*Math.min(1,dt*6);cam.y+=(ty-cam.y)*Math.min(1,dt*6)}
+  render();updatePortraits(false);requestAnimationFrame(frame);
+}
+refreshStatus();updatePortraits(true);requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
