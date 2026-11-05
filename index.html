@@ -182,12 +182,15 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   <div class="card">
     <h2 id="tacTitle">戰術規則</h2>
     <p class="sub" id="tacSub">由上至下，邊條先成立就做邊條。冇規則成立就聽你落嘅指令。</p>
+    <ul class="rules" style="margin-bottom:10px">
+      <li class="rule"><div class="tx"><b>套用到全隊</b><span>開咗之後，下面嘅開關同模板一次改晒 4 個人</span></div><input type="checkbox" class="sw2" id="optAll" aria-label="套用到全隊"></li>
+    </ul>
     <ol class="rules" id="rules"></ol>
     <div class="eyebrow">一撳套用</div>
     <div class="presets" id="presets"></div>
     <div class="eyebrow">試玩設定</div>
     <ul class="rules">
-      <li class="rule"><div class="tx"><b>遇敵自動暫停</b><span>流寇一發現你，遊戲即刻停（野狗唔計）</span></div><input type="checkbox" class="sw2" id="optAuto" checked aria-label="遇敵自動暫停"></li>
+      <li class="rule"><div class="tx"><b>遇敵自動暫停</b><span>流寇行近你嘅隊友，遊戲即刻停（野狗唔計）</span></div><input type="checkbox" class="sw2" id="optAuto" checked aria-label="遇敵自動暫停"></li>
     </ul>
     <div class="btnrow" style="margin-top:8px">
       <button id="bWave">再嚟一波流寇</button>
@@ -211,6 +214,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
       <dt>❚❚ 暫停</dt><dd>暫停時連續點地面，指令會排隊</dd>
       <dt>戰術</dt><dd>設定「低血就逃」「救人醫人」「見敵就打」</dd>
     </dl>
+    <p class="note">野狗見人就咬，流寇都唔例外：引流寇行過野狗竇，佢哋有機會自己打起上嚟。隊友「逃跑」時再落多一次指令，就會強制執行唔逃。</p>
     <p class="note">技能靠做嚟升：被打升耐打，打中升攻擊，被攻擊升閃避，包紮升急救。等級越高升得越慢。腳傷行得慢，右手殘廢打得弱，頭或身打爆就倒地，但唔會死。</p>
     <button class="close primary" id="bStart" style="margin-top:14px">開始玩</button>
   </div>
@@ -310,11 +314,12 @@ const squadDef=[
 ];
 squadDef.forEach((d,i)=>units.push(mk(Object.assign({team:'a',x:7.2+(i%2)*.9,y:8.4+Math.floor(i/2)*.9},d))));
 const allies=()=>units.filter(u=>u.team==='a');
-const enemies=()=>units.filter(u=>u.team==='e');
-const bandits=()=>units.filter(u=>u.team==='e'&&u.kind!=='dog');
+const enemies=()=>units.filter(u=>u.team!=='a');
+const bandits=()=>units.filter(u=>u.team==='e');
+const hostiles=u=>units.filter(o=>o.team!==u.team&&!o.down);
 
 function spawnDog(){const a=Math.random()*Math.PI*2;
-  units.push(mk({team:'e',kind:'dog',name:'野狗',color:'#8a6a48',base:22,range:.8,dmg:[2,4],cd0:.9,spd:2.7,aggroR:4,leash:8,
+  units.push(mk({team:'w',kind:'dog',name:'野狗',color:'#8a6a48',base:22,range:.8,dmg:[2,4],cd0:.9,spd:2.7,aggroR:4,leash:8,
     lv:{tough:1,atk:2,dod:5},x:DEN.x+Math.cos(a)*1.4,y:DEN.y+Math.sin(a)*1.4,home:{x:DEN.x,y:DEN.y}}))}
 for(let i=0;i<3;i++)spawnDog();
 let dogTimer=0;
@@ -325,7 +330,7 @@ function spawnWave(){
   const spots=[[20,17],[22,8],[10,23],[25,23]];const [cx,cy]=spots[wave%spots.length];wave++;
   const n=3+Math.min(3,wave);
   for(let i=0;i<n;i++){const a=i/n*Math.PI*2;
-    units.push(mk({team:'e',name:'流寇',color:'#b9563c',base:40,range:.95,dmg:[5,8],cd0:1.15,aggroR:6,leash:13,
+    units.push(mk({team:'e',name:'流寇',color:'#b9563c',base:40,range:.95,dmg:[5,8],cd0:1.15,aggroR:6,leash:17,
       lv:{tough:8+wave*2,atk:9+wave*2,dod:7+wave*2},x:cx+Math.cos(a)*1.3,y:cy+Math.sin(a)*1.3,home:{x:cx,y:cy}}));}
   alerted=false;cleared=false;
 }
@@ -365,7 +370,7 @@ function attack(u,t){
   float(t,`-${Math.round(dmg)} ${pl}`,t.team==='a'?'#ff9b84':'#fff3dc');
   if(u.range>2)fx.shots.push({a:{x:u.x,y:u.y},b:{x:t.x,y:t.y},t:0});
   train(u,'atk',1.2);train(t,'tough',dmg*.25);train(t,'dod',.6);
-  if(t.team==='e')t.aggro=true;
+  if(t.team!=='a'){t.aggro=true;t.lastHit=u}
   if(wasUp&&part.hp<=0&&(pk==='larm'||pk==='rarm'||pk==='legs'))float(t,`${pl}殘廢`,'#ff7a5c',true);
   if(t.p.head.hp<=0||t.p.torso.hp<=0){if(!t.down){t.down=true;t.downT=14;t.cmd=[];t.rescueT=0;float(t,'倒地','#f2c14e',true)}}
 }
@@ -382,9 +387,10 @@ function getUp(u,f){u.down=false;['head','torso'].forEach(k=>{u.p[k].hp=Math.max
 function hurt(u){return PARTS.some(([k])=>u.p[k].hp<u.p[k].max)}
 function updAlly(u,dt){
   u.flash=Math.max(0,u.flash-dt);
+  u.forceT=Math.max(0,(u.forceT||0)-dt);if(u.cmd.length&&u.forceT>0)u.forceT=3;
   if(u.down){u.state='倒地';u.downT-=dt;if(u.downT<=0){getUp(u,.15);float(u,'自己爬起身','#a9e08a')}return}
   const live=enemies().filter(e=>!e.down);const ne=nearest(live,u);const nd=ne?dist(u,ne):99;
-  if(u.rules.flee&&(pct(u)<.3||ratio(u,'torso')<.3||ratio(u,'head')<.35)&&nd<5){u.state='逃跑';const dx=u.x-ne.x,dy=u.y-ne.y,d=Math.hypot(dx,dy)||1;step(u,u.x+dx/d*2,u.y+dy/d*2,dt,1.15);return}
+  if(u.rules.flee&&!(u.forceT>0)&&(pct(u)<.3||ratio(u,'torso')<.3||ratio(u,'head')<.35)&&nd<5){u.state='逃跑';const dx=u.x-ne.x,dy=u.y-ne.y,d=Math.hypot(dx,dy)||1;step(u,u.x+dx/d*2,u.y+dy/d*2,dt,1.15);return}
   if(u.rules.rescue){
     const da=nearest(allies().filter(a=>a.down&&a!==u),u);
     if(da&&dist(u,da)<12){u.state='救人';if(dist(u,da)>.7){u.rescueT=0;step(u,da.x,da.y,dt)}else{u.rescueT+=dt;train(u,'aid',1.5*dt);
@@ -394,8 +400,8 @@ function updAlly(u,dt){
       if(pat){u.state='醫'+pat.name;if(dist(u,pat)>.8)step(u,pat.x,pat.y,dt);else treat(u,pat,dt);return}}
   }
   if(u.cmd.length){const c=u.cmd[0];
-    if(c.t==='move'){u.state='移動';if(step(u,c.x,c.y,dt))u.cmd.shift()}
-    else if(c.u.down)u.cmd.shift();else{u.state='攻擊目標';engage(u,c.u,dt)}
+    if(c.t==='move'){u.state=u.forceT>0?'強制執行':'移動';if(step(u,c.x,c.y,dt))u.cmd.shift()}
+    else if(c.u.down)u.cmd.shift();else{u.state=u.forceT>0?'強制執行':'攻擊目標';engage(u,c.u,dt)}
     return}
   if(u.rules.fight&&ne&&nd<6){u.state='見敵就打';engage(u,ne,dt);return}
   if(hurt(u)&&nd>6){u.state='包紮緊';treat(u,u,dt);return}
@@ -403,10 +409,11 @@ function updAlly(u,dt){
 }
 function updEnemy(u,dt){
   if(u.down){u.state='倒地';return}
-  const t=nearest(allies().filter(a=>!a.down),u);const d=t?dist(u,t):99;
+  let t=u.lastHit&&!u.lastHit.down&&dist(u,u.lastHit)<u.leash?u.lastHit:null;
+  if(!t)t=nearest(hostiles(u),u);const d=t?dist(u,t):99;
   if(!u.aggro&&d<u.aggroR)u.aggro=true;
   if(u.aggro&&t&&d<u.leash&&dist(t,u.home)<u.leash+3){u.state='戰鬥';engage(u,t,dt);return}
-  u.aggro=false;u.state='巡邏';
+  u.aggro=false;u.lastHit=null;u.state='巡邏';
   if(dist(u,u.home)>2.2)step(u,u.home.x,u.home.y,dt,.55);
   else{if(!u.wp||dist(u,u.wp)<.2)u.wp={x:u.home.x+rand(-1.6,1.6),y:u.home.y+rand(-1.6,1.6)};step(u,u.wp.x,u.wp.y,dt,.22)}
 }
@@ -425,7 +432,7 @@ function simulate(dt){
     a.x=clamp(a.x,.5,MAP-.5);a.y=clamp(a.y,.5,MAP-.5);}
   fx.floats.forEach(f=>f.t+=dt);fx.floats=fx.floats.filter(f=>f.t<(f.big?1.8:1.1));
   fx.shots.forEach(f=>f.t+=dt);fx.shots=fx.shots.filter(f=>f.t<.18);
-  if(autoPause&&!alerted&&bandits().some(e=>e.aggro)){alerted=true;setPaused(true);toast('發現流寇 · 已自動暫停，慢慢落指令')}
+  if(autoPause&&!alerted&&bandits().some(e=>!e.down&&allies().some(a=>!a.down&&dist(a,e)<e.aggroR))){alerted=true;setPaused(true);toast('發現流寇 · 已自動暫停，慢慢落指令')}
   if(!cleared&&bandits().length&&bandits().every(e=>e.down)){cleared=true;toast('流寇全部倒地 · 「戰術」入面可以再嚟一波')}
 }
 
@@ -446,7 +453,7 @@ function drawProp(p){
 }
 function hpBar(u,x,y,k){const w=(u.kind==='dog'?18:26)*k,bx=x-w/2,p=pct(u);
   ctx.fillStyle='rgba(20,14,8,.75)';ctx.fillRect(bx-1,y-1,w+2,4*k+2);
-  ctx.fillStyle=u.team==='e'?'#d65b41':p<.3?'#e5813c':'#8fc56e';ctx.fillRect(bx,y,w*p,4*k)}
+  ctx.fillStyle=u.team==='w'?'#c98a4a':u.team==='e'?'#d65b41':p<.3?'#e5813c':'#8fc56e';ctx.fillRect(bx,y,w*p,4*k)}
 function drawDog(u,s,z){
   const k=z,f=u.face;
   if(u.down){ctx.fillStyle=u.color;ell(s.x,s.y-3*k,9*k,3.5*k);ctx.fill();ctx.fillStyle='#6b4f35';ell(s.x+9*k*f,s.y-3*k,3.5*k,3*k);ctx.fill();return}
@@ -464,7 +471,7 @@ function drawUnit(u){
   const z=cam.z,s=scr(u.x,u.y),isSel=sel.has(u);
   ctx.fillStyle='rgba(35,20,8,.38)';ell(s.x,s.y,11*z,5*z);ctx.fill();
   if(isSel){const pulse=1+Math.sin(performance.now()/220)*.06;ctx.strokeStyle='#eaa93a';ctx.lineWidth=2*z;ell(s.x,s.y,15*z*pulse,7.5*z*pulse);ctx.stroke()}
-  if(u.team==='e'&&u.aggro&&!u.down){ctx.strokeStyle='rgba(214,91,65,.7)';ctx.lineWidth=1.5*z;ell(s.x,s.y,13*z,6.5*z);ctx.stroke()}
+  if(u.team!=='a'&&u.aggro&&!u.down){ctx.strokeStyle='rgba(214,91,65,.7)';ctx.lineWidth=1.5*z;ell(s.x,s.y,13*z,6.5*z);ctx.stroke()}
   if(u.kind==='dog'){drawDog(u,s,z);return}
   if(u.down){
     ctx.fillStyle=u.color;ell(s.x-2*z,s.y-3*z,10*z,4*z);ctx.fill();
@@ -586,14 +593,19 @@ function pick(sx,sy){let best=null,bd=1e9;for(const u of units){const s=scr(u.x,
 function formation(n,i){const cols=Math.ceil(Math.sqrt(n)),rows=Math.ceil(n/cols),r=Math.floor(i/cols),c=i%cols;return{dx:(c-(cols-1)/2)*.85,dy:(r-(rows-1)/2)*.85}}
 function issue(make){
   const list=[...sel].filter(u=>!u.down);if(!list.length){toast(sel.size?'揀咗嘅隊友全部倒地':'先揀隊友（點佢或者框選）');return false}
+  const now=performance.now(),warned=[],forced=[];
+  list.forEach(u=>{if(u.state==='逃跑'&&!(u.forceT>0)){u.fleeTaps=now-(u.fleeTapT||0)<4000?(u.fleeTaps||0)+1:1;u.fleeTapT=now;
+    if(u.fleeTaps>=2){u.forceT=3;u.fleeTaps=0;forced.push(u.name)}else warned.push(u.name)}});
   list.forEach((u,i)=>{const c=make(u,i,list.length);if(paused){if(u.cmd.length>=6)u.cmd.shift();u.cmd.push(c)}else u.cmd=[c]});
-  if(paused){const n=Math.max(...list.map(u=>u.cmd.length));toast(`已排隊 · 第 ${n} 個指令`)}
+  if(forced.length)toast(`${forced.join('、')} 硬住頭皮，唔逃住，執行指令`);
+  else if(warned.length)toast(`${warned.join('、')} 想逃 · 再落一次指令就強制執行`);
+  else if(paused){const n=Math.max(...list.map(u=>u.cmd.length));toast(`已排隊 · 第 ${n} 個指令`)}
   return true;
 }
 function tap(sx,sy){
   const u=pick(sx,sy);
   if(u&&u.team==='a'){sel.clear();sel.add(u);updatePortraits(true);toast(`揀咗 ${u.name}（${u.role}）`);return}
-  if(u&&u.team==='e'&&!u.down){if(issue(()=>({t:'attack',u})))fx.pings.push({x:u.x,y:u.y,t:performance.now(),col:'#d65b41'});return}
+  if(u&&u.team!=='a'&&!u.down){if(issue(()=>({t:'attack',u})))fx.pings.push({x:u.x,y:u.y,t:performance.now(),col:'#d65b41'});return}
   const w=world(sx,sy);if(w.x<0||w.y<0||w.x>MAP||w.y>MAP)return;
   if(issue((u,i,n)=>{const f=formation(n,i);return{t:'move',x:clamp(w.x+f.dx,.5,MAP-.5),y:clamp(w.y+f.dy,.5,MAP-.5)}}))
     fx.pings.push({x:w.x,y:w.y,t:performance.now(),col:'#eaa93a'});
@@ -682,12 +694,13 @@ const RULES=[
 ];
 const PRESETS={'坦克':{flee:false,rescue:false,fight:true},'戰士':{flee:true,rescue:false,fight:true},'醫療':{flee:true,rescue:true,fight:false},'膽小':{flee:true,rescue:false,fight:false}};
 const sheet=$('#sheet'),rulesEl=$('#rules'),presetsEl=$('#presets');
+let applyAll=false;const targets=()=>applyAll?allies():[...sel];
 RULES.forEach(([k,t,d],i)=>{const li=document.createElement('li');li.className='rule';
   li.innerHTML=`<span class="n">${i+1}</span><div class="tx"><b>${t}</b><span>${d}</span></div><input type="checkbox" class="sw2" id="r_${k}" aria-label="${t}">`;
-  rulesEl.appendChild(li);li.querySelector('input').addEventListener('change',e=>{[...sel].forEach(u=>u.rules[k]=e.target.checked);syncSheet()})});
-Object.keys(PRESETS).forEach(n=>{const b=document.createElement('button');b.textContent=n;b.addEventListener('click',()=>{[...sel].forEach(u=>u.rules={...PRESETS[n]});syncSheet();toast(`已套用「${n}」`)});presetsEl.appendChild(b)});
+  rulesEl.appendChild(li);li.querySelector('input').addEventListener('change',e=>{targets().forEach(u=>u.rules[k]=e.target.checked);syncSheet()})});
+Object.keys(PRESETS).forEach(n=>{const b=document.createElement('button');b.textContent=n;b.addEventListener('click',()=>{targets().forEach(u=>u.rules={...PRESETS[n]});syncSheet();toast(`已套用「${n}」`)});presetsEl.appendChild(b)});
 function syncSheet(){
-  const list=[...sel];$('#tacTitle').textContent=list.length?'戰術規則 · '+list.map(u=>u.name).join('、'):'戰術規則';
+  const list=targets();$('#tacTitle').textContent=applyAll?'戰術規則 · 全隊':list.length?'戰術規則 · '+list.map(u=>u.name).join('、'):'戰術規則';
   $('#tacSub').textContent=list.length?'由上至下，邊條先成立就做邊條；你親手落嘅指令排喺「見敵就打」之前。':'先喺底部揀隊友，先可以改佢哋嘅規則。';
   RULES.forEach(([k])=>{const el=$('#r_'+k);const on=list.filter(u=>u.rules[k]).length;el.disabled=!list.length;el.checked=list.length>0&&on===list.length;el.indeterminate=on>0&&on<list.length});
   presetsEl.querySelectorAll('button').forEach(b=>b.disabled=!list.length);
@@ -695,13 +708,14 @@ function syncSheet(){
 $('#bTac').addEventListener('click',()=>{syncSheet();sheet.hidden=false});
 $('#bClose').addEventListener('click',()=>sheet.hidden=true);
 sheet.addEventListener('click',e=>{if(e.target===sheet)sheet.hidden=true});
+$('#optAll').addEventListener('change',e=>{applyAll=e.target.checked;syncSheet()});
 $('#optAuto').addEventListener('change',e=>{autoPause=e.target.checked});
 $('#bWave').addEventListener('click',()=>{spawnWave();sheet.hidden=true;toast(`第 ${wave} 波流寇出現咗（每波都強啲）`)});
 $('#bHelp2').addEventListener('click',()=>{sheet.hidden=true;help.hidden=false});
 const help=$('#help');
-let seen=false;try{seen=localStorage.getItem('wl_help2')==='1'}catch(e){}
+let seen=false;try{seen=localStorage.getItem('wl_help3')==='1'}catch(e){}
 if(seen)help.hidden=true;
-$('#bStart').addEventListener('click',()=>{help.hidden=true;try{localStorage.setItem('wl_help2','1')}catch(e){}});
+$('#bStart').addEventListener('click',()=>{help.hidden=true;try{localStorage.setItem('wl_help3','1')}catch(e){}});
 
 /* ---------- loop ---------- */
 let lt=performance.now();
