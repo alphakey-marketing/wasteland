@@ -209,6 +209,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
       </svg>
       <ul class="parts" id="partList"></ul>
     </div>
+    <button class="wide" id="bBandage">包紮自己</button>
     <div class="eyebrow">義肢</div>
     <ul class="ws" id="workshop"></ul>
     <div class="eyebrow">裝備</div>
@@ -544,6 +545,7 @@ function attack(u,t){
   float(t,`-${Math.round(dmg)} ${pl}`,t.team==='a'?'#ff9b84':'#fff3dc');
   if(range(u)>2)fx.shots.push({a:{x:u.x,y:u.y},b:{x:t.x,y:t.y},t:0});
   train(u,'atk',1.2);train(t,'tough',dmg*.25);train(t,'dod',.6);
+  if(t.cmd[0]&&t.cmd[0].t==='bandage'){t.interruptT=1.2;float(t,'包紮被打斷','#ff9b84')}
   if(t.team!=='a'){t.aggro=true;t.lastHit=u}
   if(wasUp&&part.hp<=0&&(pk==='larm'||pk==='rarm'||pk==='legs'))float(t,part.pros?`${pl}義肢壞咗`:`${pl}殘廢`,'#ff7a5c',true);
   checkWounds(t,pk,pl);
@@ -587,6 +589,14 @@ function runCmd(u,dt,ne,nd){
     case 'follow':{const L=c.u;if(L.dead){u.cmd.shift();break}
       if(u.rules.fight&&ne&&nd<6&&!u.carry){u.state='見敵就打';engage(u,ne,dt);break}
       u.state='跟住'+L.name;if(dist(u,L)>1.3)step(u,L.x,L.y,dt);break}
+    case 'bandage':{const p=c.pat;if(p.dead||(p.carriedBy&&p.carriedBy!==u)){u.cmd.shift();break}
+      if(p!==u&&p.carriedBy!==u&&dist(u,p)>.8){u.state='去幫'+p.name+'包紮';step(u,p.x,p.y,dt);break}
+      if(!hurt(p)){u.cmd.shift();float(p,'包紮好','#a9e08a');break}
+      if(!canTreat(u,p)){u.cmd.shift();float(u,'冇醫療包','#ff9b84');toast(`${u.name} 冇醫療包，淨係止到血，傷口醫唔到`);break}
+      if(u.interruptT>0){u.state='包紮被打斷';break}
+      const near=hostiles(u).some(h=>dist(h,u)<3);
+      u.state=(p===u?'包紮自己':'幫'+p.name+'包紮')+(p.bleed>0?'（止血）':'')+(near?' · 好危險':'');
+      treat(u,p,dt*(near?.5:1));break}
     case 'aid':{const b=c.body;if(b.dead||!b.down||b.carriedBy&&b.carriedBy!==u){u.cmd.shift();break}
       if(dist(u,b)>.9){u.state='去止血';step(u,b.x,b.y,dt);break}
       u.state='幫'+b.name+'止血';{const kit=countItem(u,'medkit')>0,r=(1+u.sk.aid.lv*.05)*(kit?1:.4);b.bleed=Math.max(0,b.bleed-r*dt);if(kit)useKit(u,r*dt*2)}train(u,'aid',1.2*dt);
@@ -612,7 +622,7 @@ function runCmd(u,dt,ne,nd){
 }
 function updAlly(u,dt){
   u.flash=Math.max(0,u.flash-dt);
-  u.forceT=Math.max(0,u.forceT-dt);if(u.cmd.length&&u.forceT>0)u.forceT=3;
+  u.forceT=Math.max(0,u.forceT-dt);u.interruptT=Math.max(0,(u.interruptT||0)-dt);if(u.cmd.length&&u.forceT>0)u.forceT=3;
   if(u.dead){u.state='陣亡';return}
   if(u.down){u.state=u.carriedBy?'俾人揹緊':u.bleed>0?'倒地流血':'倒地';return}
   const hs=hostiles(u);const ne=nearest(hs,u);const nd=ne?dist(u,ne):99;
@@ -826,7 +836,7 @@ function drawPaths(){
   for(const u of allies()){if(u.down||!u.cmd.length)continue;
     const strong=paused||sel.has(u);ctx.globalAlpha=strong?1:.35;
     let prev=scr(u.x,u.y);
-    u.cmd.forEach((c,i)=>{const tgt=c.t==='move'?c:c.t==='sleep'?c.bed:c.t==='mine'?c.node:c.t==='talk'?c.npc:(c.t==='attack'||c.t==='follow')?c.u:c.body;const p=scr(tgt.x,tgt.y);
+    u.cmd.forEach((c,i)=>{const tgt=c.t==='move'?c:c.t==='bandage'?c.pat:c.t==='sleep'?c.bed:c.t==='mine'?c.node:c.t==='talk'?c.npc:(c.t==='attack'||c.t==='follow')?c.u:c.body;const p=scr(tgt.x,tgt.y);
       ctx.strokeStyle=c.t==='attack'?'#d65b41':c.t==='move'?'#eaa93a':'#f0c45a';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(prev.x,prev.y);ctx.lineTo(p.x,p.y);ctx.stroke();
       if(c.t==='move'){ctx.setLineDash([]);ctx.fillStyle='rgba(234,169,58,.9)';ell(p.x,p.y,7*cam.z,3.5*cam.z);ctx.fill();
         if(paused&&u.cmd.length>1){ctx.fillStyle='#24180a';ctx.font=`700 ${9*cam.z}px "Chakra Petch",sans-serif`;ctx.textAlign='center';ctx.fillText(i+1,p.x,p.y+3*cam.z)}
@@ -958,8 +968,11 @@ function tap(sx,sy){
     if(u.down){bodyMenu(u,sx,sy);return}
     if(u.team==='a'){const others=[...sel].filter(a=>a!==u&&!a.down);
       const pickIt=()=>{sel.clear();sel.add(u);updatePortraits(true);toast(`揀咗 ${u.name}（${u.role}）`)};
-      if(!others.length){pickIt();return}
-      showMenu(sx,sy,u.name,[{label:`揀${u.name}`,fn:pickIt},
+      const selfBand={label:'包紮自己',sub:bandSub(u,u),fn:()=>orderBandage(u,u)};
+      if(!others.length){if(sel.has(u)&&hurt(u)){showMenu(sx,sy,u.name,[selfBand]);return}pickIt();return}
+      const healer=nearest(others,u);const opts=[{label:`揀${u.name}`,fn:pickIt}];
+      if(hurt(u))opts.push({label:`叫${healer.name}幫${u.name}包紮`,sub:bandSub(healer,u),fn:()=>orderBandage(healer,u)},selfBand);
+      showMenu(sx,sy,u.name,[...opts,
         {label:`叫${others.map(a=>a.name).join('、')}跟住${u.name}`,sub:'一直跟住佢行，見敵照打。落新指令就會取消',fn:()=>{fleeCheck(others);others.forEach(a=>{a.cmd=[{t:'follow',u}]});toast(`${others.map(a=>a.name).join('、')} 跟住 ${u.name}`)}}]);return}
     if(issue(()=>({t:'attack',u})))fx.pings.push({x:u.x,y:u.y,t:performance.now(),col:'#d65b41'});return}
   const bd=pickBed(sx,sy);if(bd){innMenu(sx,sy);return}
@@ -983,11 +996,15 @@ function showMenu(sx,sy,title,opts){
   cmenu.style.left=clamp(sx-r.width/2,16,W-r.width-16)+'px';cmenu.style.top=clamp(sy-r.height-14,70,H-r.height-130)+'px';
   cmenu.onclick=e=>{const b=e.target.closest('button');if(!b)return;hideMenu();opts[+b.dataset.i].fn()};
 }
+function bandSub(h,p){const kits=countItem(h,'medkit');return `${kits?`${h.name}有 ${kits} 個醫療包`:`${h.name}冇醫療包，淨係止到血`} · 包紮期間唔會還手，被打會中斷`}
+function orderBandage(h,p){if(h.down){toast(`${h.name} 倒咗地`);return}fleeCheck([h]);push(h,{t:'bandage',pat:p});toast(p===h?`${h.name} 開始包紮自己`:`${h.name} 去幫 ${p.name} 包紮`)}
 function hasLoot(b){return b.pack.length>0||!!b.eq.weapon||!!b.eq.armor}
 function bodyMenu(b,sx,sy){
   const opts=[];
   if(hasLoot(b)&&(b.team!=='a'||b.dead))opts.push({label:'執嘢',sub:'行過去睇佢身上有咩',fn:()=>{const v=issueOne({t:'loot',body:b},b);if(v)toast(`${v.name} 去執嘢`)}});
   if(!b.dead&&b.team!=='a')opts.push({label:'補刀',sub:'打到佢死為止，唔會再醒',fn:()=>{if(issue(()=>({t:'attack',u:b,finish:true})))fx.pings.push({x:b.x,y:b.y,t:performance.now(),col:'#d65b41'})}});
+  if(!b.dead&&b.team==='a'&&!b.pile){const h=nearest([...sel].filter(a=>!a.down&&a!==b),b);
+    if(h)opts.push({label:`叫${h.name}幫佢包紮`,sub:bandSub(h,b),fn:()=>orderBandage(h,b)})}
   if(!b.dead&&b.team!=='a'&&b.bleed>0)opts.push({label:'幫佢止血',sub:b.bounty?`保住條命先攞到懸賞 $${b.bounty} · 會練急救`:'唔會醫好佢，淨係止血 · 會練急救',fn:()=>{const v=issueOne({t:'aid',body:b},b);if(v)toast(`${v.name} 去幫 ${b.name} 止血`)}});
   opts.push({label:b.bounty&&!b.dead?`揹起佢（懸賞 $${b.bounty}）`:'揹起佢',sub:b.bounty&&!b.dead?'揹去綠洲鎮守衛度領賞':b.team==='a'&&!b.dead?'揹佢離開險地，等人救':'好重，會行得好慢',
     fn:()=>{const v=issueOne({t:'carry',body:b},b,'揀咗嘅隊友已經揹緊人',a=>!a.carry);if(v)toast(`${v.name} 去揹 ${b.name}`)}});
@@ -1132,7 +1149,7 @@ function fillCard(){
   fillWorkshop(u);fillEquip(u);
   const f=Math.round(u.food);$('#foodTxt').textContent=`飽肚 ${f} / 100`;$('#foodEff').textContent=u.food<=0?'餓到扣血':u.food<30?'肚餓：傷害同速度下降':'';
   const ff=$('#foodFill');ff.style.width=f+'%';ff.style.background=u.food<30?'#d8553d':u.food<50?'#e5a23c':'#8fc56e';
-  $('#bDismiss').hidden=!u.dead;
+  $('#bDismiss').hidden=!u.dead;{const bb=$('#bBandage');bb.disabled=u.dead||u.down||!hurt(u);bb.textContent=u.cmd[0]&&u.cmd[0].t==='bandage'&&u.cmd[0].pat===u?'包紮緊…':hurt(u)?`包紮自己（醫療包 ${countItem(u,'medkit')} 個）`:'冇傷，唔使包紮'}
   const l=load(u),c=cap(u);$('#loadTxt').textContent=`負重 ${l} / ${c} kg${u.carry?'（包括揹緊嘅人 30kg）':''}`;
   $('#loadEff').textContent=l>c?`速度 ${Math.round(encMul(u)*100)}% · 練緊力量`:l>c*.5?'練緊力量':'';
   const lf=$('#loadFill');lf.style.width=Math.min(100,l/c*100)+'%';lf.style.background=l>c?'#d8553d':l>c*.5?'#e5a23c':'#5fb3a8';
@@ -1175,6 +1192,7 @@ packEl.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)ret
   else if(b.dataset.give){const i=+b.dataset.give,s=u.pack[i],m=allies()[+b.dataset.mate];if(s&&m){u.pack.splice(i,1);addItem(m,s.id,s.n);toast(`${u.name} 將${ITEMS[s.id].name}${s.n>1?' ×'+s.n:''}交咗俾${m.name}`)}}
   eqSig=packSig=wsSig='';updatePortraits(true)});
 $('#bChar').addEventListener('click',()=>openCard());
+$('#bBandage').addEventListener('click',()=>{const u=cardUnit;if(u&&!u.dead&&!u.down&&hurt(u)){orderBandage(u,u);charSheet.hidden=true}});
 $('#bDismiss').addEventListener('click',()=>{const u=cardUnit;if(!u||!u.dead)return;u.team='c';sel.delete(u);if(cam.follow===u)cam.follow=null;
   toast(`${u.name} 已移離隊伍，屍體上嘅嘢仲可以執`);buildSquadUI();const n=allies()[0];if(n){cardUnit=n;buildCard()}else charSheet.hidden=true});
 $('#bCharClose').addEventListener('click',()=>charSheet.hidden=true);
