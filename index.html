@@ -257,6 +257,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     <div class="eyebrow">試玩設定</div>
     <ul class="rules">
       <li class="rule"><div class="tx"><b>硬派模式</b><span>會斷肢、會流血致死、會陣亡。關咗就只會倒地</span></div><input type="checkbox" class="sw2" id="optHard" checked aria-label="硬派模式"></li>
+      <li class="rule"><div class="tx"><b>一齊行時等最慢嗰個</b><span>多過一個人一齊移動，全組會跟最慢嗰個嘅速度，唔會散晒</span></div><input type="checkbox" class="sw2" id="optSync" checked aria-label="一齊行時等最慢嗰個"></li>
       <li class="rule"><div class="tx"><b>遇敵自動暫停</b><span>流寇行近你嘅隊友，遊戲即刻停（野狗唔計）</span></div><input type="checkbox" class="sw2" id="optAuto" checked aria-label="遇敵自動暫停"></li>
     </ul>
     <div class="btnrow" style="margin-top:8px">
@@ -458,7 +459,7 @@ function spawnWave(){
 spawnWave();
 
 const sel=new Set(allies());
-let paused=false,modal=false,speed=1,autoPause=true,selectMode=false,simT=0;
+let groupSync=true;let paused=false,modal=false,speed=1,autoPause=true,selectMode=false,simT=0;
 const fx={floats:[],shots:[],pings:[],drops:[]};
 let piles=[];
 function dropToGround(u,s){let p=piles.find(q=>dist(q,u)<.9);
@@ -543,7 +544,17 @@ function hurt(u){return u.bleed>0||PARTS.some(([k])=>{const q=u.p[k];return !q.l
 function runCmd(u,dt,ne,nd){
   const c=u.cmd[0],forced=u.forceT>0?'強制執行':null;
   switch(c.t){
-    case 'move':u.state=forced||'移動';if(step(u,c.x,c.y,dt))u.cmd.shift();break;
+    case 'move':{u.state=forced||'移動';let mul=1;
+      if(c.grp){const sp=m=>m.spd*legMul(m)*encMul(m);const act=c.grp.filter(m=>!m.down&&m.cmd[0]&&m.cmd[0].grp===c.grp);
+        if(act.length>1){const slow=Math.min(...act.map(sp));mul=slow/sp(u);if(mul<.98)u.state=(forced||'移動')+' · 等隊友'}}
+      if(step(u,c.x,c.y,dt,mul))u.cmd.shift();break}
+    case 'follow':{const L=c.u;if(L.dead){u.cmd.shift();break}
+      if(u.rules.fight&&ne&&nd<6&&!u.carry){u.state='見敵就打';engage(u,ne,dt);break}
+      u.state='跟住'+L.name;if(dist(u,L)>1.3)step(u,L.x,L.y,dt);break}
+    case 'aid':{const b=c.body;if(b.dead||!b.down||b.carriedBy&&b.carriedBy!==u){u.cmd.shift();break}
+      if(dist(u,b)>.9){u.state='去止血';step(u,b.x,b.y,dt);break}
+      u.state='幫'+b.name+'止血';b.bleed=Math.max(0,b.bleed-(1+u.sk.aid.lv*.05)*dt);train(u,'aid',1.2*dt);
+      if(b.bleed<=0){u.cmd.shift();float(b,'止咗血','#a9e08a')}break}
     case 'attack':if(c.u.dead||(c.u.down&&!c.finish))u.cmd.shift();else{u.state=forced||'攻擊目標';engage(u,c.u,dt)}break;
     case 'mine':{
       if(ne&&nd<3&&!u.carry){u.state='自衛';engage(u,ne,dt);break}
@@ -721,7 +732,7 @@ function drawPaths(){
   for(const u of allies()){if(u.down||!u.cmd.length)continue;
     const strong=paused||sel.has(u);ctx.globalAlpha=strong?1:.35;
     let prev=scr(u.x,u.y);
-    u.cmd.forEach((c,i)=>{const tgt=c.t==='move'?c:c.t==='mine'?c.node:c.t==='talk'?c.npc:c.t==='attack'?c.u:c.body;const p=scr(tgt.x,tgt.y);
+    u.cmd.forEach((c,i)=>{const tgt=c.t==='move'?c:c.t==='mine'?c.node:c.t==='talk'?c.npc:(c.t==='attack'||c.t==='follow')?c.u:c.body;const p=scr(tgt.x,tgt.y);
       ctx.strokeStyle=c.t==='attack'?'#d65b41':c.t==='move'?'#eaa93a':'#f0c45a';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(prev.x,prev.y);ctx.lineTo(p.x,p.y);ctx.stroke();
       if(c.t==='move'){ctx.setLineDash([]);ctx.fillStyle='rgba(234,169,58,.9)';ell(p.x,p.y,7*cam.z,3.5*cam.z);ctx.fill();
         if(paused&&u.cmd.length>1){ctx.fillStyle='#24180a';ctx.font=`700 ${9*cam.z}px "Chakra Petch",sans-serif`;ctx.textAlign='center';ctx.fillText(i+1,p.x,p.y+3*cam.z)}
@@ -842,7 +853,11 @@ function tap(sx,sy){
         {label:'交談／交懸賞犯',sub:'揹住生擒嘅懸賞犯過去就有賞金',fn:()=>{const v=issueOne({t:'talk',npc:u},u);if(v)toast(v.carry?`${v.name} 揹住 ${v.carry.name} 去見守衛`:`${v.name} 行去搵守衛`)}},
         {label:'攻擊守衛',sub:repTown>-30?'綠洲鎮會即刻同你敵對，商人唔再做你生意':'已經敵對',fn:()=>{issue(()=>({t:'attack',u}))}}]);return}
     if(u.down){bodyMenu(u,sx,sy);return}
-    if(u.team==='a'){sel.clear();sel.add(u);updatePortraits(true);toast(`揀咗 ${u.name}（${u.role}）`);return}
+    if(u.team==='a'){const others=[...sel].filter(a=>a!==u&&!a.down);
+      const pickIt=()=>{sel.clear();sel.add(u);updatePortraits(true);toast(`揀咗 ${u.name}（${u.role}）`)};
+      if(!others.length){pickIt();return}
+      showMenu(sx,sy,u.name,[{label:`揀${u.name}`,fn:pickIt},
+        {label:`叫${others.map(a=>a.name).join('、')}跟住${u.name}`,sub:'一直跟住佢行，見敵照打。落新指令就會取消',fn:()=>{fleeCheck(others);others.forEach(a=>{a.cmd=[{t:'follow',u}]});toast(`${others.map(a=>a.name).join('、')} 跟住 ${u.name}`)}}]);return}
     if(issue(()=>({t:'attack',u})))fx.pings.push({x:u.x,y:u.y,t:performance.now(),col:'#d65b41'});return}
   const pl=pickPile(sx,sy);
   if(pl){showMenu(sx,sy,`地上布袋 · ${pl.pack.length} 樣嘢 · ${Math.max(0,Math.ceil((300-(simT-pl.t))/60))} 分鐘內會消失`,[{label:'執起',sub:'行過去揀要拎咩',fn:()=>{const v=issueOne({t:'loot',body:pl},pl);if(v)toast(`${v.name} 去執布袋`)}}]);return}
@@ -850,7 +865,8 @@ function tap(sx,sy){
   if(o){const list=[...sel].filter(a=>!a.down&&!a.carry);if(!list.length){toast('先揀冇揹人嘅隊友');return}
     fleeCheck(list);list.forEach(a=>push(a,{t:'mine',node:o}));toast(`${list.map(a=>a.name).join('、')} 去採${ITEMS[o.ore].name}`);return}
   const w=world(sx,sy);if(w.x<0||w.y<0||w.x>MAP||w.y>MAP)return;
-  if(issue((u,i,n)=>{const f=formation(n,i);return{t:'move',x:clamp(w.x+f.dx,.5,MAP-.5),y:clamp(w.y+f.dy,.5,MAP-.5)}}))
+  const grp=groupSync&&!paused?[...sel].filter(u=>!u.down):null;
+  if(issue((u,i,n)=>{const f=formation(n,i);return{t:'move',grp:grp&&grp.length>1?grp:null,x:clamp(w.x+f.dx,.5,MAP-.5),y:clamp(w.y+f.dy,.5,MAP-.5)}}))
     fx.pings.push({x:w.x,y:w.y,t:performance.now(),col:'#eaa93a'});
 }
 
@@ -868,6 +884,7 @@ function bodyMenu(b,sx,sy){
   const opts=[];
   if(hasLoot(b)&&(b.team!=='a'||b.dead))opts.push({label:'執嘢',sub:'行過去睇佢身上有咩',fn:()=>{const v=issueOne({t:'loot',body:b},b);if(v)toast(`${v.name} 去執嘢`)}});
   if(!b.dead&&b.team!=='a')opts.push({label:'補刀',sub:'打到佢死為止，唔會再醒',fn:()=>{if(issue(()=>({t:'attack',u:b,finish:true})))fx.pings.push({x:b.x,y:b.y,t:performance.now(),col:'#d65b41'})}});
+  if(!b.dead&&b.team!=='a'&&b.bleed>0)opts.push({label:'幫佢止血',sub:b.bounty?`保住條命先攞到懸賞 $${b.bounty} · 會練急救`:'唔會醫好佢，淨係止血 · 會練急救',fn:()=>{const v=issueOne({t:'aid',body:b},b);if(v)toast(`${v.name} 去幫 ${b.name} 止血`)}});
   opts.push({label:b.bounty&&!b.dead?`揹起佢（懸賞 $${b.bounty}）`:'揹起佢',sub:b.bounty&&!b.dead?'揹去綠洲鎮守衛度領賞':b.team==='a'&&!b.dead?'揹佢離開險地，等人救':'好重，會行得好慢',
     fn:()=>{const v=issueOne({t:'carry',body:b},b,'揀咗嘅隊友已經揹緊人',a=>!a.carry);if(v)toast(`${v.name} 去揹 ${b.name}`)}});
   const title=`${b.name} · ${b.dead?'屍體':'倒地'}${!b.dead?`（${b.bleed>0?'流緊血':'回復 '+Math.round(recov(b)*100)+'%'}）`:''}`;
@@ -1089,6 +1106,7 @@ $('#bTac').addEventListener('click',()=>{syncSheet();renderFactions();sheet.hidd
 $('#bClose').addEventListener('click',()=>sheet.hidden=true);
 sheet.addEventListener('click',e=>{if(e.target===sheet)sheet.hidden=true});
 $('#optHard').addEventListener('change',e=>{hardcore=e.target.checked;toast(hardcore?'硬派模式：會斷肢、會陣亡':'休閒模式：最多只會倒地')});
+$('#optSync').addEventListener('change',e=>{groupSync=e.target.checked});
 $('#optAuto').addEventListener('change',e=>{autoPause=e.target.checked});
 const RECRUITS=['阿明','大隻','細妹','老鬼','阿九','肥仔','阿珍','火水'];let recruitN=0;
 $('#bRecruit').addEventListener('click',()=>{const dead=allies().filter(u=>u.dead);if(!dead.length){toast('冇人陣亡，唔使補位');return}
@@ -1105,7 +1123,7 @@ $('#bStart').addEventListener('click',()=>{help.hidden=true;try{localStorage.set
 /* ---------- loop ---------- */
 let lt=performance.now();
 function frame(t){
-  const dt=Math.min(.05,(t-lt)/1000);lt=t;
+  const dt=clamp((t-lt)/1000,0,.05);lt=t;
   if(!paused&&!modal&&help.hidden)simulate(dt*speed);
   if(cam.follow){const tx=isoX(cam.follow.x,cam.follow.y),ty=isoY(cam.follow.x,cam.follow.y);cam.x+=(tx-cam.x)*Math.min(1,dt*6);cam.y+=(ty-cam.y)*Math.min(1,dt*6)}
   render();updatePortraits(false);requestAnimationFrame(frame);
