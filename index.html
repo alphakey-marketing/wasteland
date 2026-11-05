@@ -36,6 +36,15 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .status.paused .dot{background:var(--accent);box-shadow:0 0 8px var(--accent)}
 .status.slow .dot{background:var(--ally);box-shadow:0 0 8px var(--ally)}
 #statusTxt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status .scrap{color:var(--muted);font-weight:500;white-space:nowrap;border-left:1px solid var(--line);padding-left:8px}
+.ws{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.ws li{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.ws li b{font-size:14px}
+.ws .opts{display:flex;gap:6px;flex-wrap:wrap}
+.ws .opts button{flex:1 1 130px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px;font-size:12.5px;font-weight:700;text-align:left}
+.ws .opts button small{display:block;font-weight:400;color:var(--muted);font-size:11.5px}
+.ws .opts button:disabled{opacity:.4;cursor:not-allowed}
+.ws .empty{font-size:12.5px;color:var(--muted)}
 .tools{display:flex;gap:6px;align-items:center;flex:none}
 .tool{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;font-weight:600;min-height:40px}
 .tool[aria-pressed="true"]{background:var(--accent);color:#24180a;border-color:var(--accent)}
@@ -136,7 +145,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 <canvas id="cv"></canvas>
 
 <header class="top">
-  <div class="status" id="status"><span class="dot"></span><span id="statusTxt">進行中</span></div>
+  <div class="status" id="status"><span class="dot"></span><span id="statusTxt">進行中</span><span class="scrap" id="scrapTxt">零件 8</span></div>
   <div class="tools">
     <button id="bSel" class="tool" aria-pressed="false">框選</button>
     <button id="bSlow" class="tool" aria-pressed="false">慢鏡 ¼</button>
@@ -172,6 +181,8 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
       </svg>
       <ul class="parts" id="partList"></ul>
     </div>
+    <div class="eyebrow" id="wsTitle">義肢工場</div>
+    <ul class="ws" id="workshop"></ul>
     <div class="eyebrow">技能 · 用嚟練</div>
     <ul class="skills" id="skillList"></ul>
     <button class="close" id="bCharClose">收埋</button>
@@ -190,10 +201,12 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     <div class="presets" id="presets"></div>
     <div class="eyebrow">試玩設定</div>
     <ul class="rules">
+      <li class="rule"><div class="tx"><b>硬派模式</b><span>會斷肢、會流血致死、會陣亡。關咗就只會倒地</span></div><input type="checkbox" class="sw2" id="optHard" checked aria-label="硬派模式"></li>
       <li class="rule"><div class="tx"><b>遇敵自動暫停</b><span>流寇行近你嘅隊友，遊戲即刻停（野狗唔計）</span></div><input type="checkbox" class="sw2" id="optAuto" checked aria-label="遇敵自動暫停"></li>
     </ul>
     <div class="btnrow" style="margin-top:8px">
       <button id="bWave">再嚟一波流寇</button>
+      <button id="bRecruit">招募新人補位</button>
       <button id="bHelp2">操作說明</button>
     </div>
     <button class="close" id="bClose">收埋</button>
@@ -214,6 +227,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
       <dt>❚❚ 暫停</dt><dd>暫停時連續點地面，指令會排隊</dd>
       <dt>戰術</dt><dd>設定「低血就逃」「救人醫人」「見敵就打」</dd>
     </dl>
+    <p class="note">傷勢分三層：殘廢可以醫返；手腳再被打到好深就會永久斷咗，要用零件裝義肢（打倒敵人會執到零件）；頭或身打得太重、或者倒地冇人止血，就會陣亡。</p>
     <p class="note">野狗見人就咬，流寇都唔例外：引流寇行過野狗竇，佢哋有機會自己打起上嚟。隊友「逃跑」時再落多一次指令，就會強制執行唔逃。</p>
     <p class="note">技能靠做嚟升：被打升耐打，打中升攻擊，被攻擊升閃避，包紮升急救。等級越高升得越慢。腳傷行得慢，右手殘廢打得弱，頭或身打爆就倒地，但唔會死。</p>
     <button class="close primary" id="bStart" style="margin-top:14px">開始玩</button>
@@ -297,14 +311,16 @@ function effText(k,lv){
   if(k==='dod')return `對方命中 −${(lv*.8).toFixed(1)}%`;
   return `每秒醫 ${(2.5+lv*.35).toFixed(1)} 點 · 救人快 ${Math.round(lv*3)}%`;
 }
-function mkParts(base){const p={};PARTS.forEach(([k,,f])=>{const m=Math.round(base*f);p[k]={hp:m,max:m}});return p}
+function mkParts(base){const p={};PARTS.forEach(([k,,f])=>{const m=Math.round(base*f);p[k]={hp:m,max:m,base:m,lost:false,pros:null}});return p}
+const PROS={scrap:{name:'廢鐵義肢',cost:5,hp:.8,mul:.85,note:'耐久 80% · 力量／速度 −15%'},mil:{name:'軍用義肢',cost:20,hp:1.3,mul:1.15,note:'耐久 130% · 力量／速度 +15%'}};
+let scrap=8,hardcore=true;
 function mkSkills(o){const s={};SKILLS.forEach(([k])=>s[k]={lv:(o&&o[k])||1,xp:0});return s}
-const pct=u=>{let a=0,b=0;for(const k in u.p){a+=Math.max(0,u.p[k].hp);b+=u.p[k].max}return a/b};
-const ratio=(u,k)=>Math.max(0,u.p[k].hp)/u.p[k].max;
+const pct=u=>{let a=0,b=0;for(const k in u.p){const p=u.p[k];a+=p.lost?0:Math.max(0,p.hp);b+=p.max}return a/b};
+const ratio=(u,k)=>{const p=u.p[k];return p.lost?0:Math.max(0,p.hp)/p.max};
 
 /* ---------- units ---------- */
 const units=[];
-function mk(o){const u=Object.assign({cmd:[],cd:0,state:'待命',down:false,downT:0,lunge:0,rescueT:0,aggro:false,face:1,id:Math.random(),spd:2.3,flash:0},o);
+function mk(o){const u=Object.assign({cmd:[],cd:0,state:'待命',down:false,dead:false,bleed:0,downT:0,lunge:0,rescueT:0,aggro:false,face:1,id:Math.random(),spd:2.3,flash:0},o);
   u.p=mkParts(o.base);u.sk=mkSkills(o.lv);return u}
 const squadDef=[
   {name:'阿岩',role:'坦克',color:'#5fb3a8',base:70,range:.95,dmg:[5,8],cd0:1.1,lv:{tough:6,atk:2,dod:1,aid:1},rules:{flee:false,rescue:false,fight:true}},
@@ -338,7 +354,7 @@ spawnWave();
 
 const sel=new Set(allies());
 let paused=false,speed=1,autoPause=true,selectMode=false,simT=0;
-const fx={floats:[],shots:[],pings:[]};
+const fx={floats:[],shots:[],pings:[],drops:[]};
 function float(u,txt,col,big){fx.floats.push({x:u.x,y:u.y,txt,col,t:0,big})}
 
 /* ---------- skills ---------- */
@@ -351,7 +367,7 @@ function train(u,k,amt){
 
 /* ---------- simulation ---------- */
 function nearest(list,u){let best=null,bd=1e9;for(const o of list){const d=dist(u,o);if(d<bd){bd=d;best=o}}return best}
-function legMul(u){const r=ratio(u,'legs');return r<=0?.25:.55+.45*r}
+function legMul(u){const r=ratio(u,'legs');if(r<=0)return .25;const m=u.p.legs.pros?PROS[u.p.legs.pros].mul:1;return (.55+.45*r)*m}
 function step(u,tx,ty,dt,mul=1){
   const dx=tx-u.x,dy=ty-u.y,d=Math.hypot(dx,dy);if(d<.05)return true;
   const s=Math.min(d,u.spd*mul*legMul(u)*dt);u.x+=dx/d*s;u.y+=dy/d*s;
@@ -363,40 +379,55 @@ function attack(u,t){
   const hitP=clamp(.6+(u.sk.atk.lv-t.sk.dod.lv)*.008,.12,.95);
   if(Math.random()>hitP){train(u,'atk',.6);train(t,'dod',1.5);float(t,'閃','#cfc4b0');
     if(u.range>2)fx.shots.push({a:{x:u.x,y:u.y},b:{x:t.x+rand(-.6,.6),y:t.y+rand(-.6,.6)},t:0});return}
-  const [pk,pl]=pickPart();
+  let [pk,pl]=pickPart();if(t.p[pk].lost){pk='torso';pl='身'}
   let arm=ratio(u,'rarm')<=0?.35:.6+.4*ratio(u,'rarm');if(ratio(u,'larm')<=0)arm*=.85;
+  if(u.p.rarm.pros&&ratio(u,'rarm')>0)arm*=PROS[u.p.rarm.pros].mul;if(u.p.larm.pros&&ratio(u,'larm')>0)arm*=1+(PROS[u.p.larm.pros].mul-1)*.5;
   const dmg=rand(u.dmg[0],u.dmg[1])*(1+u.sk.atk.lv*.02)*arm/(1+t.sk.tough.lv*.025);
-  const part=t.p[pk];const wasUp=part.hp>0;part.hp=Math.max(-part.max*.5,part.hp-dmg);
+  const part=t.p[pk];const wasUp=part.hp>0;
+  const floor=part.pros?0:hardcore?-part.max*1.05:-part.max*.5;part.hp=Math.max(floor,part.hp-dmg);
+  if(!part.pros)t.bleed=Math.min(2.5,t.bleed+dmg*.025);
   float(t,`-${Math.round(dmg)} ${pl}`,t.team==='a'?'#ff9b84':'#fff3dc');
   if(u.range>2)fx.shots.push({a:{x:u.x,y:u.y},b:{x:t.x,y:t.y},t:0});
   train(u,'atk',1.2);train(t,'tough',dmg*.25);train(t,'dod',.6);
   if(t.team!=='a'){t.aggro=true;t.lastHit=u}
-  if(wasUp&&part.hp<=0&&(pk==='larm'||pk==='rarm'||pk==='legs'))float(t,`${pl}殘廢`,'#ff7a5c',true);
-  if(t.p.head.hp<=0||t.p.torso.hp<=0){if(!t.down){t.down=true;t.downT=14;t.cmd=[];t.rescueT=0;float(t,'倒地','#f2c14e',true)}}
+  if(wasUp&&part.hp<=0&&(pk==='larm'||pk==='rarm'||pk==='legs'))float(t,part.pros?`${pl}義肢壞咗`:`${pl}殘廢`,'#ff7a5c',true);
+  checkWounds(t,pk,pl);
+}
+function kill(t){t.dead=true;t.down=true;t.cmd=[];t.bleed=0;t.rescueT=0;float(t,'陣亡','#ff4a2e',true);sel.delete(t);if(cam.follow===t)cam.follow=null;
+  if(t.team==='a')toast(`${t.name} 陣亡咗`);loot(t)}
+function loot(t){if(t.team==='a'||t.looted)return;t.looted=true;const n=t.kind==='dog'?1:3;scrap+=n;float(t,`+${n} 零件`,'#cfd8de',true)}
+function checkWounds(t,pk,pl){
+  if(t.dead)return;const part=t.p[pk];
+  if(hardcore&&!part.pros&&!part.lost&&(pk==='larm'||pk==='rarm'||pk==='legs')&&part.hp<=-part.max){part.lost=true;part.hp=0;
+    float(t,`${pl}斷咗`,'#ff4a2e',true);if(t.team==='a')toast(`${t.name} 嘅${pl}永久斷咗 · 角色卡可以裝義肢`)}
+  if(hardcore&&(t.p.head.hp<=-t.p.head.max||t.p.torso.hp<=-t.p.torso.max)){kill(t);return}
+  if(!t.down&&(t.p.head.hp<=0||t.p.torso.hp<=0)){t.down=true;t.downT=14;t.cmd=[];t.rescueT=0;float(t,'倒地','#f2c14e',true);loot(t)}
 }
 function engage(u,t,dt){
   const d=dist(u,t);const sdx=(t.x-u.x)-(t.y-u.y);if(Math.abs(sdx)>.01)u.face=sdx>0?1:-1;
   if(d>u.range*.95)step(u,t.x,t.y,dt);else if(u.cd<=0)attack(u,t);
 }
 function healRate(u){return 2.5+u.sk.aid.lv*.35}
-function treat(healer,pat,dt){ // heal the worst part
-  let worst=null,wr=2;for(const [k] of PARTS){const r=pat.p[k].hp/pat.p[k].max;if(r<1&&r<wr){wr=r;worst=k}}
+function treat(healer,pat,dt){ // stop bleeding first, then heal the worst flesh part
+  if(pat.bleed>0){pat.bleed=Math.max(0,pat.bleed-(1+healer.sk.aid.lv*.05)*dt);train(healer,'aid',1.2*dt);return true}
+  let worst=null,wr=2;for(const [k] of PARTS){const q=pat.p[k];if(q.lost||q.pros)continue;const r=q.hp/q.max;if(r<1&&r<wr){wr=r;worst=k}}
   if(!worst)return false;const p=pat.p[worst];p.hp=Math.min(p.max,p.hp+healRate(healer)*dt);train(healer,'aid',1.2*dt);return true;
 }
-function getUp(u,f){u.down=false;['head','torso'].forEach(k=>{u.p[k].hp=Math.max(u.p[k].hp,u.p[k].max*f)})}
-function hurt(u){return PARTS.some(([k])=>u.p[k].hp<u.p[k].max)}
+function getUp(u,f){if(u.dead)return;u.down=false;['head','torso'].forEach(k=>{u.p[k].hp=Math.max(u.p[k].hp,u.p[k].max*f)})}
+function hurt(u){return u.bleed>0||PARTS.some(([k])=>{const q=u.p[k];return !q.lost&&!q.pros&&q.hp<q.max})}
 function updAlly(u,dt){
   u.flash=Math.max(0,u.flash-dt);
   u.forceT=Math.max(0,(u.forceT||0)-dt);if(u.cmd.length&&u.forceT>0)u.forceT=3;
+  if(u.dead){u.state='陣亡';return}
   if(u.down){u.state='倒地';u.downT-=dt;if(u.downT<=0){getUp(u,.15);float(u,'自己爬起身','#a9e08a')}return}
   const live=enemies().filter(e=>!e.down);const ne=nearest(live,u);const nd=ne?dist(u,ne):99;
   if(u.rules.flee&&!(u.forceT>0)&&(pct(u)<.3||ratio(u,'torso')<.3||ratio(u,'head')<.35)&&nd<5){u.state='逃跑';const dx=u.x-ne.x,dy=u.y-ne.y,d=Math.hypot(dx,dy)||1;step(u,u.x+dx/d*2,u.y+dy/d*2,dt,1.15);return}
   if(u.rules.rescue){
-    const da=nearest(allies().filter(a=>a.down&&a!==u),u);
-    if(da&&dist(u,da)<12){u.state='救人';if(dist(u,da)>.7){u.rescueT=0;step(u,da.x,da.y,dt)}else{u.rescueT+=dt;train(u,'aid',1.5*dt);
-      if(u.rescueT>=2.5/(1+u.sk.aid.lv*.03)){getUp(da,.3);u.rescueT=0;float(da,'救返起身','#a9e08a')}}return}
+    const da=nearest(allies().filter(a=>a.down&&!a.dead&&a!==u),u);
+    if(da&&dist(u,da)<12){u.state='救人';if(dist(u,da)>.7){u.rescueT=0;step(u,da.x,da.y,dt)}else{u.rescueT+=dt;da.bleed=Math.max(0,da.bleed-2*dt);train(u,'aid',1.5*dt);
+      if(u.rescueT>=2.5/(1+u.sk.aid.lv*.03)){getUp(da,.3);da.bleed=0;u.rescueT=0;float(da,'救返起身','#a9e08a')}}return}
     u.rescueT=0;
-    if(nd>6&&!u.cmd.length){const pat=nearest(allies().filter(a=>a!==u&&!a.down&&pct(a)<.75&&dist(u,a)<10),u);
+    if(nd>6&&!u.cmd.length){const pat=nearest(allies().filter(a=>a!==u&&!a.down&&hurt(a)&&(a.bleed>0||pct(a)<.85)&&dist(u,a)<10),u);
       if(pat){u.state='醫'+pat.name;if(dist(u,pat)>.8)step(u,pat.x,pat.y,dt);else treat(u,pat,dt);return}}
   }
   if(u.cmd.length){const c=u.cmd[0];
@@ -419,6 +450,9 @@ function updEnemy(u,dt){
 }
 function simulate(dt){
   simT+=dt;
+  for(const u of units){if(u.dead||!(u.bleed>0))continue;
+    u.p.torso.hp-=u.bleed*(u.down?1.4:1)*dt;u.bleed=Math.max(0,u.bleed-(u.down?.03:.1)*dt);
+    if(!hardcore)u.p.torso.hp=Math.max(-u.p.torso.max*.5,u.p.torso.hp);checkWounds(u,'torso','身')}
   for(const u of units){u.moving=false;u.cd=Math.max(0,u.cd-dt);u.lunge=Math.max(0,u.lunge-dt*5);(u.team==='a'?updAlly:updEnemy)(u,dt)}
   // dog den: downed dogs fade away, new ones crawl out
   dogTimer+=dt;
@@ -473,6 +507,9 @@ function drawUnit(u){
   if(isSel){const pulse=1+Math.sin(performance.now()/220)*.06;ctx.strokeStyle='#eaa93a';ctx.lineWidth=2*z;ell(s.x,s.y,15*z*pulse,7.5*z*pulse);ctx.stroke()}
   if(u.team!=='a'&&u.aggro&&!u.down){ctx.strokeStyle='rgba(214,91,65,.7)';ctx.lineWidth=1.5*z;ell(s.x,s.y,13*z,6.5*z);ctx.stroke()}
   if(u.kind==='dog'){drawDog(u,s,z);return}
+  if(u.dead){ctx.globalAlpha=.75;ctx.fillStyle='#5d5045';ell(s.x-2*z,s.y-3*z,10*z,4*z);ctx.fill();ctx.fillStyle='#8a7a68';ell(s.x+10*z,s.y-4*z,4.5*z,4*z);ctx.fill();
+    ctx.fillStyle='rgba(120,20,10,.45)';ell(s.x+2*z,s.y,14*z,5*z);ctx.fill();ctx.globalAlpha=1;
+    if(u.team==='a'){ctx.fillStyle='#ff7a5c';ctx.font=`700 ${9*z}px "Noto Sans HK",sans-serif`;ctx.textAlign='center';ctx.fillText('亡',s.x,s.y-14*z)}return}
   if(u.down){
     ctx.fillStyle=u.color;ell(s.x-2*z,s.y-3*z,10*z,4*z);ctx.fill();
     ctx.fillStyle='#d6ad84';ell(s.x+10*z,s.y-4*z,4.5*z,4*z);ctx.fill();
@@ -482,10 +519,12 @@ function drawUnit(u){
   const crawl=ratio(u,'legs')<=0;
   const bob=u.moving?Math.abs(Math.sin(simT*11+u.id*20))*-2:0;
   const k=z,x=s.x+u.lunge*5*u.face*k,y=s.y+bob*k+(crawl?8*k:0);
-  if(!crawl){ctx.fillStyle='#2b2118';ctx.fillRect(x-4*k,y-9*k,3*k,9*k);ctx.fillRect(x+1*k,y-9*k,3*k,9*k)}
+  if(u.bleed>.15&&Math.random()<u.bleed*.08)fx.drops.push({x:u.x,y:u.y,t:0});
+  if(!crawl){ctx.fillStyle=u.p.legs.pros?'#8d9aa3':'#2b2118';ctx.fillRect(x-4*k,y-9*k,3*k,9*k);ctx.fillRect(x+1*k,y-9*k,3*k,9*k)}
   ctx.save();rr(x-6.5*k,y-23*k,13*k,15*k,3.5*k);ctx.fillStyle=u.color;ctx.fill();ctx.clip();
   ctx.fillStyle='rgba(0,0,0,.2)';ctx.fillRect(x+(u.face>0?-6.5:0)*k,y-23*k,6.5*k,15*k);ctx.restore();
   // crippled limbs get a red bandage band
+  if(u.p.larm.pros||u.p.rarm.pros){ctx.fillStyle='#a9b7c0';ctx.fillRect(x+(u.p.rarm.pros?-6.5:3)*k*u.face,y-22*k,3.5*k,12*k)}
   if(ratio(u,'larm')<=0||ratio(u,'rarm')<=0){ctx.fillStyle='#c9442e';ctx.fillRect(x-6.5*k,y-18*k,13*k,2.2*k)}
   ctx.fillStyle='#d6ad84';ell(x,y-28*k,5.6*k,5.6*k);ctx.fill();
   ctx.fillStyle=u.team==='e'?'#7e2416':u.color;ctx.fillRect(x-5.6*k,y-31.5*k,11.2*k,2.6*k);
@@ -529,6 +568,7 @@ function render(){
   list.sort((a,b)=>a.d-b.d).forEach(o=>o.f());
   for(const s of fx.shots){const a=scr(s.a.x,s.a.y,18),b=scr(s.b.x,s.b.y,18),k=s.t/.18;
     ctx.strokeStyle='#f6e2b0';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(a.x+(b.x-a.x)*k*.6,a.y+(b.y-a.y)*k*.6);ctx.lineTo(a.x+(b.x-a.x)*Math.min(1,k+.4),a.y+(b.y-a.y)*Math.min(1,k+.4));ctx.stroke()}
+  fx.drops=fx.drops.filter(d=>(d.t+=1/60)<.6);for(const d of fx.drops){const s=scr(d.x,d.y,22-d.t*30);ctx.fillStyle=`rgba(190,30,20,${1-d.t/.6})`;ell(s.x+3*cam.z,s.y,1.6*cam.z,2.4*cam.z);ctx.fill()}
   ctx.textAlign='center';
   for(const f of fx.floats){const life=f.big?1.8:1.1;const s=scr(f.x,f.y,44+f.t*(f.big?16:24)+(f.big?14:0));ctx.globalAlpha=Math.min(1,(life-f.t)*2);
     ctx.font=`${f.big?800:700} ${(f.big?13:11.5)*Math.max(.85,cam.z)}px "Chakra Petch","Noto Sans HK",sans-serif`;
@@ -585,7 +625,7 @@ cv.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.clientX,e.clientY,ca
 function finishBox(){
   const x0=Math.min(box.x0,box.x1),x1=Math.max(box.x0,box.x1),y0=Math.min(box.y0,box.y1),y1=Math.max(box.y0,box.y1);
   if(x1-x0<6&&y1-y0<6){tap(box.x0,box.y0);return}
-  const hit=allies().filter(u=>{const s=scr(u.x,u.y,12);return s.x>=x0&&s.x<=x1&&s.y>=y0&&s.y<=y1});
+  const hit=allies().filter(u=>!u.dead).filter(u=>{const s=scr(u.x,u.y,12);return s.x>=x0&&s.x<=x1&&s.y>=y0&&s.y<=y1});
   if(hit.length){sel.clear();hit.forEach(u=>sel.add(u));toast(`框選咗 ${hit.length} 個隊友`)}else toast('個框入面冇隊友');
   updatePortraits(true);
 }
@@ -613,6 +653,7 @@ function tap(sx,sy){
 
 /* ---------- HUD ---------- */
 const partColor=r=>r<=0?'#6b5b4a':r<.3?'#d8553d':r<.6?'#e5a23c':'#8fc56e';
+function partCol(u,k){const p=u.p[k];if(p.lost)return '#4a1a12';const r=ratio(u,k);if(p.pros&&r>.3)return '#9fb0bb';return partColor(r)}
 const sq=$('#squad');const pEls=new Map();
 allies().forEach(u=>{
   const b=document.createElement('button');b.className='pt';b.setAttribute('aria-label',u.name);
@@ -623,7 +664,7 @@ allies().forEach(u=>{
     else{const already=sel.size===1&&sel.has(u);sel.clear();sel.add(u);last=now;
       if(already)cardT=setTimeout(()=>openCard(u),340)}
     updatePortraits(true)});
-  sq.appendChild(b);pEls.set(u,{b,hp:b.querySelector('.hp i'),pips:[...b.querySelectorAll('.pips i')],st:b.querySelector('.st'),cam:null,up:null});
+  sq.appendChild(b);pEls.set(u,{b,hp:b.querySelector('.hp i'),pips:[...b.querySelectorAll('.pips i')],nm:b.querySelector('.nm'),st:b.querySelector('.st'),cam:null,up:null});
 });
 let lastHud=0;
 function updatePortraits(force){
@@ -631,9 +672,9 @@ function updatePortraits(force){
   pEls.forEach((e,u)=>{
     e.b.classList.toggle('sel',sel.has(u));e.b.classList.toggle('down',u.down);
     const p=pct(u);e.hp.style.width=(p*100).toFixed(1)+'%';e.hp.style.background=p<.3?'#e5813c':'#8fc56e';
-    PARTS.forEach(([k],i)=>e.pips[i].style.background=partColor(ratio(u,k)));
+    PARTS.forEach(([k],i)=>e.pips[i].style.background=partCol(u,k));
     const q=u.cmd.length>1?` · 排隊 ${u.cmd.length}`:'';
-    e.st.textContent=(u.down?`倒地 ${Math.ceil(u.downT)}s`:u.state)+q;
+    e.st.textContent=(u.dead?'陣亡':u.down?`倒地 ${Math.ceil(u.downT)}s`:u.state)+(u.bleed>.15&&!u.dead?' · 流血':'')+q;e.nm.textContent=u.name;
     const f=cam.follow===u;
     if(f&&!e.cam){e.cam=document.createElement('span');e.cam.className='cam';e.cam.textContent='鏡頭';e.b.appendChild(e.cam)}
     if(!f&&e.cam){e.cam.remove();e.cam=null}
@@ -641,6 +682,7 @@ function updatePortraits(force){
     if(up&&!e.up){e.up=document.createElement('span');e.up.className='up';e.up.textContent='升級';e.b.appendChild(e.up)}
     if(!up&&e.up){e.up.remove();e.up=null}
   });
+  scrapTxt.textContent='零件 '+scrap;
   if(!charSheet.hidden&&cardUnit)fillCard();
 }
 
@@ -655,21 +697,45 @@ function openCard(u){cardUnit=u||[...sel][0]||allies()[0];buildCard();charSheet.
 function buildCard(){allies().forEach(a=>a.tab.setAttribute('aria-selected',a===cardUnit));fillCard()}
 function fillCard(){
   const u=cardUnit;$('#chName').textContent=`${u.name} · ${u.role}`;
-  const notes=[];if(u.down)notes.push(`倒地中，${Math.ceil(u.downT)} 秒後自己爬起身`);
-  if(ratio(u,'legs')<=0)notes.push('腳殘廢，只可以爬');else if(ratio(u,'legs')<.6)notes.push(`腳傷，速度 ${Math.round(legMul(u)*100)}%`);
-  if(ratio(u,'rarm')<=0)notes.push('右手殘廢，攻擊大減');if(ratio(u,'larm')<=0)notes.push('左手殘廢');
+  u.tab.lastChild.textContent=u.name;
+  const notes=[];if(u.dead)notes.push('已陣亡 · 可以喺戰術頁招募新人補位');else if(u.down)notes.push(`倒地中，${Math.ceil(u.downT)} 秒後自己爬起身`);
+  if(u.bleed>.05&&!u.dead)notes.push(`流血中，每秒 −${u.bleed.toFixed(1)}`);
+  PARTS.forEach(([k,l])=>{if(u.p[k].lost)notes.push(`${l}斷咗`)});
+  if(u.p.legs.lost);else if(ratio(u,'legs')<=0)notes.push('腳殘廢，只可以爬');else if(ratio(u,'legs')<.6)notes.push(`腳傷，速度 ${Math.round(legMul(u)*100)}%`);
+  if(!u.p.rarm.lost&&ratio(u,'rarm')<=0)notes.push('右手殘廢，攻擊大減');if(!u.p.larm.lost&&ratio(u,'larm')<=0)notes.push('左手殘廢');
   $('#chSub').textContent=notes.length?notes.join(' · '):`狀態：${u.state} · 整體 ${Math.round(pct(u)*100)}%`;
-  PARTS.forEach(([k])=>{const p=u.p[k],r=ratio(u,k),c=partColor(r);
-    $('#bp_'+k).setAttribute('fill',c);const bar=$('#pb_'+k);bar.style.width=(r*100).toFixed(0)+'%';bar.style.background=c;
-    const v=$('#pv_'+k);if(p.hp<=0){v.textContent='殘廢';v.classList.add('cr')}else{v.textContent=`${Math.ceil(p.hp)} / ${p.max}`;v.classList.remove('cr')}});
+  PARTS.forEach(([k])=>{const p=u.p[k],r=ratio(u,k),c=partCol(u,k);const el=$('#bp_'+k);
+    el.setAttribute('fill',p.lost?'transparent':c);el.style.strokeDasharray=p.lost?'4 3':'';el.style.stroke=p.lost?'#d8553d':p.pros?'#dfe6ea':'';
+    const bar=$('#pb_'+k);bar.style.width=(r*100).toFixed(0)+'%';bar.style.background=c;
+    const v=$('#pv_'+k);if(p.lost){v.textContent='斷咗';v.classList.add('cr')}else if(p.hp<=0){v.textContent=p.pros?'義肢壞咗':'殘廢';v.classList.add('cr')}
+    else{v.textContent=(p.pros?'義 ':'')+`${Math.ceil(p.hp)} / ${p.max}`;v.classList.remove('cr')}});
+  fillWorkshop(u);
   SKILLS.forEach(([k])=>{const s=u.sk[k];$('#sl_'+k).textContent='Lv '+s.lv;$('#sx_'+k).style.width=(s.lv>=100?100:s.xp/need(s.lv)*100).toFixed(1)+'%';
     $('#se_'+k).textContent=effText(k,s.lv);$('#sk_'+k).classList.toggle('flash',u.flash>0&&u.flashSkill===k)});
 }
+const workshop=$('#workshop');let wsSig='';
+function inDanger(u){return hostiles(u).some(h=>dist(h,u)<6)}
+function fillWorkshop(u){
+  $('#wsTitle').textContent=`義肢工場 · 零件 ${scrap}`;
+  const busy=u.dead?'dead':u.down?'down':inDanger(u)?'danger':'';
+  const rows=[];PARTS.forEach(([k,l])=>{const p=u.p[k];
+    if(p.lost)rows.push({k,l,type:'lost'});else if(p.pros&&p.hp<p.max)rows.push({k,l,type:'fix',cost:Math.max(1,Math.ceil((p.max-Math.max(0,p.hp))/10))})});
+  const sig=u.id+'|'+scrap+'|'+busy+'|'+rows.map(r=>r.k+r.type+(r.cost||'')).join(',');if(sig===wsSig)return;wsSig=sig;
+  if(!rows.length){workshop.innerHTML='<li><span class="empty">冇斷肢，亦冇義肢要修。手腳被打到好深嘅負數先會斷。</span></li>';return}
+  const why=busy==='dead'?'已陣亡':busy==='down'?'倒地中做唔到手術':busy==='danger'?'附近有敵人，做唔到手術':'';
+  workshop.innerHTML=rows.map(r=>r.type==='lost'
+    ?`<li><b>${r.l}斷咗${why?' · '+why:''}</b><div class="opts">${Object.entries(PROS).map(([pk,d])=>`<button data-k="${r.k}" data-p="${pk}" ${busy||scrap<d.cost?'disabled':''}>裝${d.name}（${d.cost} 零件）<small>${d.note}</small></button>`).join('')}</div></li>`
+    :`<li><b>${r.l}${PROS[u.p[r.k].pros].name}損壞${why?' · '+why:''}</b><div class="opts"><button data-k="${r.k}" data-fix="1" ${busy||scrap<r.cost?'disabled':''}>用維修工具修理（${r.cost} 零件）<small>義肢唔識自己好，包紮都冇用</small></button></div></li>`).join('');
+}
+workshop.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled||!cardUnit)return;const u=cardUnit,p=u.p[b.dataset.k];
+  if(b.dataset.fix){const c=Math.max(1,Math.ceil((p.max-Math.max(0,p.hp))/10));scrap-=c;p.hp=p.max;toast('義肢修好咗')}
+  else{const d=PROS[b.dataset.p];scrap-=d.cost;p.lost=false;p.pros=b.dataset.p;p.max=Math.round(p.base*d.hp);p.hp=p.max;toast(`${u.name} 裝咗${d.name}`)}
+  wsSig='';updatePortraits(true)});
 $('#bChar').addEventListener('click',()=>openCard());
 $('#bCharClose').addEventListener('click',()=>charSheet.hidden=true);
 charSheet.addEventListener('click',e=>{if(e.target===charSheet)charSheet.hidden=true});
 
-const status=$('#status'),statusTxt=$('#statusTxt'),banner=$('#banner'),bPause=$('#bPause');
+const scrapTxt=$('#scrapTxt'),status=$('#status'),statusTxt=$('#statusTxt'),banner=$('#banner'),bPause=$('#bPause');
 const ICON_PAUSE='<rect x="5" y="4" width="5" height="16" rx="1.5"/><rect x="14" y="4" width="5" height="16" rx="1.5"/>',ICON_PLAY='<path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z"/>';
 function refreshStatus(){
   status.classList.toggle('paused',paused);status.classList.toggle('slow',!paused&&speed<1);
@@ -708,14 +774,20 @@ function syncSheet(){
 $('#bTac').addEventListener('click',()=>{syncSheet();sheet.hidden=false});
 $('#bClose').addEventListener('click',()=>sheet.hidden=true);
 sheet.addEventListener('click',e=>{if(e.target===sheet)sheet.hidden=true});
+$('#optHard').addEventListener('change',e=>{hardcore=e.target.checked;toast(hardcore?'硬派模式：會斷肢、會陣亡':'休閒模式：最多只會倒地')});
+const RECRUITS=['阿明','大隻','細妹','老鬼','阿九','肥仔','阿珍','火水'];let recruitN=0;
+$('#bRecruit').addEventListener('click',()=>{const dead=allies().filter(u=>u.dead);if(!dead.length){toast('冇人陣亡，唔使補位');return}
+  dead.forEach(u=>{u.name=RECRUITS[recruitN++%RECRUITS.length];u.role='新人';u.dead=false;u.down=false;u.bleed=0;u.cmd=[];u.looted=false;
+    u.p=mkParts(u.base);u.sk=mkSkills({});u.x=7.5+Math.random();u.y=8.5+Math.random();float(u,'新人報到','#a9e08a',true)});
+  sheet.hidden=true;wsSig='';updatePortraits(true);toast(`招咗 ${dead.length} 個新人，全部技能 Lv1`)});
 $('#optAll').addEventListener('change',e=>{applyAll=e.target.checked;syncSheet()});
 $('#optAuto').addEventListener('change',e=>{autoPause=e.target.checked});
 $('#bWave').addEventListener('click',()=>{spawnWave();sheet.hidden=true;toast(`第 ${wave} 波流寇出現咗（每波都強啲）`)});
 $('#bHelp2').addEventListener('click',()=>{sheet.hidden=true;help.hidden=false});
 const help=$('#help');
-let seen=false;try{seen=localStorage.getItem('wl_help3')==='1'}catch(e){}
+let seen=false;try{seen=localStorage.getItem('wl_help4')==='1'}catch(e){}
 if(seen)help.hidden=true;
-$('#bStart').addEventListener('click',()=>{help.hidden=true;try{localStorage.setItem('wl_help3','1')}catch(e){}});
+$('#bStart').addEventListener('click',()=>{help.hidden=true;try{localStorage.setItem('wl_help4','1')}catch(e){}});
 
 /* ---------- loop ---------- */
 let lt=performance.now();
