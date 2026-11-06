@@ -1,0 +1,4 @@
+.godot/
+qa/*.log
+qa/*.png
+qa/*.png.import
