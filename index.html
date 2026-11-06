@@ -49,7 +49,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   padding:7px 12px;font-size:12.5px;font-weight:600;white-space:nowrap;max-width:calc(100vw - 32px);overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 
 .journey{position:fixed;top:calc(env(safe-area-inset-top,0px) + 112px);left:16px;right:16px;text-align:center;color:#ead8ac;font-size:12px;line-height:1.5;text-shadow:0 1px 3px #17120d;pointer-events:none}
-.bottom{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;align-items:stretch;
+.bottom{position:fixed;left:0;right:0;bottom:0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;
   padding-top:22px;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 10px);
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
   background:linear-gradient(rgba(23,18,13,0),rgba(23,18,13,.85) 40%);pointer-events:none}
@@ -72,8 +72,8 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .actions button{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:0 12px;font-weight:700;font-size:12.5px;min-height:32px}
 .actions .tac{border-color:var(--ally);color:var(--ally)}
 
-.ctx{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 128px);display:flex;flex-direction:column;gap:6px;align-items:flex-end}
-.ctx button{background:var(--panel2);border:1px solid var(--accent);color:var(--accent);border-radius:999px;padding:8px 14px;font-weight:700;font-size:13px}
+.ctx{grid-column:1/-1;display:flex;flex-direction:column;gap:6px;align-items:flex-end;max-height:24vh;overflow-y:auto}.ctx:empty{display:none}
+.ctx button{background:var(--panel2);border:1px solid var(--accent);color:var(--accent);border-radius:999px;padding:8px 14px;font-weight:700;font-size:13px;max-width:100%;min-height:40px;flex-shrink:0}
 
 .cmenu{position:fixed;z-index:20;min-width:170px;max-width:calc(100vw - 32px);background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:4px}
 .cmenu .t{font-size:12px;color:var(--muted);padding:4px 8px 2px}
@@ -181,13 +181,12 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 <div id="banner" class="banner" hidden>已暫停 · 依家落嘅指令會排隊，撳 ▶ 一齊執行</div>
 <div id="journey" class="journey"></div>
 
-<div class="ctx" id="ctx"></div>
 <div class="cmenu" id="cmenu" hidden></div>
 
 <footer class="bottom">
+  <div class="ctx" id="ctx"></div>
   <div class="squad" id="squad"></div>
   <div class="actions">
-    <button id="bTravel">山道</button>
     <button id="bAll">全選</button>
     <button id="bChar">角色</button>
     <button id="bTac" class="tac">戰術</button>
@@ -293,7 +292,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     <p class="sub">戰亂中，你帶住 4 個浪人同 100 文嚟到青葉村。村內有宿屋、商人同足輕；村外荒寺有遺留物資，亦有野武士。木鐵機關肢可以代替斷咗嘅手腳。</p>
     <dl class="gest">
       <dt>單指拖</dt><dd>移動鏡頭；兩指捏縮放</dd>
-      <dt>山道</dt><dd>揀出發隊友，集合到出口，再切換地區。交戰時走唔到；倒地同伴要揹住。留守隊友同其他地區會暫停。</dd>
+      <dt>山道</dt><dd>點地圖路牌揀目的地，已選隊友會集合後自動出發。追兵可能跟過區，可引去村中足輕附近；傷者要先揹起。點路牌可以取消出發，手動落新指令亦會取消。留守隊友同其他地區會暫停。</dd>
       <dt>長按再拖</dt><dd>框選隊友；或者開右上「框選」掣</dd>
       <dt>點一下</dt><dd>點隊友揀佢 · 點地面行過去 · 點敵人攻擊</dd>
       <dt>點倒地嘅人</dt><dd>彈出選單：執嘢，或者揹起佢</dd>
@@ -304,7 +303,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
       <dt>角色</dt><dd>傷勢、義肢、裝備、背包同技能</dd>
       <dt>❚❚ 暫停</dt><dd>暫停時連續落指令會排隊</dd>
     </dl>
-    <p class="note">第一趟行腳：按「山道」去荒寺，搜查遺留箱，帶飯糰、藥包同舊寺銅印返村。銅印可以賣錢；箱內物資唔會因為離開或讀檔而補滿。</p>
+    <p class="note">第一趟行腳：點路牌去荒寺，搜查遺留箱，帶飯糰、藥包同舊寺銅印返村。銅印可以賣錢；箱內物資唔會因為離開或讀檔而補滿。</p>
     <p class="note">遊戲會自動保存兩個地區。包紮要用藥包；重傷可以租床（每人 10 文）。舊版角色會帶住原有進度喺青葉村繼續。</p>
     <p class="note">倒地唔再係計時：要等頭同身慢慢回復先醒，流緊血就唔會回復，冇人止血會死。野犬會咬倒地嘅人，野武士有機會補刀。敵人倒地一陣都會醒返。</p>
     <p class="note">青葉村對你係中立。交懸賞會加關係，攻擊足輕會即刻變敵對。友好時買嘢有折扣。掉低嘅嘢會留喺地上 5 分鐘。</p>
@@ -314,16 +313,16 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   </div>
 </div>
 
-<script src="js/core.js?v=sengoku-1"></script>
-<script src="js/data.js?v=sengoku-1"></script>
-<script src="js/world.js?v=sengoku-1"></script>
-<script src="js/sim.js?v=sengoku-1"></script>
-<script src="js/areas.js?v=sengoku-1"></script>
-<script src="js/render.js?v=sengoku-1"></script>
-<script src="js/input.js?v=sengoku-1"></script>
-<script src="js/ui.js?v=sengoku-1"></script>
-<script src="js/save.js?v=sengoku-1"></script>
-<script src="js/main.js?v=sengoku-1"></script>
+<script src="js/core.js?v=sengoku-2"></script>
+<script src="js/data.js?v=sengoku-2"></script>
+<script src="js/world.js?v=sengoku-2"></script>
+<script src="js/sim.js?v=sengoku-2"></script>
+<script src="js/areas.js?v=sengoku-2"></script>
+<script src="js/render.js?v=sengoku-2"></script>
+<script src="js/input.js?v=sengoku-2"></script>
+<script src="js/ui.js?v=sengoku-2"></script>
+<script src="js/save.js?v=sengoku-2"></script>
+<script src="js/main.js?v=sengoku-2"></script>
 
 </body>
 </html>

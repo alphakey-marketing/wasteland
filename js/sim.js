@@ -153,7 +153,7 @@ function treat(healer,pat,dt){
   let worst=null,wr=2;for(const [k] of PARTS){const q=pat.p[k];if(q.lost||q.pros)continue;const r=q.hp/q.max;if(r<1&&r<wr){wr=r;worst=k}}
   if(!worst)return false;const p=pat.p[worst],amt=Math.min(p.max-p.hp,healRate(healer)*dt);p.hp+=amt;useKit(healer,amt);train(healer,'aid',1.2*dt);return true;
 }
-function getUp(u,f){if(u.dead)return;if(u.carriedBy)drop(u.carriedBy);u.down=false;['head','torso'].forEach(k=>{u.p[k].hp=Math.max(u.p[k].hp,u.p[k].max*f)})}
+function getUp(u,f){if(u.dead||u.carriedBy)return;u.down=false;['head','torso'].forEach(k=>{u.p[k].hp=Math.max(u.p[k].hp,u.p[k].max*f)})}
 function recov(u){return clamp(Math.min(u.p.head.hp/(u.p.head.max*.1),u.p.torso.hp/(u.p.torso.max*.1)),0,1)}
 function hurt(u){return u.bleed>0||PARTS.some(([k])=>{const q=u.p[k];return !q.lost&&!q.pros&&q.hp<q.max})}
 
@@ -163,7 +163,8 @@ function runCmd(u,dt,ne,nd){
     case 'move':{u.state=forced||'移動';let mul=1;
       if(c.grp){const sp=m=>m.spd*legMul(m)*encMul(m);const act=c.grp.filter(m=>!m.down&&m.cmd[0]&&m.cmd[0].grp===c.grp);
         if(act.length>1){const slow=Math.min(...act.map(sp));mul=slow/sp(u);if(mul<.98)u.state=(forced||'移動')+' · 等隊友'}}
-      if(step(u,c.x,c.y,dt,mul))u.cmd.shift();break}
+      if(c.travel){u.state=dist(u,c)<.4?'出口等隊友':'前往出口';if(dist(u,c)>=.4)steer(u,c,dt,[],mul)}
+      else if(step(u,c.x,c.y,dt,mul))u.cmd.shift();break}
     case 'follow':{const L=c.u;if(L.dead){u.cmd.shift();break}
       if(u.rules.fight&&ne&&nd<6&&!u.carry){u.state='見敵就打';engage(u,ne,dt);break}
       u.state='跟住'+L.name;if(dist(u,L)>1.3)step(u,L.x,L.y,dt);break}
@@ -198,32 +199,62 @@ function runCmd(u,dt,ne,nd){
     case 'carry':if(c.body.carriedBy||!c.body.down||u.carry){u.cmd.shift();break}if(dist(u,c.body)>.9){u.state='去揹人';step(u,c.body.x,c.body.y,dt)}else{u.cmd.shift();pickUp(u,c.body)}break;
   }
 }
+// Sample short clear headings; avoid walking into props or map edges.
+function steer(u,goal,dt,threats=[],mul=1){
+  const heading=Math.atan2(goal.y-u.y,goal.x-u.x);let best=null,score=-Infinity;
+  for(const turn of [0,.45,-.45,.9,-.9,1.5,-1.5,2.2,-2.2,Math.PI]){
+    const a=heading+turn,p={x:u.x+Math.cos(a)*.85,y:u.y+Math.sin(a)*.85};
+    if(p.x<.6||p.y<.6||p.x>MAP-.6||p.y>MAP-.6)continue;
+    if(props.some(o=>!o.bed&&[.25,.5,.85].some(r=>dist({x:u.x+Math.cos(a)*r,y:u.y+Math.sin(a)*r},o)<o.s*.62+.25)))continue;
+    const safety=threats.length?Math.min(...threats.map(e=>dist(p,e))):0;
+    const s=safety*2.5-dist(p,goal)*.65-Math.abs(turn)*.08;
+    if(s>score){score=s;best=p}
+  }
+  if(best)step(u,best.x,best.y,dt,mul);return !!best;
+}
+function retreat(u,dt,hs,ne,nd){
+  const safe=nd>7;
+  if(safe&&(pct(u)>.6||!hurt(u))&&ratio(u,'head')>.6&&ratio(u,'torso')>.6){u.retreating=false;return false}
+  u.state=safe?'撤退 · 安全休養':'重傷撤退';
+  if(safe){if(hurt(u)&&canTreat(u,u))treat(u,u,dt);return true}
+  const friends=allies().filter(a=>a!==u&&!a.down&&pct(a)>.6&&dist(a,ne)>dist(u,ne)+1);
+  const goal=nearest(friends,u)||AREAS[activeArea].gate;
+  const moved=steer(u,goal,dt,hs);
+  // One close defensive swing, never engage/chase during retreat.
+  if(ne&&!u.carry&&nd<=Math.min(range(u),1.1)&&u.cd<=0&&(!moved||nd<.85)){u.state='撤退 · 自衛';attack(u,ne)}
+  return true;
+}
 function updAlly(u,dt){
   u.flash=Math.max(0,u.flash-dt);
   u.forceT=Math.max(0,u.forceT-dt);u.interruptT=Math.max(0,(u.interruptT||0)-dt);if(u.cmd.length&&u.forceT>0)u.forceT=3;
   if(u.dead){u.state='陣亡';return}
   if(u.down){u.state=u.carriedBy?'俾人揹緊':u.bleed>0?'倒地流血':'倒地';return}
   const hs=hostiles(u);const ne=nearest(hs,u);const nd=ne?dist(u,ne):99;
-  if(u.rules.flee&&!(u.forceT>0)&&(pct(u)<.3||ratio(u,'torso')<.3||ratio(u,'head')<.35)&&nd<5){u.state='逃跑';const dx=u.x-ne.x,dy=u.y-ne.y,d=Math.hypot(dx,dy)||1;step(u,u.x+dx/d*2,u.y+dy/d*2,dt,1.15);return}
+  if(u.cmd.length){runCmd(u,dt,ne,nd);return}
+  if(!u.rules.flee)u.retreating=false;
+  if(u.rules.flee&&nd<6&&(pct(u)<.4||ratio(u,'torso')<.4||ratio(u,'head')<.4))u.retreating=true;
+  if(u.retreating&&retreat(u,dt,hs,ne,nd))return;
   if(u.rules.rescue&&!u.carry){
-    const da=nearest(allies().filter(a=>a.down&&!a.dead&&a!==u),u);
+    const da=nearest(allies().filter(a=>a.down&&!a.dead&&!a.carriedBy&&a!==u),u);
     if(da&&dist(u,da)<12){u.state='救人';if(dist(u,da)>.7){u.rescueT=0;step(u,da.x,da.y,dt)}else{u.rescueT+=dt;da.bleed=Math.max(0,da.bleed-2*dt);train(u,'aid',1.5*dt);
       if(u.rescueT>=2.5/(1+u.sk.aid.lv*.03)){getUp(da,.3);da.bleed=0;u.rescueT=0;float(da,'救返起身','#a9e08a')}}return}
     u.rescueT=0;
     if(nd>6&&!u.cmd.length){const pat=nearest(allies().filter(a=>a!==u&&!a.down&&hurt(a)&&canTreat(u,a)&&(a.bleed>0||pct(a)<.85)&&dist(u,a)<10),u);
       if(pat){u.state='醫'+pat.name;if(dist(u,pat)>.8)step(u,pat.x,pat.y,dt);else treat(u,pat,dt);return}}
   }
-  if(u.cmd.length){runCmd(u,dt,ne,nd);return}
   if(u.rules.fight&&ne&&nd<6&&!u.carry){u.state='見敵就打';engage(u,ne,dt);return}
   if(hurt(u)&&nd>6&&!u.carry&&canTreat(u,u)){u.state='包紮緊';treat(u,u,dt);return}
   u.state=u.carry?'揹緊'+u.carry.name:ratio(u,'legs')<=0?'爬行中':encMul(u)<1?'負重過重':'待命';
 }
 function updOther(u,dt){
   if(u.team==='n'||u.down)return;
-  let t=u.lastHit&&!u.lastHit.down&&dist(u,u.lastHit)<u.leash?u.lastHit:null;
+  const pursued=units.find(a=>a.id===u.pursuitId&&!a.down&&hostile(u,a));
+  if(pursued&&dist(u,pursued)<10){u.home={x:pursued.x,y:pursued.y};u.aggro=true}else u.pursuitId=null;
+  const leash=u.pursuitId?10:u.leash;
+  let t=u.lastHit&&!u.lastHit.down&&dist(u,u.lastHit)<leash?u.lastHit:null;
   if(!t)t=nearest(hostiles(u),u);const d=t?dist(u,t):99;
   if(!u.aggro&&d<u.aggroR)u.aggro=true;
-  if(u.aggro&&t&&d<u.leash&&dist(t,u.home)<u.leash+3){u.state='戰鬥';engage(u,t,dt);return}
+  if(u.aggro&&t&&d<leash&&dist(t,u.home)<leash+3){u.state='戰鬥';engage(u,t,dt);return}
   if(u.victim&&(u.victim.dead||!u.victim.down||u.victim.carriedBy))u.victim=null;
   if(!u.victim&&hardcore&&(u.team==='w'||u.team==='e')){u.rolled=u.rolled||{};
     for(const o of units){if(o.team!=='a'||!o.down||o.dead||o.carriedBy||dist(o,u)>(u.team==='w'?3:4))continue;
@@ -256,6 +287,7 @@ function updScav(u,dt){
   u.state='執緊嘢';u.lootT=(u.lootT||0)+dt;
   if(u.lootT>2){u.lootT=0;u.taken=(u.taken||0)+1;let n=0;
     if(g.eq.weapon){u.pack.push({id:g.eq.weapon,n:1});g.eq.weapon=null;n++}if(g.eq.armor){u.pack.push({id:g.eq.armor,n:1});g.eq.armor=null;n++}
+    if(g.kind==='dog'&&!g.dead&&g.pack.some(x=>x.id==='hide'||x.id==='meat'))kill(g);
     g.pack.forEach(x=>{u.pack.push({id:x.id,n:x.n});n++});g.pack.length=0;
     if(n)float(u,`執走咗 ${n} 樣嘢`,'#d9d29a');u.goal=null}
 }
@@ -290,7 +322,7 @@ function simulate(dt){
     if(!hardcore)u.p.torso.hp=Math.max(-u.p.torso.max*.5,u.p.torso.hp);checkWounds(u,'torso','身')}
   for(const u of units){if(!u.down||u.dead||u.bleed>0)continue;const r=.6+u.sk.tough.lv*.03;
     ['head','torso'].forEach(k=>{u.p[k].hp=Math.min(u.p[k].max,u.p[k].hp+r*dt)});
-    if(recov(u)>=1){getUp(u,0);float(u,u.team==='a'?'自己爬起身':'醒返','#a9e08a');u.victim=null;if(u.team!=='a'){u.aggro=false;u.lastHit=null}}}
+    if(recov(u)>=1&&!u.carriedBy){getUp(u,0);float(u,u.team==='a'?'自己爬起身':'醒返','#a9e08a');u.victim=null;if(u.team!=='a'){u.aggro=false;u.lastHit=null}}}
   piles=piles.filter(p=>p.permanent||(p.pack.length&&simT-p.t<300));
   if(repTown<0)repTown=Math.min(0,repTown+dt/30);
   for(const u of units){u.moving=false;u.cd=Math.max(0,u.cd-dt);u.lunge=Math.max(0,u.lunge-dt*5);if(u.carriedBy)continue;if(u.team==='a')updAlly(u,dt);else if(u.kind==='caravan')updCaravan(u,dt);else if(u.kind==='scav')updScav(u,dt);else{if(u.kind==='cguard'&&u.leader&&!u.leader.down)u.home={x:u.leader.x,y:u.leader.y};updOther(u,dt)}}
@@ -310,5 +342,6 @@ function simulate(dt){
   fx.shots.forEach(f=>f.t+=dt);fx.shots=fx.shots.filter(f=>f.t<.18);
   if(autoPause&&!alerted&&bandits().some(e=>!e.down&&allies().some(a=>!a.down&&dist(a,e)<e.aggroR))){alerted=true;setPaused(true);toast('發現野武士 · 已自動暫停，慢慢落指令')}
   if(!cleared&&bandits().length&&bandits().every(e=>e.down)){cleared=true;toast('野武士全部倒地 · 記得執嘢，頭目有懸賞')}
+  updateTravel();
 }
 

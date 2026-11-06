@@ -23,16 +23,32 @@ function activateArea(id){
 activateArea('village');
 function allSquad(){return [...units,...Object.entries(areaStates).filter(([id])=>id!==activeArea).flatMap(([,a])=>a.units)].filter(u=>u.team==='a')}
 function travelParty(){const party=new Set([...sel].filter(u=>units.includes(u)&&u.team==='a'&&!u.dead&&!u.down));for(const u of party)if(u.carry)party.add(u.carry);return [...party]}
-function travelArea(){
-  const party=travelParty(),walkers=party.filter(u=>!u.carriedBy),gate=AREAS[activeArea].gate;
+let pendingTravel=null;
+function cancelTravel(notify=true){if(!pendingTravel)return;for(const u of pendingTravel.party)u.cmd=u.cmd.filter(c=>!c.travel);pendingTravel=null;if(notify)toast('已取消出發')}
+function startTravel(){
+  cancelTravel(false);const party=travelParty(),walkers=party.filter(u=>!u.carriedBy),gate=AREAS[activeArea].gate;
+  if(!walkers.length){toast('先揀可以行動嘅隊友；傷者要先揹起');return}
+  pendingTravel={area:activeArea,party};
+  walkers.forEach((u,i)=>{const f=formation(walkers.length,i);u.cmd=[{t:'move',x:gate.x+f.dx*.5,y:gate.y+f.dy*.5,travel:true}]});
+  hideMenu();toast('集合到路牌後自動出發；追兵可能跟過嚟');updateTravel();
+}
+function updateTravel(){
+  if(!pendingTravel)return;const {area,party}=pendingTravel;
+  if(area!==activeArea||party.some(u=>!units.includes(u)||(!u.carriedBy&&(u.dead||u.down))||(u.carry&&!party.includes(u.carry)))||party.some(u=>u.carriedBy&&!party.includes(u.carriedBy))){cancelTravel();return}
+  if(party.filter(u=>!u.carriedBy).every(u=>dist(u,AREAS[area].gate)<=1.3))travelArea(party);
+}
+function travelArea(party=travelParty()){
+  const walkers=party.filter(u=>!u.carriedBy),gate=AREAS[activeArea].gate;
   if(!walkers.length){toast('先揀可以出發嘅隊友；倒地同伴要有人揹');return false}
-  if(walkers.some(u=>hostiles(u).some(h=>dist(h,u)<6))){toast('附近有敵人，先脫離戰鬥再走山道');return false}
   if(walkers.some(u=>dist(u,gate)>2.4)){toast('先叫出發隊友集合到山道口');return false}
+  const pursuers=units.filter(u=>u.team!=='g'&&!u.down&&!u.dead&&!u.carriedBy&&!party.includes(u)&&(u.aggro||u.pursuitId)&&dist(u,gate)<5&&walkers.some(a=>hostile(u,a)&&dist(u,a)<6));
   const target=activeArea==='village'?'temple':'village';
+  pendingTravel=null;
   for(const u of party){u.cmd=[];u.moving=false;u.lunge=0}
-  captureArea();areaStates[activeArea].units=areaStates[activeArea].units.filter(u=>!party.includes(u));areaStates[target].units.push(...party);activateArea(target);
+  captureArea();areaStates[activeArea].units=areaStates[activeArea].units.filter(u=>!party.includes(u)&&!pursuers.includes(u));areaStates[target].units.push(...party,...pursuers);activateArea(target);
   walkers.forEach((u,i)=>{u.x=AREAS[target].entry.x+(i%2)*.7;u.y=AREAS[target].entry.y+Math.floor(i/2)*.7;if(u.carry){u.carry.x=u.x;u.carry.y=u.y}});
-  sel.clear();walkers.filter(u=>u.team==='a').forEach(u=>sel.add(u));finishAreaChange();toast(`到達${AREAS[target].name} · ${walkers.length} 人同行`);return true;
+  pursuers.forEach((u,i)=>{u.x=AREAS[target].entry.x+2+(i%2)*.7;u.y=AREAS[target].entry.y+1+Math.floor(i/2)*.7;u.home={x:u.x,y:u.y};u.wp=null;u.cmd=[];u.aggro=true;u.pursuitId=nearest(walkers.filter(a=>hostile(u,a)),u).id});
+  sel.clear();walkers.filter(u=>u.team==='a').forEach(u=>sel.add(u));finishAreaChange();toast(`到達${AREAS[target].name} · ${walkers.length} 人同行${pursuers.length?' · 有追兵！':''}`);return true;
 }
 function finishAreaChange(){
   cam.follow=null;centerOn(8,8);
@@ -42,18 +58,18 @@ function finishAreaChange(){
 function switchReserve(){
   const target=activeArea==='village'?'temple':'village';
   if(!areaStates[target].units.some(u=>u.team==='a'&&!u.dead)){toast('另一區冇留守隊友');return false}
-  captureArea();activateArea(target);sel.clear();allies().filter(u=>!u.dead).forEach(u=>sel.add(u));finishAreaChange();toast(`切換到${AREAS[target].name}留守隊；冇人跨區移動`);return true;
+  cancelTravel(false);captureArea();activateArea(target);sel.clear();allies().filter(u=>!u.dead).forEach(u=>sel.add(u));finishAreaChange();toast(`切換到${AREAS[target].name}留守隊；冇人跨區移動`);return true;
 }
 function travelMenu(sx=W-60,sy=H-220){
   const a=AREAS[activeArea],n=travelParty().filter(u=>!u.carriedBy).length;
   showMenu(sx,sy,`${a.name} · 山道口`,[
-    {label:'集合到山道口',sub:'只移動已選隊友；傷者要先揹起',fn:()=>{issue((u,i,n)=>{const f=formation(n,i);return {t:'move',x:a.gate.x+f.dx,y:a.gate.y+f.dy}});centerOn(a.gate.x,a.gate.y);cam.follow=null}},
-    {label:activeArea==='village'?'出發：荒寺山道':'返回：青葉村',sub:`已選 ${n} 人 · 須到達出口並脫離戰鬥 · 未同行隊友留原區`,fn:travelArea},
+    {label:activeArea==='village'?'出發：荒寺山道':'返回：青葉村',sub:`已選 ${n} 人 · 自動集合出發；附近追兵會跟隨 · 傷者要先揹起`,fn:startTravel},
+    ...(pendingTravel?[{label:'取消出發',fn:cancelTravel}]:[]),
     ...(areaStates[activeArea==='village'?'temple':'village'].units.some(u=>u.team==='a'&&!u.dead)?[{label:'切換留守隊',sub:'只切換控制地區；出征隊會留喺原位',fn:switchReserve}]:[])
   ]);
 }
 function packAreaUnit(u){
-  return {id:u.id,team:u.team,kind:u.kind,name:u.name,role:u.role,color:u.color,base:u.base,x:u.x,y:u.y,p:u.p,sk:u.sk,eq:u.eq,pack:u.pack,bounty:u.bounty,down:u.down,dead:u.dead,bleed:u.bleed,rules:u.rules,home:u.home,aggroR:u.aggroR,leash:u.leash,food:u.food,kitUse:u.kitUse,spd:u.spd,face:u.face,gid:u.gid,idx:u.idx,dir:u.dir,waitT:u.waitT,carryId:u.carry?u.carry.id:null,leaderId:u.leader?u.leader.id:null};
+  return {id:u.id,team:u.team,kind:u.kind,name:u.name,role:u.role,color:u.color,base:u.base,x:u.x,y:u.y,p:u.p,sk:u.sk,eq:u.eq,pack:u.pack,bounty:u.bounty,down:u.down,dead:u.dead,bleed:u.bleed,rules:u.rules,home:u.home,aggroR:u.aggroR,leash:u.leash,food:u.food,kitUse:u.kitUse,spd:u.spd,face:u.face,gid:u.gid,idx:u.idx,dir:u.dir,waitT:u.waitT,retreating:u.retreating,pursuitId:u.pursuitId,carryId:u.carry?u.carry.id:null,leaderId:u.leader?u.leader.id:null};
 }
 function packAreas(){captureArea();return Object.fromEntries(Object.entries(areaStates).map(([id,a])=>[id,{units:a.units.map(packAreaUnit),piles:a.piles,alerted:a.alerted,cleared:a.cleared,pausedAt:a.pausedAt}]))}
 function restoreAreas(saved,id){
