@@ -44,8 +44,9 @@ function finishBox(){
   if(hit.length){sel.clear();hit.forEach(u=>sel.add(u));toast(`框選咗 ${hit.length} 個隊友`)}else toast('個框入面冇隊友');
   updatePortraits(true);
 }
-function pick(sx,sy){let best=null,bd=1e9;for(const u of units){const s=scr(u.x,u.y,u.carriedBy?22:u.down?4:u.kind==='dog'?8:14);const d=Math.hypot(s.x-sx,(s.y-sy)*.8);
-  const r=(u.down?20:26)*Math.max(.8,cam.z);if(d<r&&d<bd){bd=d;best=u}}return best}
+function pickHits(sx,sy){const hits=[];for(const u of units){const s=scr(u.x,u.y,u.carriedBy?22:u.down?4:u.kind==='dog'?8:14);const d=Math.hypot(s.x-sx,(s.y-sy)*.8);
+  if(d<(u.down?20:26)*Math.max(.8,cam.z))hits.push({u,d})}return hits.sort((a,b)=>a.d-b.d).map(h=>h.u)}
+function pick(sx,sy){return pickHits(sx,sy)[0]||null}
 function pickPile(sx,sy){for(const p of piles){const s=scr(p.x,p.y,4);if(Math.hypot(s.x-sx,s.y-sy)<22*Math.max(.8,cam.z))return p}return null}
 function pickBed(sx,sy){for(const b of BEDS){const s=scr(b.x,b.y,5);if(Math.hypot(s.x-sx,s.y-sy)<20*Math.max(.8,cam.z))return b}return null}
 function pickOre(sx,sy){for(const o of ORES){const s=scr(o.x,o.y,o.h*.6);if(Math.hypot(s.x-sx,s.y-sy)<28*Math.max(.8,cam.z))return o}return null}
@@ -71,7 +72,9 @@ function issueOne(c,target,why,filter){ // send only the nearest suitable select
 function tap(sx,sy){
   const gate=AREAS[activeArea].gate,gs=scr(gate.x,gate.y,20);
   if(Math.hypot(sx-gs.x,sy-gs.y)<24*Math.max(.8,cam.z)){travelMenu(sx,sy);return}
-  const u=pick(sx,sy);
+  const hits=pickHits(sx,sy),bodies=hits.filter(u=>u.down&&!u.carriedBy);
+  if(bodies.length&&hits.length>1){showMenu(sx,sy,'附近倒地角色 · 揀操作目標',bodies.map((b,i)=>({label:`${i+1}. ${b.name} · ${b.dead?'屍體':'倒地'}`,sub:hasLoot(b)?'身上仲有物品':'已被搜清 · 身上冇可取物品',fn:()=>bodyMenu(b,sx,sy)})));return}
+  const u=hits[0];
   if(u){
     if(u.carriedBy){toast(`${u.carriedBy.name} 揹緊 ${u.name}`);return}
     if(u===TRADER){const v=issueOne({t:'talk',npc:u},u);if(v)toast(`${v.name} 行去搵商人`);return}
@@ -123,7 +126,7 @@ function orderBandage(h,p){if(h.down){toast(`${h.name} 倒咗地`);return}fleeCh
 function hasLoot(b){return b.pack.length>0||!!b.eq.weapon||!!b.eq.armor}
 function bodyMenu(b,sx,sy){
   const opts=[];
-  if(hasLoot(b)&&(b.team!=='a'||b.dead))opts.push({label:'執嘢',sub:'行過去睇佢身上有咩',fn:()=>{const v=issueOne({t:'loot',body:b},b);if(v)toast(`${v.name} 去執嘢`)}});
+  if(b.team!=='a'||b.dead)opts.push({label:hasLoot(b)?'搜身／取裝備':'搜身 · 已被搜清',sub:hasLoot(b)?'行過去搜查背包同身上裝備':'身上冇可取物品；可能已被其他人搜走',fn:()=>{const v=issueOne({t:'loot',body:b},b);if(v)toast(`${v.name} 去搜身`)}});
   if(!b.dead&&b.team!=='a')opts.push({label:'補刀',sub:'打到佢死為止，唔會再醒',fn:()=>{if(issue(()=>({t:'attack',u:b,finish:true})))fx.pings.push({x:b.x,y:b.y,t:performance.now(),col:'#d65b41'})}});
   if(!b.dead&&b.team==='a'&&!b.pile){const h=nearest([...sel].filter(a=>!a.down&&a!==b),b);
     if(h)opts.push({label:`叫${h.name}幫佢包紮`,sub:bandSub(h,b),fn:()=>orderBandage(h,b)})}

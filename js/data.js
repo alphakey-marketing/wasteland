@@ -33,7 +33,7 @@ const FIST={name:'拳頭',dmg:[2,4],cd:.8};
 const BITE={name:'咬',dmg:[2,4],cd:.9,range:.8};
 const STOCK=['medkit','ration','kit','p_scrap','p_mil','machete','axe','bow','leather','plate'];
 const INN_STOCK=['ration','medkit'];
-const CARAVAN_STOCK=['ration','medkit','kit','axe','plate','bow','p_scrap'];
+const CARAVAN_STOCK=['ration','medkit','kit','machete','axe','plate','bow','leather','p_scrap','p_mil'];
 const PROS={scrap:{name:'木鐵機關肢',hp:.8,mul:.85},mil:{name:'精製機關肢',hp:1.3,mul:1.15},master:{name:'匠製機關肢',hp:1.6,mul:1.25}};
 function desc(id){const it=ITEMS[id];
   if(it.type==='weapon')return `傷害 ${it.dmg[0]}–${it.dmg[1]} · 每 ${it.cd} 秒${it.range?' · 遠程':''}${it.heavy?' · 重武器（靠力量）':''} · ${it.w}kg`;

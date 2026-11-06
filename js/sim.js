@@ -195,17 +195,17 @@ function runCmd(u,dt,ne,nd){
       u.x=b.x;u.y=b.y;u.state='瞓緊';u.bleed=Math.max(0,u.bleed-2*dt);
       for(const [k] of PARTS){const q=u.p[k];if(!q.lost&&!q.pros&&q.hp<q.max)q.hp=Math.min(q.max,q.hp+3*dt)}
       if(!hurt(u)){u.cmd.shift();float(u,'瞓醒，精神返晒','#a9e08a')}break}
-    case 'loot':if(c.body.carriedBy){u.cmd.shift();break}if(dist(u,c.body)>.9){u.state='去執嘢';step(u,c.body.x,c.body.y,dt)}else{u.cmd.shift();openLoot(u,c.body)}break;
+    case 'loot':if(c.body.carriedBy||(!c.body.pile&&(!c.body.down||!units.includes(c.body)))){u.cmd.shift();toast('目標已起身、離開或被揹起，搜身取消');break}if(dist(u,c.body)>.9){u.state=c.body.pile?'去搜查':'去搜身';step(u,c.body.x,c.body.y,dt)}else{u.cmd.shift();openLoot(u,c.body)}break;
     case 'carry':if(c.body.carriedBy||!c.body.down||u.carry){u.cmd.shift();break}if(dist(u,c.body)>.9){u.state='去揹人';step(u,c.body.x,c.body.y,dt)}else{u.cmd.shift();pickUp(u,c.body)}break;
   }
 }
 // Sample short clear headings; avoid walking into props or map edges.
-function steer(u,goal,dt,threats=[],mul=1){
+function steer(u,goal,dt,threats=[],mul=1,obstacles=props){
   const heading=Math.atan2(goal.y-u.y,goal.x-u.x);let best=null,score=-Infinity;
   for(const turn of [0,.45,-.45,.9,-.9,1.5,-1.5,2.2,-2.2,Math.PI]){
     const a=heading+turn,p={x:u.x+Math.cos(a)*.85,y:u.y+Math.sin(a)*.85};
     if(p.x<.6||p.y<.6||p.x>MAP-.6||p.y>MAP-.6)continue;
-    if(props.some(o=>!o.bed&&[.25,.5,.85].some(r=>dist({x:u.x+Math.cos(a)*r,y:u.y+Math.sin(a)*r},o)<o.s*.62+.25)))continue;
+    if(obstacles.some(o=>!o.bed&&[.25,.5,.85].some(r=>dist({x:u.x+Math.cos(a)*r,y:u.y+Math.sin(a)*r},o)<o.s*.62+.25)))continue;
     const safety=threats.length?Math.min(...threats.map(e=>dist(p,e))):0;
     const s=safety*2.5-dist(p,goal)*.65-Math.abs(turn)*.08;
     if(s>score){score=s;best=p}
@@ -266,13 +266,6 @@ function updOther(u,dt){
   if(dist(u,u.home)>2.2)step(u,u.home.x,u.home.y,dt,.55);
   else{if(!u.wp||dist(u,u.wp)<.2)u.wp={x:u.home.x+rand(-1.6,1.6),y:u.home.y+rand(-1.6,1.6)};step(u,u.wp.x,u.wp.y,dt,.22)}
 }
-function updCaravan(u,dt){
-  if(u.down)return;let t=u.lastHit&&!u.lastHit.down&&dist(u,u.lastHit)<4?u.lastHit:null;
-  if(t){u.state='逃命';const dx=u.x-t.x,dy=u.y-t.y,d=Math.hypot(dx,dy)||1;step(u,u.x+dx/d*2,u.y+dy/d*2,dt,1.1);return}
-  if(u.waitT>0){u.waitT-=dt;u.state='擺檔';return}
-  const r=CARAVAN_ROUTE[u.idx];u.state='趕路';
-  if(step(u,r.x,r.y,dt,.55)||dist(u,r)<.3){u.idx+=u.dir;if(u.idx<0||u.idx>=CARAVAN_ROUTE.length){u.dir*=-1;u.idx+=u.dir*2;u.waitT=25}}
-}
 function lootable(b){return (b.pile||(b.down&&!b.carriedBy&&(b.dead||b.team!=='a')))&&(b.pack.length||b.eq.weapon||b.eq.armor)}
 function updScav(u,dt){
   if(u.down)return;
@@ -291,16 +284,7 @@ function updScav(u,dt){
     g.pack.forEach(x=>{u.pack.push({id:x.id,n:x.n});n++});g.pack.length=0;
     if(n)float(u,`執走咗 ${n} 樣嘢`,'#d9d29a');u.goal=null}
 }
-const CARAVAN_ROUTE=[{x:6.8,y:6.6},{x:12,y:7.2},{x:18,y:7.4},{x:27.5,y:9.5}];let caravanTimer=0,scavTimer=40,saveTimer=0;
-function spawnCaravan(){
-  for(let i=units.length-1;i>=0;i--)if(units[i].team==='v'&&(units[i].dead||units[i].down))units.splice(i,1);
-  caravanAngry=false;const o=CARAVAN_ROUTE[CARAVAN_ROUTE.length-1];
-  const L=mk({team:'v',kind:'caravan',name:'遊商',color:'#d8c27a',base:50,x:o.x,y:o.y,idx:CARAVAN_ROUTE.length-2,dir:-1,waitT:0,spd:2.3,pack:[{id:'coin',n:ri(60,120)}],lv:{tough:6,dod:6}});
-  units.push(L);
-  for(let i=0;i<2;i++)units.push(mk({team:'v',kind:'cguard',name:'商隊護衛',color:'#a98b54',base:60,x:o.x+.6*(i?1:-1),y:o.y+.5,leader:L,aggroR:5,leash:7,home:{x:o.x,y:o.y},
-    eq:{weapon:i?'machete':'club',armor:'leather'},lv:{tough:16,atk:16,dod:12}}));
-}
-spawnCaravan();
+let scavTimer=40,saveTimer=0;
 function spawnScavs(){const gid=Math.random(),side=Math.random()<.5,x=side?.8:MAP-.8,y=rand(6,MAP-4);
   for(let i=0;i<2;i++)units.push(mk({team:'s',kind:'scav',gid,name:'落武者',color:'#8d8a5a',base:40,x:x+i*.5,y:y+i*.4,aggroR:3.5,leash:8,home:{x,y},
     eq:{weapon:i?'club':'knife',armor:'cloth'},lv:{tough:5,atk:6,dod:6}}))}
@@ -312,8 +296,6 @@ function simulate(dt){
       else if(u.food<25&&!u.hungryWarned){u.hungryWarned=true;toast(`${u.name} 好肚餓，背包冇嘢食`)}}
     if(u.food<=0&&!u.down){u.p.torso.hp-=.15*dt;checkWounds(u,'torso','身')}
     if(!u.down&&u.bleed<=0&&u.food>0&&!sleeping&&!hostiles(u).some(h=>dist(h,u)<6))for(const [k] of PARTS){const q=u.p[k];if(!q.lost&&!q.pros&&q.hp<q.max)q.hp=Math.min(q.max,q.hp+.12*dt)}}
-  caravanTimer+=dt;if(activeArea==='village'&&!units.some(u=>u.kind==='caravan'&&!u.down)&&caravanTimer>180){caravanTimer=0;spawnCaravan();toast('有隊遊商隊喺東邊出現')}
-  if(units.some(u=>u.kind==='caravan'&&!u.down))caravanTimer=0;
   scavTimer+=dt;if(activeArea==='temple'&&scavTimer>100){scavTimer=0;if(new Set(units.filter(u=>u.kind==='scav'&&!u.down).map(u=>u.gid)).size<2)spawnScavs()}
   for(let i=units.length-1;i>=0;i--)if(units[i].gone)units.splice(i,1);
   saveTimer+=dt;if(saveTimer>20){saveTimer=0;save(false)}
@@ -342,6 +324,6 @@ function simulate(dt){
   fx.shots.forEach(f=>f.t+=dt);fx.shots=fx.shots.filter(f=>f.t<.18);
   if(autoPause&&!alerted&&bandits().some(e=>!e.down&&allies().some(a=>!a.down&&dist(a,e)<e.aggroR))){alerted=true;setPaused(true);toast('發現野武士 · 已自動暫停，慢慢落指令')}
   if(!cleared&&bandits().length&&bandits().every(e=>e.down)){cleared=true;toast('野武士全部倒地 · 記得執嘢，頭目有懸賞')}
-  updateTravel();
+  tickCaravan(dt);updateTravel();
 }
 

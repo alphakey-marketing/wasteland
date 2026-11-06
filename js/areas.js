@@ -3,7 +3,7 @@
 const AREAS={village:{name:'青葉村',gate:{x:8,y:10},entry:{x:7.5,y:8.5}},temple:{name:'荒寺山道',gate:{x:7,y:8},entry:{x:7.5,y:8.5}}};
 let activeArea='village';
 const areaStates={};
-const villageProps=props.filter(p=>p.x<13&&p.y<13);
+const villageProps=props.filter(p=>p.x<13&&p.y<13&&(!p.isOre||p.ore==='copper'));
 const templeProps=[{x:13,y:13,s:1.8,h:37,c:[156,139,104],house:1,temple:1},{x:10.2,y:12.8,s:.6,h:18,c:[136,137,118]},{x:14.7,y:10.4,s:.65,h:14,c:[131,131,111]},{x:12.2,y:14.5,s:.55,h:8,c:[142,132,106],crate:1}];
 const villageOres=ORES.filter(o=>o.x<6),templeOres=ORES.filter(o=>o.x>=6);
 templeOres.forEach(o=>templeProps.push(o));
@@ -65,7 +65,8 @@ function travelMenu(sx=W-60,sy=H-220){
   showMenu(sx,sy,`${a.name} · 山道口`,[
     {label:activeArea==='village'?'出發：荒寺山道':'返回：青葉村',sub:`已選 ${n} 人 · 自動集合出發；附近追兵會跟隨 · 傷者要先揹起`,fn:startTravel},
     ...(pendingTravel?[{label:'取消出發',fn:cancelTravel}]:[]),
-    ...(areaStates[activeArea==='village'?'temple':'village'].units.some(u=>u.team==='a'&&!u.dead)?[{label:'切換留守隊',sub:'只切換控制地區；出征隊會留喺原位',fn:switchReserve}]:[])
+    ...(areaStates[activeArea==='village'?'temple':'village'].units.some(u=>u.team==='a'&&!u.dead)?[{label:'切換留守隊',sub:'只切換控制地區；出征隊會留喺原位',fn:switchReserve}]:[]),
+    {label:activeArea==='village'?'查看西面銅礦':'查看北面鐵礦',sub:'移動鏡頭到礦脈，再點礦石落採礦指令',fn:()=>{const ore=ORES[0];if(ore){cam.follow=null;centerOn(ore.x,ore.y);toast(`點礦石就可以採${ITEMS[ore.ore].name}，揹緊人嘅隊友做唔到`)}}}
   ]);
 }
 function packAreaUnit(u){
