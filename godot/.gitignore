@@ -1,0 +1,7 @@
+.godot/
+qa/*.log
+qa/*.png
+qa/*.png.import
+build/
+*.keystore
+.godot/export_credentials.cfg
