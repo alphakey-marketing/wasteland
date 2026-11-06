@@ -13,17 +13,48 @@ function drawProp(p){
   const N=[p.x-hs,p.y-hs],E=[p.x+hs,p.y-hs],S=[p.x+hs,p.y+hs],Wc=[p.x-hs,p.y+hs];
   const P=(q,hh)=>scr(q[0],q[1],hh);
   const poly=(pts,fill)=>{ctx.beginPath();pts.forEach((q,i)=>i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.closePath();ctx.fillStyle=fill;inkFill()};
+  // Paint directly on the existing footprint; decorations never change hit targets.
+  const point=(a,b,v)=>P([p.x+hs*a,p.y+hs*b],v);
+  const panel=(a,b,c,d,fill)=>poly([a,b,c,d],fill);
+  const seam=(a,b,color='#66503a')=>{ctx.strokeStyle=color;ctx.lineWidth=.8*cam.z;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()};
   const sc=scr(p.x,p.y);ctx.fillStyle='rgba(40,24,10,.28)';ell(sc.x+6*cam.z,sc.y+3*cam.z,p.s*40*cam.z,p.s*18*cam.z);ctx.fill();
+  if(p.bed){
+    for(const [a,b] of [[-.85,-.85],[-.85,.85],[.85,.85],[.85,-.85]])panel(point(a,b,0),point(a+.18,b,0),point(a+.18,b,h),point(a,b,h),'#72523a');
+    panel(point(-1,1,2),point(1,1,2),point(1,1,h),point(-1,1,h),'#8a6744');
+    panel(point(1,1,2),point(1,-1,2),point(1,-1,h),point(1,1,h),'#644c36');
+    panel(point(-1,-1,h),point(1,-1,h),point(1,1,h),point(-1,1,h),'#d8bc87');
+    panel(point(-.94,-.14,h+.8),point(.94,-.14,h+.8),point(.94,.94,h+.8),point(-.94,.94,h+.8),'#888469');
+    panel(point(-.76,-.85,h+1.8),point(.76,-.85,h+1.8),point(.76,-.38,h+1.8),point(-.76,-.38,h+1.8),'#eddbb7');
+    // One large worn corner stays legible on a phone.
+    poly([point(.38,.94,h+1),point(.94,.94,h+1),point(.94,.48,h+1),point(.65,.57,h+1)],'#d8bc87');
+    return;
+  }
   poly([P(Wc,0),P(S,0),P(S,h),P(Wc,h)],rgb(p.c,.82));
   poly([P(S,0),P(E,0),P(E,h),P(S,h)],rgb(p.c,.62));
   poly([P(N,h),P(E,h),P(S,h),P(Wc,h)],rgb(p.c,1.12));
-  if(p.crate){const a=P(Wc,h*.5),b=P(S,h*.5);ctx.strokeStyle='rgba(40,25,10,.6)';ctx.lineWidth=1.2*cam.z;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}
-  if(p.house){const a=P(Wc,h*.35),b=P(S,h*.35);const m={x:(a.x+b.x)/2,y:(a.y+b.y)/2};ctx.fillStyle='rgba(40,25,12,.7)';ctx.fillRect(m.x-4*cam.z,m.y-2*cam.z,8*cam.z,11*cam.z);
-    poly([P(N,h+2),P(E,h+2),P(S,h+2),P(Wc,h+2)],'#a75b3e');
-    // Corrugated roof seams, projected onto the existing roof plane.
-    ctx.strokeStyle='#623b2b';ctx.lineWidth=.85*cam.z;
-    for(let n=1;n<6;n++){const t=n/6,a=P([N[0]+p.s*t,N[1]],h+2),b=P([Wc[0]+p.s*t,Wc[1]],h+2);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}}
-  if(p.bed){const a=P([p.x-hs*.6,p.y-hs*.6],h+1);ctx.fillStyle='#e8dcc4';ell(a.x,a.y,6*cam.z,3*cam.z);ctx.fill()}
+  if(p.crate){
+    for(const v of [h/3,h*2/3]){seam(P(Wc,v),P(S,v));seam(P(S,v),P(E,v))}
+    for(const a of [-.34,.34])seam(point(a,-1,h),point(a,1,h));
+    panel(point(-.88,1,h*.12),point(-.65,1,h*.12),point(.88,1,h*.88),point(.65,1,h*.88),'#c09761');
+  }
+  if(p.house){
+    panel(point(-1,1,0),point(1,1,0),point(1,1,h),point(-1,1,h),'#c8b58c');
+    panel(point(1,1,0),point(1,-1,0),point(1,-1,h),point(1,1,h),'#777360');
+    // Broad corrugations and patches, rather than noisy fine texture.
+    for(const a of [-.65,-.3,.05,.4,.75]){
+      seam(point(a,1,1),point(a,1,h-1),'#a38f69');
+      seam(point(1,a,1),point(1,a,h-1),'#615e4e');
+    }
+    panel(point(-1,1,1),point(-.48,1,1),point(-.48,1,h*.27),point(-1,1,h*.35),'#aa6648');
+    panel(point(1,.84,1),point(1,-.86,1),point(1,-.86,h*.24),point(1,.84,h*.17),'#9b6045');
+    panel(point(-.48,1,0),point(.03,1,0),point(.03,1,h*.62),point(-.48,1,h*.62),'#403024');
+    panel(point(.28,1,h*.42),point(.8,1,h*.42),point(.8,1,h*.72),point(.28,1,h*.72),'#8d6b46');
+    for(const v of [.51,.62])seam(point(.3,1,h*v),point(.78,1,h*v),'#48362a');
+    panel(point(1,-.6,h*.42),point(1,.12,h*.42),point(1,.12,h*.76),point(1,-.6,h*.7),'#84806b');
+    panel(point(-1.06,-1.06,h+2),point(1.06,-1.06,h+2),point(1.06,1.06,h+2),point(-1.06,1.06,h+2),'#a75b3e');
+    for(let n=1;n<6;n++){const a=-1.06+n*2.12/6;seam(point(a,-1.06,h+2),point(a,1.06,h+2),'#623b2b')}
+    seam(point(-1.06,1.06,h+1),point(1.06,1.06,h+1),'#d09a65');
+  }
   if(p.isOre){const t=P([p.x,p.y],h);ctx.fillStyle=p.ore==='copper'?'#e39a5c':'#c9d4dc';
     [[-6,-1],[4,2],[1,-4],[7,-2]].forEach(([dx,dy])=>{ell(t.x+dx*cam.z,t.y+dy*cam.z,1.8*cam.z,1.2*cam.z);ctx.fill()});
     label(ITEMS[p.ore].name,t.x,t.y-8*cam.z,'#f2e7d4',10)}
@@ -38,7 +69,16 @@ function hpBar(u,x,y,k){const w=(u.kind==='dog'?18:26)*k,bx=x-w/2,p=pct(u);
   ctx.fillStyle=u.team==='g'?'#7ea4dc':u.team==='w'?'#c98a4a':u.team==='e'?'#d65b41':p<.3?'#e5813c':'#8fc56e';ctx.fillRect(bx,y,w*p,4*k)}
 function drawDog(u,s,z){
   const k=z,f=u.face;
-  if(u.down){ctx.fillStyle=u.dead?'#5d5045':u.color;ell(s.x,s.y-3*k,9*k,3.5*k);ctx.fill();ctx.fillStyle='#6b4f35';ell(s.x+9*k*f,s.y-3*k,3.5*k,3*k);ctx.fill();return}
+  if(u.down||u.dead){
+    ctx.save();ctx.translate(s.x,s.y);ctx.scale(f*k,k);
+    if(u.dead){ctx.fillStyle='rgba(120,35,22,.35)';ell(1,0,12,3);ctx.fill()}
+    ctx.strokeStyle='#35251c';ctx.lineWidth=1.5;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(-7,-3);ctx.lineTo(-12,-1);ctx.moveTo(-4,-2);ctx.lineTo(-5,1);ctx.moveTo(3,-2);ctx.lineTo(5,1);ctx.moveTo(-8,-4);ctx.lineTo(-13,-6);ctx.stroke();
+    const shape=(x,y,rx,ry,c)=>{ctx.fillStyle=c;ell(x,y,rx,ry);ctx.fill();ctx.strokeStyle='#35251c';ctx.lineWidth=1.2;ctx.stroke()};
+    shape(0,-4,9,4,u.color);shape(9,-3.5,4,3,'#a17b50');
+    ctx.fillStyle='#59432d';ctx.beginPath();ctx.moveTo(6,-6);ctx.lineTo(7,-9);ctx.lineTo(10,-6);ctx.fill();
+    ctx.strokeStyle='#35251c';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(9,-4);ctx.lineTo(11,-3);if(u.dead){ctx.moveTo(9,-3);ctx.lineTo(11,-4)}ctx.stroke();ctx.restore();return;
+  }
   const run=u.moving?Math.sin(simT*18+u.id*30):0,x=s.x+u.lunge*4*f*k,y=s.y;
   ctx.strokeStyle='#4a3524';ctx.lineWidth=2*k;ctx.lineCap='round';
   [[-6,run],[-3,-run],[3,run],[6,-run]].forEach(([dx,r])=>{ctx.beginPath();ctx.moveTo(x+dx*k*f,y-7*k);ctx.lineTo(x+(dx+r*2)*k*f,y);ctx.stroke()});
@@ -51,9 +91,34 @@ function drawDog(u,s,z){
   if(pct(u)<1||paused)hpBar(u,x,y-26*k,k);
 }
 function drawBodyLying(u,s,z,lift){
-  const y=s.y-lift*z;
-  ctx.fillStyle=u.dead?'#5d5045':u.color;ell(s.x-2*z,y-3*z,10*z,4*z);inkFill();
-  ctx.fillStyle=u.dead?'#8a7a68':'#d6ad84';ell(s.x+10*z,y-4*z,4.5*z,4*z);inkFill();
+  ctx.save();ctx.translate(s.x,s.y-lift*z);ctx.scale(u.face*z,z);
+  const box=(x,y,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(x,y,w,h);ctx.strokeStyle='#35251c';ctx.lineWidth=1.1;ctx.strokeRect(x,y,w,h)};
+  const limb=(part,x1,y1,x2,y2)=>{
+    const p=u.p[part];if(p.lost&&!p.pros)return;
+    ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.strokeStyle='#35251c';ctx.lineWidth=4;ctx.stroke();
+    ctx.strokeStyle=p.pros?'#a9b7c0':part==='legs'?'#514332':'#d6ad84';ctx.lineWidth=2;ctx.stroke();
+  };
+  // Keep the same head/body proportions as standing characters, laid sideways.
+  limb('legs',-5,-6,-14,-6);limb('legs',-5,-2,-13,0);
+  limb('larm',2,-8,-3,-11);
+  box(-6,-9,12,9,u.color);
+  box(-6,-9,4,9,u.eq.armor==='plate'?'#a6afb1':u.eq.armor==='leather'?'#806044':u.color);
+  box(-5,-9,2,9,'#66503a');
+  if(u.team==='a'||u.team==='e')box(3,-9,3,9,u.team==='e'?'#8e392d':'#b97942');
+  limb('rarm',2,-2,-2,1);
+  ctx.fillStyle=u.dead?'#b49b7f':'#d6ad84';ell(10,-5,5.6,5);ctx.fill();ctx.strokeStyle='#35251c';ctx.lineWidth=1.2;ctx.stroke();
+  box(7,-9,3,8,u.team==='e'?'#7e2416':u.color);
+  if(u.team==='g')box(6,-10,4,10,'#9aa6b0');
+  if(u.team==='n'){box(6,-11,2,12,'#7a5a2a');box(3,-8,3,6,'#7a5a2a')}
+  ctx.strokeStyle='#35251c';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(11,-6);ctx.lineTo(13,-4);if(u.dead){ctx.moveTo(11,-4);ctx.lineTo(13,-6)}ctx.stroke();
+  // Equipment stays attached visually; this never creates a loot item.
+  if(u.eq.weapon){
+    ctx.strokeStyle='#35251c';ctx.lineWidth=3;ctx.beginPath();
+    if(u.eq.weapon==='bow')ctx.arc(-1,0,7,.4,Math.PI-.4);else{ctx.moveTo(-7,3);ctx.lineTo(5,3)}
+    ctx.stroke();ctx.strokeStyle='#c8c1a9';ctx.lineWidth=1.4;ctx.stroke();
+    if(u.eq.weapon==='axe')box(2,1,4,4,'#a6afb1');
+  }
+  ctx.restore();
 }
 function drawUnit(u){
   const z=cam.z,isSel=sel.has(u);
@@ -63,8 +128,8 @@ function drawUnit(u){
   if(isSel){const pulse=1+Math.sin(performance.now()/220)*.06;ctx.strokeStyle='#eaa93a';ctx.lineWidth=2*z;ell(s.x,s.y,15*z*pulse,7.5*z*pulse);ctx.stroke()}
   if((u.team==='e'||u.team==='w')&&u.aggro&&!u.down){ctx.strokeStyle='rgba(214,91,65,.7)';ctx.lineWidth=1.5*z;ell(s.x,s.y,13*z,6.5*z);ctx.stroke()}
   if(u.kind==='dog'){drawDog(u,s,z);return}
-  if(u.state==='瞓緊'){drawBodyLying(u,s,z,6);label('Zz',s.x+10*z,s.y-20*z-((simT*8)%6)*z,'#cfd8de',10);return}
-  if(u.dead){ctx.globalAlpha=.8;drawBodyLying(u,s,z,0);ctx.fillStyle='rgba(120,20,10,.45)';ell(s.x+2*z,s.y,14*z,5*z);ctx.fill();ctx.globalAlpha=1;
+  if(u.state==='瞓緊'&&!u.down&&!u.dead){drawBodyLying(u,s,z,6);label('Zz',s.x+10*z,s.y-20*z-((simT*8)%6)*z,'#cfd8de',10);return}
+  if(u.dead){ctx.fillStyle='rgba(120,20,10,.38)';ell(s.x+2*z,s.y,14*z,5*z);ctx.fill();drawBodyLying(u,s,z,0);
     if(u.team==='a')label('亡',s.x,s.y-14*z,'#ff7a5c',9);return}
   if(u.down){drawBodyLying(u,s,z,0);
     if(u.team==='a'){ctx.strokeStyle='#f2c14e';ctx.lineWidth=2*z;ctx.strokeStyle=u.bleed>0?'#d8553d':'#f2c14e';ctx.beginPath();ctx.arc(s.x,s.y-18*z,6*z,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.max(.02,recov(u)));ctx.stroke();label(u.bleed>0?'血':'倒',s.x,s.y-15*z,u.bleed>0?'#ff7a5c':'#f2c14e',9)}
