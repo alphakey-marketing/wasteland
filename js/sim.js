@@ -30,8 +30,8 @@ const squadDef=[
 ];
 squadDef.forEach((d,i)=>units.push(mk(Object.assign({team:'a',x:7.2+(i%2)*.9,y:8.4+Math.floor(i/2)*.9},d))));
 const TRADER=mk({team:'n',role:'trader',name:'商人',color:'#d9b24c',base:60,x:4.9,y:4.4});
-const GUARD=mk({team:'g',name:'守衛',color:'#6f8fc4',base:110,eq:{weapon:'axe',armor:'plate'},lv:{tough:30,atk:30,dod:24,str:30},aggroR:6,leash:7,x:6.6,y:5.3,home:{x:6.2,y:5}});
-const INNKEEPER=mk({team:'n',role:'inn',name:'旅館老闆',color:'#c98a6a',base:60,x:3.6,y:6.4});
+const GUARD=mk({team:'g',name:'足輕',color:'#6f8fc4',base:110,eq:{weapon:'axe',armor:'plate'},lv:{tough:30,atk:30,dod:24,str:30},aggroR:6,leash:7,x:6.6,y:5.3,home:{x:6.2,y:5}});
+const INNKEEPER=mk({team:'n',role:'inn',name:'宿屋老闆',color:'#c98a6a',base:60,x:3.6,y:6.4});
 units.push(TRADER,GUARD,INNKEEPER);
 const allies=()=>units.filter(u=>u.team==='a');
 const bandits=()=>units.filter(u=>u.team==='e');
@@ -41,13 +41,13 @@ function hostile(a,b){if(a.team===b.team||a.team==='n'||b.team==='n'||a.team==='
   if(pair('g','a'))return repTown<=-30;if(pair('v','a'))return caravanAngry;if(pair('s','a'))return scavAngry.has((a.team==='s'?a:b).gid);
   if(pair('g','v')||pair('g','s')||pair('v','s'))return false;return true}
 function changeRep(d,why){const before=repLabel(repTown);repTown=clamp(Math.round(repTown+d),-100,100);const after=repLabel(repTown);
-  toast(after!==before?`綠洲鎮而家對你${after}（${why}）`:`綠洲鎮關係 ${d>0?'+':''}${Math.round(d)}（${why}）`);if(after==='敵對'){GUARD.aggro=true}}
+  toast(after!==before?`青葉村而家對你${after}（${why}）`:`青葉村關係 ${d>0?'+':''}${Math.round(d)}（${why}）`);if(after==='敵對'){GUARD.aggro=true}}
 const hostiles=u=>units.filter(o=>!o.down&&hostile(u,o));
 const weapon=u=>u.eq.weapon?ITEMS[u.eq.weapon]:(u.natural||FIST);
 const range=u=>weapon(u).range||.95;
 
 function spawnDog(){const a=Math.random()*Math.PI*2;
-  units.push(mk({team:'w',kind:'dog',name:'野狗',color:'#8a6a48',base:22,natural:BITE,spd:2.7,aggroR:4,leash:8,pack:[{id:'hide',n:1},{id:'meat',n:1}],
+  units.push(mk({team:'w',kind:'dog',name:'野犬',color:'#8a6a48',base:22,natural:BITE,spd:2.7,aggroR:4,leash:8,pack:[{id:'hide',n:1},{id:'meat',n:1}],
     lv:{tough:1,atk:2,dod:5},x:DEN.x+Math.cos(a)*1.4,y:DEN.y+Math.sin(a)*1.4,home:{x:DEN.x,y:DEN.y}}))}
 for(let i=0;i<3;i++)spawnDog();
 let dogTimer=0,guardTimer=0;
@@ -55,11 +55,11 @@ let dogTimer=0,guardTimer=0;
 let wave=0,alerted=false,cleared=false;
 function spawnWave(){
   for(let i=units.length-1;i>=0;i--)if(units[i].team==='e'&&units[i].down&&!units[i].carriedBy)units.splice(i,1);
-  const spots=[[20,17],[22,8],[10,23],[25,23]];const [cx,cy]=spots[wave%spots.length];wave++;
+  const spots=[[14,12],[15,14],[13,15],[16,13]];const [cx,cy]=spots[wave%spots.length];wave++;
   const n=3+Math.min(3,wave);
   for(let i=0;i<n;i++){const a=i/n*Math.PI*2,boss=i===0,b=wave*2+(boss?4:0);
     const r=Math.random();
-    units.push(mk({team:'e',name:boss?'流寇頭目':'流寇',color:boss?'#9c3a28':'#b9563c',base:boss?52:40,aggroR:6,leash:17,
+    units.push(mk({team:'e',name:boss?'野武士頭目':'野武士',color:boss?'#9c3a28':'#b9563c',base:boss?52:40,aggroR:6,leash:17,
       eq:{weapon:boss?'machete':['knife','club','machete'][ri(0,2)],armor:boss?'leather':r<.5?'cloth':r<.75?'leather':null},
       pack:[{id:'coin',n:ri(5,25)+(boss?40:0)}],bounty:boss?250:Math.random()<.3?ri(6,12)*10:0,
       lv:{tough:8+b,atk:9+b,dod:7+b},x:cx+Math.cos(a)*1.3,y:cy+Math.sin(a)*1.3,home:{x:cx,y:cy}}));}
@@ -106,9 +106,9 @@ function step(u,tx,ty,dt,mul=1){
 }
 function pickPart(){let r=Math.random()*HIT_TOTAL;for(const p of PARTS){r-=p[3];if(r<=0)return p}return PARTS[1]}
 function attack(u,t){
-  if(u.team==='a'&&t.team==='g'&&repTown>-30){changeRep(-60,'攻擊守衛');repTown=Math.min(repTown,-40)}
+  if(u.team==='a'&&t.team==='g'&&repTown>-30){changeRep(-60,'攻擊足輕');repTown=Math.min(repTown,-40)}
   if(u.team==='a'&&t.team==='v'&&!caravanAngry){caravanAngry=true;changeRep(-25,'搶商隊');float(t,'商隊嬲咗','#ff7a5c',true)}
-  if(u.team==='a'&&t.team==='s'&&!scavAngry.has(t.gid)){scavAngry.add(t.gid);float(t,'拾荒者嬲咗','#ff7a5c',true)}
+  if(u.team==='a'&&t.team==='s'&&!scavAngry.has(t.gid)){scavAngry.add(t.gid);float(t,'落武者嬲咗','#ff7a5c',true)}
   const wpn=weapon(u);u.cd=wpn.cd;u.lunge=1;const tArm=t.eq.armor?ITEMS[t.eq.armor]:null;
   const hitP=clamp(.6+(u.sk.atk.lv-(t.sk.dod.lv+((tArm&&tArm.dod)||0)))*.008,.12,.95);
   if(Math.random()>hitP){train(u,'atk',.6);train(t,'dod',1.5);float(t,'閃','#cfc4b0');
@@ -144,7 +144,7 @@ function engage(u,t,dt){
   if(d>range(u)*.95)step(u,t.x,t.y,dt);else if(u.cd<=0)attack(u,t);
 }
 function healRate(u){return 2.5+u.sk.aid.lv*.35}
-function useKit(h,amt){h.kitUse+=amt;if(h.kitUse>=20){h.kitUse-=20;useItem(h,'medkit');if(!countItem(h,'medkit')&&h.team==='a')toast(`${h.name} 用晒醫療包`)}}
+function useKit(h,amt){h.kitUse+=amt;if(h.kitUse>=20){h.kitUse-=20;useItem(h,'medkit');if(!countItem(h,'medkit')&&h.team==='a')toast(`${h.name} 用晒藥包`)}}
 function canTreat(h,pat){return pat.bleed>0||countItem(h,'medkit')>0}
 function treat(healer,pat,dt){
   const kit=countItem(healer,'medkit')>0;
@@ -170,7 +170,7 @@ function runCmd(u,dt,ne,nd){
     case 'bandage':{const p=c.pat;if(p.dead||(p.carriedBy&&p.carriedBy!==u)){u.cmd.shift();break}
       if(p!==u&&p.carriedBy!==u&&dist(u,p)>.8){u.state='去幫'+p.name+'包紮';step(u,p.x,p.y,dt);break}
       if(!hurt(p)){u.cmd.shift();float(p,'包紮好','#a9e08a');break}
-      if(!canTreat(u,p)){u.cmd.shift();float(u,'冇醫療包','#ff9b84');toast(`${u.name} 冇醫療包，淨係止到血，傷口醫唔到`);break}
+      if(!canTreat(u,p)){u.cmd.shift();float(u,'冇藥包','#ff9b84');toast(`${u.name} 冇藥包，淨係止到血，傷口醫唔到`);break}
       if(u.interruptT>0){u.state='包紮被打斷';break}
       const near=hostiles(u).some(h=>dist(h,u)<3);
       u.state=(p===u?'包紮自己':'幫'+p.name+'包紮')+(p.bleed>0?'（止血）':'')+(near?' · 好危險':'');
@@ -190,7 +190,7 @@ function runCmd(u,dt,ne,nd){
     case 'talk':if(c.npc.down||c.npc.dead||!units.includes(c.npc)){u.cmd.shift();break}if(dist(u,c.npc)>1.35){u.state='行去'+c.npc.name;step(u,c.npc.x,c.npc.y,dt)}else{u.cmd.shift();arriveTalk(u,c.npc,c.act)}break;
     case 'sleep':{const b=c.bed;
       if(!c.paid){if(dist(u,b)>.7){u.state='去瞓覺';step(u,b.x,b.y,dt);break}
-        if(money<10){u.cmd.shift();toast(`唔夠錢租床（每人 $10）`);break}money-=10;c.paid=true;float(u,'-$10 租床','#f0c45a')}
+        if(money<10){u.cmd.shift();toast(`唔夠錢租床（每人 10 文）`);break}money-=10;c.paid=true;float(u,'-10 文 租床','#f0c45a')}
       u.x=b.x;u.y=b.y;u.state='瞓緊';u.bleed=Math.max(0,u.bleed-2*dt);
       for(const [k] of PARTS){const q=u.p[k];if(!q.lost&&!q.pros&&q.hp<q.max)q.hp=Math.min(q.max,q.hp+3*dt)}
       if(!hurt(u)){u.cmd.shift();float(u,'瞓醒，精神返晒','#a9e08a')}break}
@@ -228,7 +228,7 @@ function updOther(u,dt){
   if(!u.victim&&hardcore&&(u.team==='w'||u.team==='e')){u.rolled=u.rolled||{};
     for(const o of units){if(o.team!=='a'||!o.down||o.dead||o.carriedBy||dist(o,u)>(u.team==='w'?3:4))continue;
       if(u.rolled[o.id]===undefined)u.rolled[o.id]=Math.random()<(u.team==='w'?.6:.35);
-      if(u.rolled[o.id]){u.victim=o;toast(u.team==='w'?`野狗咬緊倒地嘅${o.name}！`:`流寇想補刀${o.name}！快啲去救`);break}}}
+      if(u.rolled[o.id]){u.victim=o;toast(u.team==='w'?`野犬咬緊倒地嘅${o.name}！`:`野武士想補刀${o.name}！快啲去救`);break}}}
   if(u.victim){u.state=u.team==='w'?'咬緊':'補刀';engage(u,u.victim,dt);return}
   u.aggro=false;u.lastHit=null;u.state='巡邏';
   if(u.team==='g'){for(const [k] of PARTS){const p=u.p[k];if(!p.lost&&p.hp<p.max)p.hp=Math.min(p.max,p.hp+3*dt)}u.bleed=0}
@@ -270,7 +270,7 @@ function spawnCaravan(){
 }
 spawnCaravan();
 function spawnScavs(){const gid=Math.random(),side=Math.random()<.5,x=side?.8:MAP-.8,y=rand(6,MAP-4);
-  for(let i=0;i<2;i++)units.push(mk({team:'s',kind:'scav',gid,name:'拾荒者',color:'#8d8a5a',base:40,x:x+i*.5,y:y+i*.4,aggroR:3.5,leash:8,home:{x,y},
+  for(let i=0;i<2;i++)units.push(mk({team:'s',kind:'scav',gid,name:'落武者',color:'#8d8a5a',base:40,x:x+i*.5,y:y+i*.4,aggroR:3.5,leash:8,home:{x,y},
     eq:{weapon:i?'club':'knife',armor:'cloth'},lv:{tough:5,atk:6,dod:6}}))}
 function simulate(dt){
   simT+=dt;
@@ -280,9 +280,9 @@ function simulate(dt){
       else if(u.food<25&&!u.hungryWarned){u.hungryWarned=true;toast(`${u.name} 好肚餓，背包冇嘢食`)}}
     if(u.food<=0&&!u.down){u.p.torso.hp-=.15*dt;checkWounds(u,'torso','身')}
     if(!u.down&&u.bleed<=0&&u.food>0&&!sleeping&&!hostiles(u).some(h=>dist(h,u)<6))for(const [k] of PARTS){const q=u.p[k];if(!q.lost&&!q.pros&&q.hp<q.max)q.hp=Math.min(q.max,q.hp+.12*dt)}}
-  caravanTimer+=dt;if(!units.some(u=>u.kind==='caravan'&&!u.down)&&caravanTimer>180){caravanTimer=0;spawnCaravan();toast('有隊遊商隊喺東邊出現')}
+  caravanTimer+=dt;if(activeArea==='village'&&!units.some(u=>u.kind==='caravan'&&!u.down)&&caravanTimer>180){caravanTimer=0;spawnCaravan();toast('有隊遊商隊喺東邊出現')}
   if(units.some(u=>u.kind==='caravan'&&!u.down))caravanTimer=0;
-  scavTimer+=dt;if(scavTimer>100){scavTimer=0;if(new Set(units.filter(u=>u.kind==='scav'&&!u.down).map(u=>u.gid)).size<2)spawnScavs()}
+  scavTimer+=dt;if(activeArea==='temple'&&scavTimer>100){scavTimer=0;if(new Set(units.filter(u=>u.kind==='scav'&&!u.down).map(u=>u.gid)).size<2)spawnScavs()}
   for(let i=units.length-1;i>=0;i--)if(units[i].gone)units.splice(i,1);
   saveTimer+=dt;if(saveTimer>20){saveTimer=0;save(false)}
   for(const u of units){if(u.dead||!(u.bleed>0))continue;
@@ -291,16 +291,16 @@ function simulate(dt){
   for(const u of units){if(!u.down||u.dead||u.bleed>0)continue;const r=.6+u.sk.tough.lv*.03;
     ['head','torso'].forEach(k=>{u.p[k].hp=Math.min(u.p[k].max,u.p[k].hp+r*dt)});
     if(recov(u)>=1){getUp(u,0);float(u,u.team==='a'?'自己爬起身':'醒返','#a9e08a');u.victim=null;if(u.team!=='a'){u.aggro=false;u.lastHit=null}}}
-  piles=piles.filter(p=>p.pack.length&&simT-p.t<300);
+  piles=piles.filter(p=>p.permanent||(p.pack.length&&simT-p.t<300));
   if(repTown<0)repTown=Math.min(0,repTown+dt/30);
   for(const u of units){u.moving=false;u.cd=Math.max(0,u.cd-dt);u.lunge=Math.max(0,u.lunge-dt*5);if(u.carriedBy)continue;if(u.team==='a')updAlly(u,dt);else if(u.kind==='caravan')updCaravan(u,dt);else if(u.kind==='scav')updScav(u,dt);else{if(u.kind==='cguard'&&u.leader&&!u.leader.down)u.home={x:u.leader.x,y:u.leader.y};updOther(u,dt)}}
   for(const u of units){if(!u.carriedBy)continue;const c=u.carriedBy;if(c.down||c.carry!==u){u.carriedBy=null;if(c.carry===u)c.carry=null}else{u.x=c.x;u.y=c.y;
 }}
   dogTimer+=dt;
-  if(dogTimer>12){dogTimer=0;
+  if(activeArea==='temple'&&dogTimer>12){dogTimer=0;
     for(let i=units.length-1;i>=0;i--){const d=units[i];if(d.kind==='dog'&&d.down&&!d.carriedBy&&dist(d,nearest(allies(),d))>3)units.splice(i,1)}
     if(units.filter(u=>u.kind==='dog'&&!u.down).length<3)spawnDog()}
-  if(GUARD.dead){guardTimer+=dt;if(guardTimer>40){guardTimer=0;GUARD.p=mkParts(GUARD.base);GUARD.down=GUARD.dead=false;GUARD.bleed=0;GUARD.x=GUARD.home.x;GUARD.y=GUARD.home.y;float(GUARD,'新守衛上更','#cfd8de',true)}}
+  if(activeArea==='village'&&GUARD.dead){guardTimer+=dt;if(guardTimer>40){guardTimer=0;GUARD.p=mkParts(GUARD.base);GUARD.down=GUARD.dead=false;GUARD.bleed=0;GUARD.x=GUARD.home.x;GUARD.y=GUARD.home.y;float(GUARD,'新足輕上更','#cfd8de',true)}}
   for(let i=0;i<units.length;i++){const a=units[i];if(a.down)continue;
     for(let j=i+1;j<units.length;j++){const b=units[j];if(b.down)continue;const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);
       if(d<.55&&d>1e-4){const p=(.55-d)/2,fa=a.team==='n'?0:b.team==='n'?2:1,fb=2-fa;a.x-=dx/d*p*fa;a.y-=dy/d*p*fa;b.x+=dx/d*p*fb;b.y+=dy/d*p*fb}}
@@ -308,7 +308,7 @@ function simulate(dt){
     a.x=clamp(a.x,.5,MAP-.5);a.y=clamp(a.y,.5,MAP-.5);}
   fx.floats.forEach(f=>f.t+=dt);fx.floats=fx.floats.filter(f=>f.t<(f.big?1.8:1.1));
   fx.shots.forEach(f=>f.t+=dt);fx.shots=fx.shots.filter(f=>f.t<.18);
-  if(autoPause&&!alerted&&bandits().some(e=>!e.down&&allies().some(a=>!a.down&&dist(a,e)<e.aggroR))){alerted=true;setPaused(true);toast('發現流寇 · 已自動暫停，慢慢落指令')}
-  if(!cleared&&bandits().length&&bandits().every(e=>e.down)){cleared=true;toast('流寇全部倒地 · 記得執嘢，頭目有懸賞')}
+  if(autoPause&&!alerted&&bandits().some(e=>!e.down&&allies().some(a=>!a.down&&dist(a,e)<e.aggroR))){alerted=true;setPaused(true);toast('發現野武士 · 已自動暫停，慢慢落指令')}
+  if(!cleared&&bandits().length&&bandits().every(e=>e.down)){cleared=true;toast('野武士全部倒地 · 記得執嘢，頭目有懸賞')}
 }
 

@@ -79,15 +79,15 @@ function tap(sx,sy){
     if(u===INNKEEPER){innMenu(sx,sy);return}
     if(u.team==='v'&&!u.down){const opts=[];
       if(u.kind==='caravan'&&!caravanAngry)opts.push({label:'同遊商交易',sub:'佢會行嚟行去，追住佢',fn:()=>{const v=issueOne({t:'talk',npc:u},u);if(v)toast(`${v.name} 去搵遊商`)}});
-      opts.push({label:'攻擊商隊',sub:caravanAngry?'已經敵對':'護衛會反擊，綠洲鎮關係 −25',fn:()=>{issue(()=>({t:'attack',u}))}});
+      opts.push({label:'攻擊商隊',sub:caravanAngry?'已經敵對':'護衛會反擊，青葉村關係 −25',fn:()=>{issue(()=>({t:'attack',u}))}});
       showMenu(sx,sy,`遊商隊 · ${caravanAngry?'敵對':'中立'}`,opts);return}
     if(u.team==='s'&&!u.down){const angry=scavAngry.has(u.gid);
-      showMenu(sx,sy,`拾荒者 · ${angry?'敵對':'中立'}`,[{label:'交談',fn:()=>toast(['拾荒者：地上嘅嘢，邊個執到就係邊個嘅','拾荒者：唔好望住我，我淨係執死人嘢','拾荒者：你哋打完交未呀？'][ri(0,2)])},
-        {label:'攻擊拾荒者',sub:angry?'已經敵對':'佢哋成組會反擊',fn:()=>{issue(()=>({t:'attack',u}))}}]);return}
+      showMenu(sx,sy,`落武者 · ${angry?'敵對':'中立'}`,[{label:'交談',fn:()=>toast(['落武者：地上嘅嘢，邊個執到就係邊個嘅','落武者：唔好望住我，我淨係執死人嘢','落武者：你哋打完交未呀？'][ri(0,2)])},
+        {label:'攻擊落武者',sub:angry?'已經敵對':'佢哋成組會反擊',fn:()=>{issue(()=>({t:'attack',u}))}}]);return}
     if(u.team==='g'){if(u.down){bodyMenu(u,sx,sy);return}
-      showMenu(sx,sy,`綠洲鎮守衛 · 關係${repLabel(repTown)}`,[
-        {label:'交談／交懸賞犯',sub:'揹住生擒嘅懸賞犯過去就有賞金',fn:()=>{const v=issueOne({t:'talk',npc:u},u);if(v)toast(v.carry?`${v.name} 揹住 ${v.carry.name} 去見守衛`:`${v.name} 行去搵守衛`)}},
-        {label:'攻擊守衛',sub:repTown>-30?'綠洲鎮會即刻同你敵對，商人唔再做你生意':'已經敵對',fn:()=>{issue(()=>({t:'attack',u}))}}]);return}
+      showMenu(sx,sy,`青葉村足輕 · 關係${repLabel(repTown)}`,[
+        {label:'交談／交懸賞犯',sub:'揹住生擒嘅懸賞犯過去就有賞金',fn:()=>{const v=issueOne({t:'talk',npc:u},u);if(v)toast(v.carry?`${v.name} 揹住 ${v.carry.name} 去見足輕`:`${v.name} 行去搵足輕`)}},
+        {label:'攻擊足輕',sub:repTown>-30?'青葉村會即刻同你敵對，商人唔再做你生意':'已經敵對',fn:()=>{issue(()=>({t:'attack',u}))}}]);return}
     if(u.down){bodyMenu(u,sx,sy);return}
     if(u.team==='a'){const others=[...sel].filter(a=>a!==u&&!a.down);
       const pickIt=()=>{sel.clear();sel.add(u);updatePortraits(true);toast(`揀咗 ${u.name}（${u.role}）`)};
@@ -98,9 +98,11 @@ function tap(sx,sy){
       showMenu(sx,sy,u.name,[...opts,
         {label:`叫${others.map(a=>a.name).join('、')}跟住${u.name}`,sub:'一直跟住佢行，見敵照打。落新指令就會取消',fn:()=>{fleeCheck(others);others.forEach(a=>{a.cmd=[{t:'follow',u}]});toast(`${others.map(a=>a.name).join('、')} 跟住 ${u.name}`)}}]);return}
     if(issue(()=>({t:'attack',u})))fx.pings.push({x:u.x,y:u.y,t:performance.now(),col:'#d65b41'});return}
+  const gate=AREAS[activeArea].gate,gs=scr(gate.x,gate.y,10);
+  if(Math.hypot(sx-gs.x,sy-gs.y)<22*Math.max(.8,cam.z)){travelMenu(sx,sy);return}
   const bd=pickBed(sx,sy);if(bd){innMenu(sx,sy);return}
   const pl=pickPile(sx,sy);
-  if(pl){showMenu(sx,sy,`地上布袋 · ${pl.pack.length} 樣嘢 · ${Math.max(0,Math.ceil((300-(simT-pl.t))/60))} 分鐘內會消失`,[{label:'執起',sub:'行過去揀要拎咩',fn:()=>{const v=issueOne({t:'loot',body:pl},pl);if(v)toast(`${v.name} 去執布袋`)}}]);return}
+  if(pl){showMenu(sx,sy,pl.permanent?`${pl.name} · ${pl.pack.length?'物資只可取一次':'已搜清'}`:`地上布袋 · ${pl.pack.length} 樣嘢 · ${Math.max(0,Math.ceil((300-(simT-pl.t))/60))} 分鐘內會消失`,[{label:pl.permanent?'搜查':'執起',sub:'行過去揀要拎咩',fn:()=>{const v=issueOne({t:'loot',body:pl},pl);if(v)toast(`${v.name} 去搜查`)}}]);return}
   const o=pickOre(sx,sy);
   if(o){const list=[...sel].filter(a=>!a.down&&!a.carry);if(!list.length){toast('先揀冇揹人嘅隊友');return}
     fleeCheck(list);list.forEach(a=>push(a,{t:'mine',node:o}));toast(`${list.map(a=>a.name).join('、')} 去採${ITEMS[o.ore].name}`);return}
@@ -119,7 +121,7 @@ function showMenu(sx,sy,title,opts){
   cmenu.style.left=clamp(sx-r.width/2,16,W-r.width-16)+'px';cmenu.style.top=clamp(sy-r.height-14,70,H-r.height-130)+'px';
   cmenu.onclick=e=>{const b=e.target.closest('button');if(!b)return;hideMenu();opts[+b.dataset.i].fn()};
 }
-function bandSub(h,p){const kits=countItem(h,'medkit');return `${kits?`${h.name}有 ${kits} 個醫療包`:`${h.name}冇醫療包，淨係止到血`} · 包紮期間唔會還手，被打會中斷`}
+function bandSub(h,p){const kits=countItem(h,'medkit');return `${kits?`${h.name}有 ${kits} 個藥包`:`${h.name}冇藥包，淨係止到血`} · 包紮期間唔會還手，被打會中斷`}
 function orderBandage(h,p){if(h.down){toast(`${h.name} 倒咗地`);return}fleeCheck([h]);push(h,{t:'bandage',pat:p});toast(p===h?`${h.name} 開始包紮自己`:`${h.name} 去幫 ${p.name} 包紮`)}
 function hasLoot(b){return b.pack.length>0||!!b.eq.weapon||!!b.eq.armor}
 function bodyMenu(b,sx,sy){
@@ -128,8 +130,8 @@ function bodyMenu(b,sx,sy){
   if(!b.dead&&b.team!=='a')opts.push({label:'補刀',sub:'打到佢死為止，唔會再醒',fn:()=>{if(issue(()=>({t:'attack',u:b,finish:true})))fx.pings.push({x:b.x,y:b.y,t:performance.now(),col:'#d65b41'})}});
   if(!b.dead&&b.team==='a'&&!b.pile){const h=nearest([...sel].filter(a=>!a.down&&a!==b),b);
     if(h)opts.push({label:`叫${h.name}幫佢包紮`,sub:bandSub(h,b),fn:()=>orderBandage(h,b)})}
-  if(!b.dead&&b.team!=='a'&&b.bleed>0)opts.push({label:'幫佢止血',sub:b.bounty?`保住條命先攞到懸賞 $${b.bounty} · 會練急救`:'唔會醫好佢，淨係止血 · 會練急救',fn:()=>{const v=issueOne({t:'aid',body:b},b);if(v)toast(`${v.name} 去幫 ${b.name} 止血`)}});
-  opts.push({label:b.bounty&&!b.dead?`揹起佢（懸賞 $${b.bounty}）`:'揹起佢',sub:b.bounty&&!b.dead?'揹去綠洲鎮守衛度領賞':b.team==='a'&&!b.dead?'揹佢離開險地，等人救':'好重，會行得好慢',
+  if(!b.dead&&b.team!=='a'&&b.bleed>0)opts.push({label:'幫佢止血',sub:b.bounty?`保住條命先攞到懸賞 ${b.bounty} 文 · 會練急救`:'唔會醫好佢，淨係止血 · 會練急救',fn:()=>{const v=issueOne({t:'aid',body:b},b);if(v)toast(`${v.name} 去幫 ${b.name} 止血`)}});
+  opts.push({label:b.bounty&&!b.dead?`揹起佢（懸賞 ${b.bounty} 文）`:'揹起佢',sub:b.bounty&&!b.dead?'揹去青葉村足輕度領賞':b.team==='a'&&!b.dead?'揹佢離開險地，等人救':'好重，會行得好慢',
     fn:()=>{const v=issueOne({t:'carry',body:b},b,'揀咗嘅隊友已經揹緊人',a=>!a.carry);if(v)toast(`${v.name} 去揹 ${b.name}`)}});
   const title=`${b.name} · ${b.dead?'屍體':'倒地'}${!b.dead?`（${b.bleed>0?'流緊血':'回復 '+Math.round(recov(b)*100)+'%'}）`:''}`;
   showMenu(sx,sy,title,opts);
