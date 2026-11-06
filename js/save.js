@@ -4,7 +4,7 @@
 const SAVE_KEY='wl_save_sengoku_v1',LEGACY_SAVE_KEY='wl_save_v1';
 let restarting=false;
 function serialize(){const keep=units.filter(u=>u.team==='a'||u.team==='e'||u.team==='c');
-  return JSON.stringify({v:1,money,repTown,wave,hardcore,groupSync,autoPause,simT,recruitN,hired:[...hired],activeArea,areas:packAreas(),caravanAngry,scavAngry:[...scavAngry],cam:{x:cam.x,y:cam.y,z:cam.z},
+  return JSON.stringify({v:1,money,repTown,wave,hardcore,groupSync,autoPause,simT,recruitN,hired:[...hired],economy,activeArea,areas:packAreas(),caravanAngry,scavAngry:[...scavAngry],cam:{x:cam.x,y:cam.y,z:cam.z},
     units:keep.map(u=>({id:u.id,team:u.team,kind:u.kind,name:u.name,role:u.role,color:u.color,base:u.base,x:u.x,y:u.y,p:u.p,sk:u.sk,eq:u.eq,pack:u.pack,bounty:u.bounty,
       down:u.down,dead:u.dead,bleed:u.bleed,rules:u.rules,home:u.home,aggroR:u.aggroR,leash:u.leash,food:u.food,kitUse:u.kitUse,carryId:u.carry?u.carry.id:null})),
     piles:piles.map(p=>({x:p.x,y:p.y,pack:p.pack,t:p.t}))})}
@@ -20,6 +20,7 @@ function loadGame(){let d=null;try{d=JSON.parse(localStorage.getItem(SAVE_KEY)||
   piles=(d.piles||[]).map(p=>({pile:true,name:'地上布袋',x:p.x,y:p.y,pack:p.pack,eq:{weapon:null,armor:null},t:p.t,id:Math.random()}));
   migrateLegacyArea();
   }
+  economy=d.economy||{merchants:{},smithing:false};ensureSmithCache();
   if(d.cam&&d.areas){cam.x=d.cam.x;cam.y=d.cam.y;cam.z=d.cam.z}
   sel.clear();allies().filter(u=>!u.dead).forEach(u=>sel.add(u));
   $('#optHard').checked=hardcore;$('#optSync').checked=groupSync;$('#optAuto').checked=autoPause;

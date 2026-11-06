@@ -61,7 +61,7 @@ function spawnWave(){
     const r=Math.random();
     units.push(mk({team:'e',name:boss?'野武士頭目':'野武士',color:boss?'#9c3a28':'#b9563c',base:boss?52:40,aggroR:6,leash:17,
       eq:{weapon:boss?'machete':['knife','club','machete'][ri(0,2)],armor:boss?'leather':r<.5?'cloth':r<.75?'leather':null},
-      pack:[{id:'coin',n:ri(5,25)+(boss?40:0)}],bounty:boss?250:Math.random()<.3?ri(6,12)*10:0,
+      pack:[{id:'coin',n:ri(5,25)+(boss?40:0)},...(boss?[{id:'steel',n:1}]:[])],bounty:boss?250:Math.random()<.3?ri(6,12)*10:0,
       lv:{tough:8+b,atk:9+b,dod:7+b},x:cx+Math.cos(a)*1.3,y:cy+Math.sin(a)*1.3,home:{x:cx,y:cy}}));}
   alerted=false;cleared=false;
 }
@@ -191,7 +191,7 @@ function runCmd(u,dt,ne,nd){
     case 'talk':if(c.npc.down||c.npc.dead||!units.includes(c.npc)){u.cmd.shift();break}if(dist(u,c.npc)>1.35){u.state='行去'+c.npc.name;step(u,c.npc.x,c.npc.y,dt)}else{u.cmd.shift();arriveTalk(u,c.npc,c.act)}break;
     case 'sleep':{const b=c.bed;
       if(!c.paid){if(dist(u,b)>.7){u.state='去瞓覺';step(u,b.x,b.y,dt);break}
-        if(money<10){u.cmd.shift();toast(`唔夠錢租床（每人 10 文）`);break}money-=10;c.paid=true;float(u,'-10 文 租床','#f0c45a')}
+        if(money<10){u.cmd.shift();toast(`唔夠錢租床（每人 10 文）`);break}money-=10;merchantState('inn').cash+=10;c.paid=true;float(u,'-10 文 租床','#f0c45a')}
       u.x=b.x;u.y=b.y;u.state='瞓緊';u.bleed=Math.max(0,u.bleed-2*dt);
       for(const [k] of PARTS){const q=u.p[k];if(!q.lost&&!q.pros&&q.hp<q.max)q.hp=Math.min(q.max,q.hp+3*dt)}
       if(!hurt(u)){u.cmd.shift();float(u,'瞓醒，精神返晒','#a9e08a')}break}
@@ -280,8 +280,8 @@ function updScav(u,dt){
   if(!t){const h=nearest(hostiles(u),u);if(h&&dist(h,u)<3.5)t=h}
   if(t){u.state='打交';engage(u,t,dt);return}
   if(u.leaving){u.state='離開';if(step(u,u.exit.x,u.exit.y,dt,.7)||dist(u,u.exit)<.6)u.gone=true;return}
-  if(!u.goal||!(u.goal.pile?piles.includes(u.goal):units.includes(u.goal))||!lootable(u.goal)){u.goal=null;
-    const cands=[...piles,...units.filter(b=>b.team!=='s')].filter(lootable);u.goal=nearest(cands,u);
+  if(!u.goal||u.goal.permanent||!(u.goal.pile?piles.includes(u.goal):units.includes(u.goal))||!lootable(u.goal)){u.goal=null;
+    const cands=[...piles,...units.filter(b=>b.team!=='s')].filter(b=>!b.permanent&&lootable(b));u.goal=nearest(cands,u);
     if(!u.goal||u.taken>=2){u.leaving=true;u.exit={x:u.x<MAP/2?.6:MAP-.6,y:u.y};return}}
   const g=u.goal;if(dist(u,g)>.8){u.state='去執嘢';step(u,g.x,g.y,dt,.75);return}
   u.state='執緊嘢';u.lootT=(u.lootT||0)+dt;
