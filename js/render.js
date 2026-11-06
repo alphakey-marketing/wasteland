@@ -112,7 +112,7 @@ function drawBodyLying(u,s,z,lift){
   limb('legs',-5,-6,-14,-6);limb('legs',-5,-2,-13,0);
   limb('larm',2,-8,-3,-11);
   box(-6,-9,12,9,u.color);
-  box(-6,-9,4,9,u.eq.armor==='plate'?'#a6afb1':u.eq.armor==='leather'?'#806044':u.color);
+  box(-6,-9,4,9,u.eq.armor==='forged_armor'?'#789c9e':u.eq.armor==='plate'?'#a6afb1':['leather','worked_armor'].includes(u.eq.armor)?'#806044':u.color);
   box(-5,-9,2,9,'#66503a');
   if(u.team==='a'||u.team==='e')box(3,-9,3,9,u.team==='e'?'#8e392d':'#b97942');
   limb('rarm',2,-2,-2,1);
@@ -153,7 +153,7 @@ function drawUnit(u){
   if(!crawl){const legColor=u.p.legs.pros?'#8d9aa3':'#514332';inkRect(x-4*k,y-9*k,3*k,9*k,legColor);inkRect(x+1*k,y-9*k,3*k,9*k,legColor)}
   ctx.save();rr(x-6.5*k,y-23*k,13*k,15*k,2*k);ctx.fillStyle=u.color;inkFill();ctx.clip();
   ctx.fillStyle='rgba(42,28,19,.32)';ctx.fillRect(x-6.5*k,y-23*k,5*k,15*k);
-  const ar=u.eq.armor;if(ar==='leather'||ar==='plate'){ctx.fillStyle=ar==='plate'?'rgba(190,200,210,.7)':'rgba(110,70,40,.65)';ctx.fillRect(x-6.5*k,y-23*k,13*k,7*k)}
+  const ar=u.eq.armor;if(['leather','plate','worked_armor','forged_armor'].includes(ar)){ctx.fillStyle=ar==='forged_armor'?'rgba(120,170,175,.85)':ar==='plate'?'rgba(190,200,210,.7)':'rgba(110,70,40,.65)';ctx.fillRect(x-6.5*k,y-23*k,13*k,7*k);if(ar==='forged_armor'){ctx.fillStyle='#d4ac61';ctx.fillRect(x-6.5*k,y-18*k,13*k,1.5*k)}}
   ctx.restore();
   inkRect(x-6*k,y-11*k,12*k,2.2*k,'#66503a');
   inkRect(x-1.5*k,y-11*k,3*k,2.2*k,'#d4ac61');
@@ -179,7 +179,7 @@ function drawUnit(u){
     else if(w){ctx.moveTo(x+6*k*u.face,y-14*k);ctx.lineTo(x+(13+u.lunge*3)*k*u.face,y-25*k)}
     ctx.stroke();
     if(w==='axe'&&!droop){ctx.fillStyle='#c8ccd0';ctx.fillRect(x+(11+u.lunge*3)*k*u.face-(u.face<0?5*k:0),y-28*k,5*k,6*k)}}
-  if(u.team==='n'||u.team==='g')label(u===TRADER?'商人 · 點我交易':u===INNKEEPER?'宿屋 · 酒場':'足輕',x,y-46*k,u.team==='n'?'#f0c45a':'#bcd0ec',10);
+  if(u.team==='n'||u.team==='g')label(u===TRADER?'商人 · 交易／工匠':u===INNKEEPER?'宿屋 · 酒場':'足輕',x,y-46*k,u.team==='n'?'#f0c45a':'#bcd0ec',10);
   else if(u.kind==='caravan')label('遊商 · 點我交易',x,y-46*k,'#f0c45a',10);
   else if(u.team==='s'&&!scavAngry.has(u.gid))label('落武者',x,y-46*k,'#d9d29a',9);
   else if(pct(u)<1||isSel||paused)hpBar(u,x,y-42*k,k);
