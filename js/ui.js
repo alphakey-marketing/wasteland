@@ -47,24 +47,31 @@ $('#segSell').addEventListener('click',()=>{shopTab='sell';renderShop()});
 $('#bShopClose').addEventListener('click',()=>{shopSheet.hidden=true;setModal(false)});
 
 const lootSheet=$('#lootSheet'),lootList=$('#lootList');let lootUnit=null,lootBody=null;
-function openLoot(u,b){if(anyModal())return;lootUnit=u;lootBody=b;renderLoot();lootSheet.hidden=false;setModal(true)}
+let harvestArmed=false;
+function openLoot(u,b){if(anyModal())return;lootUnit=u;lootBody=b;harvestArmed=false;renderLoot();lootSheet.hidden=false;setModal(true)}
+function fatalHarvest(r){return lootBody.kind==='dog'&&!lootBody.dead&&(r.id==='hide'||r.id==='meat')}
+function confirmHarvest(rows){if(!rows.some(fatalHarvest)||harvestArmed)return true;harvestArmed=true;renderLoot();toast('動物仍然生存；再按一次確認宰割，動物會死亡');return false}
 function lootRows(b){const rows=[];if(b.eq.weapon)rows.push({slot:'weapon',id:b.eq.weapon});if(b.eq.armor)rows.push({slot:'armor',id:b.eq.armor});b.pack.forEach((s,i)=>rows.push({idx:i,id:s.id,n:s.n}));return rows}
 function renderLoot(){
   const b=lootBody,u=lootUnit;
   if(b.pile&&!piles.includes(b))b.pack=[];
   $('#lootTitle').textContent=b.permanent?b.name:b.pile?'執起地上嘅嘢':`執嘢 · ${b.name}${b.dead?'（屍體）':''}`;
   $('#lootSub').textContent=`${u.name} 負重 ${load(u)} / ${cap(u)} kg · 超重會行慢，銅幣直接入全隊錢包`;
+  if(b.kind==='dog'&&!b.dead)$('#lootSub').textContent+=' · 宰割取皮／肉會令動物死亡';
   const rows=lootRows(b);
   lootList.innerHTML=rows.length?rows.map((r,i)=>{const it=ITEMS[r.id];return `<li><div class="nm"><b>${it.name}${r.n>1?' ×'+r.n:''}${r.slot?' · 身上著緊':''}</b><span>${r.id==='coin'?'全隊錢包':desc(r.id)+` · 賣 ${sellPrice(r.id)} 文`}</span></div><div class="btns"><button data-i="${i}">拎</button></div></li>`}).join('')
     :'<li><span class="empty">已經執清光</span></li>';
+  lootList.querySelectorAll('button[data-i]').forEach(bt=>{if(fatalHarvest(rows[+bt.dataset.i]))bt.textContent=harvestArmed?'確認宰割':'宰割取材（會死亡）'});
+  $('#bLootAll').textContent=rows.some(fatalHarvest)?harvestArmed?'確認宰割並全拎':'宰割並全拎（會死亡）':'全部拎走';
   $('#bLootAll').disabled=!rows.length;
   const canCarry=!b.pile&&!b.carriedBy&&!u.carry&&b.down;$('#bLootCarry').hidden=!canCarry;
   $('#bLootCarry').textContent=b.bounty&&!b.dead?`揹起佢（懸賞 ${b.bounty} 文）`:'揹起佢';
 }
 function takeRow(r){const b=lootBody,u=lootUnit;
+  if(fatalHarvest(r))kill(b);
   if(r.slot){addItem(u,r.id,1);b.eq[r.slot]=null}else{const s=b.pack[r.idx];addItem(u,s.id,s.n);b.pack.splice(r.idx,1)}}
-lootList.addEventListener('click',e=>{const bt=e.target.closest('button');if(!bt)return;const rows=lootRows(lootBody);const r=rows[+bt.dataset.i];if(r)takeRow(r);renderLoot();updatePortraits(true)});
-$('#bLootAll').addEventListener('click',()=>{let rows;while((rows=lootRows(lootBody)).length)takeRow(rows[rows.length-1]);toast(`${lootUnit.name} 執晒`);renderLoot();updatePortraits(true)});
+lootList.addEventListener('click',e=>{const bt=e.target.closest('button');if(!bt)return;const rows=lootRows(lootBody);const r=rows[+bt.dataset.i];if(r&&confirmHarvest([r]))takeRow(r);renderLoot();updatePortraits(true)});
+$('#bLootAll').addEventListener('click',()=>{if(!confirmHarvest(lootRows(lootBody)))return;let rows;while((rows=lootRows(lootBody)).length)takeRow(rows[rows.length-1]);toast(`${lootUnit.name} 執晒`);renderLoot();updatePortraits(true)});
 $('#bLootCarry').addEventListener('click',()=>{pickUp(lootUnit,lootBody);lootSheet.hidden=true;setModal(false);updatePortraits(true)});
 $('#bLootClose').addEventListener('click',()=>{lootSheet.hidden=true;setModal(false)});
 
@@ -86,7 +93,7 @@ function makePortrait(u){
 const ctxEl=$('#ctx');let ctxSig='';
 function updateCtx(){
   const carriers=[...sel].filter(u=>u.carry);const sig=carriers.map(u=>u.id+u.carry.id).join();if(sig===ctxSig)return;ctxSig=sig;
-  ctxEl.innerHTML=carriers.map((u,i)=>`<button data-i="${i}">${u.name} 放低 ${u.carry.name}</button>`).join('');
+  ctxEl.innerHTML=carriers.map((u,i)=>`<button data-i="${i}">↓ ${u.name} 放低 ${u.carry.name}</button>`).join('');
   ctxEl.onclick=e=>{const b=e.target.closest('button');if(!b)return;const u=carriers[+b.dataset.i];if(u){drop(u);toast(`${u.name} 放低咗`);ctxSig='';updateCtx()}};
 }
 let lastHud=0;
@@ -106,7 +113,7 @@ function updatePortraits(force){
     if(!up&&e.up){e.up.remove();e.up=null}
   });
   moneyTxt.textContent=money+' 文';updateCtx();
-  $('#journey').textContent=activeArea==='village'?'青葉村｜補給、醫傷；按「山道」選隊出發':'荒寺山道｜搜查遺留箱，帶銅印返村出售';
+  $('#journey').textContent=pendingTravel?'正集合到路牌 · 到齊自動出發 · 點路牌可取消':activeArea==='village'?'青葉村｜補給、醫傷；點路牌選隊出發':'荒寺山道｜搜查遺留箱，帶銅印返村出售';
   if(!charSheet.hidden&&cardUnit)fillCard();
 }
 
@@ -200,14 +207,13 @@ bPause.addEventListener('click',()=>{setPaused(!paused);if(!paused){const n=alli
 $('#bSlow').addEventListener('click',e=>{speed=speed<1?1:.25;e.currentTarget.setAttribute('aria-pressed',speed<1);refreshStatus()});
 $('#bSel').addEventListener('click',e=>{selectMode=!selectMode;e.currentTarget.setAttribute('aria-pressed',selectMode);toast(selectMode?'框選模式：單指拖 = 拉框':'返回普通模式：單指拖 = 鏡頭')});
 $('#bAll').addEventListener('click',()=>{sel.clear();allies().filter(u=>!u.dead).forEach(u=>sel.add(u));updatePortraits(true);toast('全隊已選')});
-$('#bTravel').addEventListener('click',()=>travelMenu());
 addEventListener('keydown',e=>{if(e.code==='Space'&&!(e.target instanceof HTMLInputElement)){e.preventDefault();bPause.click()}});
 
 let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2200)}
 
 /* ---------- tactics sheet ---------- */
 const RULES=[
-  ['flee','低血就逃','整體低過 30%，或者頭／身傷得重，有敵人喺附近就向反方向走'],
+  ['flee','重傷撤退','血量或頭／身低過 40% 就撤退，安全後休養至 60%；近身可自衛，手動指令優先'],
   ['rescue','救人醫人','先扶起倒地隊友；冇敵人時去幫受傷隊友包紮'],
   ['fight','見敵就打','冇指令嗰陣，6 格內見到敵人就自動開打'],
 ];

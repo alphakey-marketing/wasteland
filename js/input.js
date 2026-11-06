@@ -51,11 +51,8 @@ function pickBed(sx,sy){for(const b of BEDS){const s=scr(b.x,b.y,5);if(Math.hypo
 function pickOre(sx,sy){for(const o of ORES){const s=scr(o.x,o.y,o.h*.6);if(Math.hypot(s.x-sx,s.y-sy)<28*Math.max(.8,cam.z))return o}return null}
 function formation(n,i){const cols=Math.ceil(Math.sqrt(n)),rows=Math.ceil(n/cols),r=Math.floor(i/cols),c=i%cols;return{dx:(c-(cols-1)/2)*.85,dy:(r-(rows-1)/2)*.85}}
 function fleeCheck(list){
-  const now=performance.now(),warned=[],forced=[];
-  list.forEach(u=>{if(u.state==='逃跑'&&!(u.forceT>0)){u.fleeTaps=now-(u.fleeTapT||0)<4000?(u.fleeTaps||0)+1:1;u.fleeTapT=now;
-    if(u.fleeTaps>=2){u.forceT=3;u.fleeTaps=0;forced.push(u.name)}else warned.push(u.name)}});
-  if(forced.length){toast(`${forced.join('、')} 硬住頭皮，唔逃住，執行指令`);return true}
-  if(warned.length){toast(`${warned.join('、')} 想逃 · 再落一次指令就強制執行`);return true}
+  if(pendingTravel&&list.some(u=>pendingTravel.party.includes(u)))cancelTravel(false);
+  list.forEach(u=>{u.retreating=false;u.forceT=0});
   return false;
 }
 function push(u,c){if(paused){if(u.cmd.length>=6)u.cmd.shift();u.cmd.push(c)}else u.cmd=[c]}
@@ -72,6 +69,8 @@ function issueOne(c,target,why,filter){ // send only the nearest suitable select
   const u=nearest(list,target);fleeCheck([u]);push(u,c);return u;
 }
 function tap(sx,sy){
+  const gate=AREAS[activeArea].gate,gs=scr(gate.x,gate.y,20);
+  if(Math.hypot(sx-gs.x,sy-gs.y)<24*Math.max(.8,cam.z)){travelMenu(sx,sy);return}
   const u=pick(sx,sy);
   if(u){
     if(u.carriedBy){toast(`${u.carriedBy.name} 揹緊 ${u.name}`);return}
@@ -98,8 +97,6 @@ function tap(sx,sy){
       showMenu(sx,sy,u.name,[...opts,
         {label:`叫${others.map(a=>a.name).join('、')}跟住${u.name}`,sub:'一直跟住佢行，見敵照打。落新指令就會取消',fn:()=>{fleeCheck(others);others.forEach(a=>{a.cmd=[{t:'follow',u}]});toast(`${others.map(a=>a.name).join('、')} 跟住 ${u.name}`)}}]);return}
     if(issue(()=>({t:'attack',u})))fx.pings.push({x:u.x,y:u.y,t:performance.now(),col:'#d65b41'});return}
-  const gate=AREAS[activeArea].gate,gs=scr(gate.x,gate.y,10);
-  if(Math.hypot(sx-gs.x,sy-gs.y)<22*Math.max(.8,cam.z)){travelMenu(sx,sy);return}
   const bd=pickBed(sx,sy);if(bd){innMenu(sx,sy);return}
   const pl=pickPile(sx,sy);
   if(pl){showMenu(sx,sy,pl.permanent?`${pl.name} · ${pl.pack.length?'物資只可取一次':'已搜清'}`:`地上布袋 · ${pl.pack.length} 樣嘢 · ${Math.max(0,Math.ceil((300-(simT-pl.t))/60))} 分鐘內會消失`,[{label:pl.permanent?'搜查':'執起',sub:'行過去揀要拎咩',fn:()=>{const v=issueOne({t:'loot',body:pl},pl);if(v)toast(`${v.name} 去搜查`)}}]);return}

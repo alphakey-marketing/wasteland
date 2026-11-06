@@ -14,7 +14,10 @@ async function open(width=390){
   await p.evaluate(()=>setPaused(true));return p;
 }
 async function reload(p){await p.reload({waitUntil:'networkidle'});await p.evaluate(()=>setPaused(true))}
-async function travel(p){await p.click('#bTravel');await p.locator('#cmenu button[data-i="1"]').click()}
+async function travel(p){
+  const sign=await p.evaluate(()=>{const g=AREAS[activeArea].gate;for(const u of travelParty().filter(u=>!u.carriedBy)){u.x=g.x;u.y=g.y}centerOn(g.x,g.y);return scr(g.x,g.y,20)});
+  await p.mouse.click(sign.x,sign.y);await p.locator('#cmenu button[data-i="0"]').click();
+}
 (async()=>{
   browser=await chromium.launch({executablePath:process.env.WASTELAND_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
   for(const width of [360,390]){
@@ -37,9 +40,9 @@ async function travel(p){await p.click('#bTravel');await p.locator('#cmenu butto
     assert.equal(await p.evaluate(()=>money),sale.money+sale.price);
     await p.evaluate(()=>{shopSheet.hidden=true;setModal(false);allies().forEach(u=>{u.x=8;u.y=10})});
     await travel(p);assert.equal(await p.evaluate(()=>piles.find(p=>p.permanent).pack.length),0);
-    // Distance and enemy proximity must prevent escape through the area menu.
+    // Direct transitions still require the exit; active pursuers may follow.
     assert.equal(await p.evaluate(()=>{allies()[0].x=30;return travelArea()}),false);
-    assert.equal(await p.evaluate(()=>{allies().forEach(u=>{u.x=7;u.y=8});const e=bandits().find(u=>!u.down);e.x=7.5;e.y=8.5;return travelArea()}),false);
+    assert.equal(await p.evaluate(()=>{allies().forEach(u=>{u.x=7;u.y=8});const e=bandits().find(u=>!u.down);e.x=7.5;e.y=8.5;e.aggro=true;return travelArea()}),true);
     await p.close();console.log(`PASS ${width}px: portrait, expedition, sale, persistent loot/death, travel gates`);
   }
   {
