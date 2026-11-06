@@ -44,6 +44,7 @@ jobs:
         run: |
           mkdir -p site/play
           cp index.html site/
+          cp -r js site/
           ~/godot-dl/Godot_v${GODOT_VER}-stable_linux.x86_64 --headless --path godot --editor --import --quit
           ~/godot-dl/Godot_v${GODOT_VER}-stable_linux.x86_64 --headless --path godot --export-release Web "$GITHUB_WORKSPACE/site/play/index.html"
           ls -la site/play
