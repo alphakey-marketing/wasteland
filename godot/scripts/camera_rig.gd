@@ -2,6 +2,8 @@ extends Node3D
 
 var camera := Camera3D.new()
 var fingers: Dictionary = {}
+var external_controls := false
+var pan_limit := 5.0
 
 func _ready() -> void:
 	add_child(camera)
@@ -16,8 +18,8 @@ func pan(delta: Vector2) -> void:
 	var right := camera.global_basis.x
 	var forward := Vector3(camera.global_basis.z.x, 0, camera.global_basis.z.z).normalized()
 	position -= (right * delta.x + forward * delta.y) * scale_factor
-	position.x = clampf(position.x, -5, 5)
-	position.z = clampf(position.z, -5, 5)
+	position.x = clampf(position.x, -pan_limit, pan_limit)
+	position.z = clampf(position.z, -pan_limit, pan_limit)
 
 func _input(event: InputEvent) -> void:
 	# Always release fingers, even if a gesture ends over the UI.
@@ -25,6 +27,8 @@ func _input(event: InputEvent) -> void:
 		fingers.erase(event.index)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if external_controls:
+		return
 	if event is InputEventScreenTouch and event.pressed:
 		fingers[event.index] = event.position
 	elif event is InputEventScreenDrag and fingers.has(event.index):

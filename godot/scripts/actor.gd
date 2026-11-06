@@ -10,6 +10,7 @@ var left_state: String = "natural"
 var pose: String = "walk"
 var phase: float = 0.0
 var carry_socket: Node3D
+var animation_speed := 1.0
 
 func _ready() -> void:
 	add_child(skeleton)
@@ -94,9 +95,13 @@ func rotate_bone(id: String, angles: Vector3) -> void:
 	skeleton.set_bone_pose_rotation(skeleton.find_bone(id), Quaternion.from_euler(angles))
 
 func _process(delta: float) -> void:
-	phase += delta * 3.2
+	phase += delta * 3.2 * animation_speed
 	skeleton.reset_bone_poses()
-	if pose == "sleep":
+	if pose == "sleep" or pose == "idle":
+		return
+	if pose == "attack" or pose == "shoot":
+		rotate_bone("right_upper_arm", Vector3(-1.2 if pose == "shoot" else -0.9 + sin(phase * 4) * 0.7, 0, 0))
+		rotate_bone("left_upper_arm", Vector3(-1.2 if pose == "shoot" else -0.2, 0, 0))
 		return
 	if pose == "carried":
 		rotate_bone("chest", Vector3(0.2, 0, 0))
