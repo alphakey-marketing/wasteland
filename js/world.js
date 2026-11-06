@@ -2,12 +2,12 @@
 /* 地面、建築、礦石、床等場景物件 */
 /* ---------- ground (pre-rendered once) ---------- */
 const gw=MAP*TW,gh=MAP*TH;
-const ground=document.createElement('canvas');ground.width=gw;ground.height=gh;
-(function paintGround(){
+function paintGround(area){
+  const ground=document.createElement('canvas');ground.width=gw;ground.height=gh;
   const g=ground.getContext('2d');const ox=gw/2;
   const hash=(i,j)=>{const n=Math.sin(i*127.1+j*311.7)*43758.5453;return n-Math.floor(n)};
   const mix=(a,b,t)=>a.map((v,k)=>Math.round(v+(b[k]-v)*t));
-  const sandA=[204,160,98],sandB=[226,188,126],bed=[160,120,76],dark=[150,108,70],scrub=[150,140,88],pave=[214,196,160];
+  const sandA=area==='temple'?[112,126,83]:[147,156,99],sandB=[181,176,116],bed=[143,119,81],dark=[117,113,76],scrub=[111,132,77],pave=[195,178,132];
   for(let i=0;i<MAP;i++)for(let j=0;j<MAP;j++){
     const dune=(Math.sin(i*.33)+Math.cos(j*.27)+Math.sin((i+j)*.19))/6+.5;
     let c=mix(sandA,sandB,Math.min(1,Math.max(0,dune*.8+hash(i,j)*.25)));
@@ -16,10 +16,13 @@ const ground=document.createElement('canvas');ground.width=gw;ground.height=gh;
     const camp=Math.hypot(i-20,j-17);if(camp<3)c=mix(c,dark,.45*(1-camp/3));
     const den=Math.hypot(i+.5-DEN.x,j+.5-DEN.y);if(den<3.2)c=mix(c,scrub,.5*(1-den/3.2));
     const town=Math.hypot(i+.5-TOWN.x,j+.5-TOWN.y);if(town<3.6)c=mix(c,pave,(town<2.8?.7:.35)*(hash(i+1,j)*.3+.7));
+    if(Math.abs(i-j)<1.5)c=mix(c,pave,.65);
+    if(area==='village'&&i>8&&i<13&&j>2&&j<6)c=mix(c,[98,132,69],.8);
     const p=[[i,j],[i+1,j],[i+1,j+1],[i,j+1]].map(([a,b])=>[isoX(a,b)+ox,isoY(a,b)]);
     g.beginPath();p.forEach(([x,y],k)=>k?g.lineTo(x,y):g.moveTo(x,y));g.closePath();
     g.fillStyle=`rgb(${c})`;g.fill();
     g.strokeStyle=town<2.8?'rgba(90,70,45,.22)':'rgba(70,45,20,.035)';g.lineWidth=1;g.stroke();
+    if(area==='village'&&i>8&&i<13&&j>2&&j<6){const x=isoX(i+.5,j+.5)+ox,y=isoY(i+.5,j+.5);g.strokeStyle='#c1bd72';g.lineWidth=1.4;g.beginPath();g.moveTo(x-5,y+1);g.lineTo(x-7,y-4);g.moveTo(x,y+3);g.lineTo(x,y-4);g.moveTo(x+5,y+4);g.lineTo(x+7,y-2);g.stroke()}
     if(hash(j,i)>.72&&town>3){const cx=isoX(i+.5,j+.5)+ox+(hash(i+3,j)-.5)*20,cy=isoY(i+.5,j+.5)+(hash(i,j+5)-.5)*10;
       g.fillStyle='rgba(90,60,30,.35)';g.beginPath();g.ellipse(cx,cy,2+hash(i,j)*2,1+hash(i,j),0,0,Math.PI*2);g.fill();}
     if(river<1&&hash(i+9,j)>.5){g.strokeStyle='rgba(80,50,25,.35)';g.beginPath();const cx=isoX(i+.5,j+.5)+ox,cy=isoY(i+.5,j+.5);
@@ -32,12 +35,17 @@ const ground=document.createElement('canvas');ground.width=gw;ground.height=gh;
       g.moveTo(cx,cy);g.lineTo(cx+2,cy-6);g.moveTo(cx+2,cy);g.lineTo(cx+6,cy-3);g.stroke();
     }
   }
+  if(area==='temple'){
   const dx=isoX(DEN.x,DEN.y)+ox,dy=isoY(DEN.x,DEN.y);
   g.fillStyle='rgba(45,28,14,.75)';g.beginPath();g.ellipse(dx,dy,26,11,0,0,Math.PI*2);g.fill();
   g.fillStyle='rgba(20,12,6,.85)';g.beginPath();g.ellipse(dx,dy+1,15,6,0,0,Math.PI*2);g.fill();
   g.strokeStyle='rgba(235,225,205,.7)';g.lineWidth=2;g.lineCap='round';
   [[-34,6,-26,2],[30,-4,38,1],[22,10,30,12],[-20,-10,-12,-12]].forEach(([a,b,c,d])=>{g.beginPath();g.moveTo(dx+a,dy+b);g.lineTo(dx+c,dy+d);g.stroke()});
-})();
+  }
+  return ground;
+}
+const grounds={village:paintGround('village'),temple:paintGround('temple')};
+let ground=grounds.village;
 
 /* ---------- props (2.5D blocks) ---------- */
 const props=[];
