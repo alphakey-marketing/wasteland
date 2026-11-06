@@ -10,8 +10,6 @@ permissions:
 concurrency:
   group: pages
   cancel-in-progress: true
-env:
-  GODOT_VER: 4.7.2
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -20,34 +18,11 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Cache Godot
-        id: cache
-        uses: actions/cache@v4
-        with:
-          path: ~/godot-dl
-          key: godot-${{ env.GODOT_VER }}
-      - name: Download Godot + templates
-        if: steps.cache.outputs.cache-hit != 'true'
+      - name: Prepare HTML site
         run: |
-          mkdir -p ~/godot-dl && cd ~/godot-dl
-          B=https://github.com/godotengine/godot/releases/download/${GODOT_VER}-stable
-          curl -sSLO $B/Godot_v${GODOT_VER}-stable_linux.x86_64.zip
-          curl -sSLO $B/Godot_v${GODOT_VER}-stable_export_templates.tpz
-      - name: Install
-        run: |
-          cd ~/godot-dl
-          unzip -q Godot_v${GODOT_VER}-stable_linux.x86_64.zip
-          mkdir -p ~/.local/share/godot/export_templates
-          unzip -q Godot_v${GODOT_VER}-stable_export_templates.tpz -d tpl
-          mv tpl/templates ~/.local/share/godot/export_templates/${GODOT_VER}.stable
-      - name: Build site
-        run: |
-          mkdir -p site/play
+          mkdir -p site
           cp index.html site/
           cp -r js site/
-          ~/godot-dl/Godot_v${GODOT_VER}-stable_linux.x86_64 --headless --path godot --editor --import --quit
-          ~/godot-dl/Godot_v${GODOT_VER}-stable_linux.x86_64 --headless --path godot --export-release Web "$GITHUB_WORKSPACE/site/play/index.html"
-          ls -la site/play
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
