@@ -21,7 +21,7 @@ function allTrue(o){for(const [key,value]of Object.entries(o))assert.equal(value
       addItem(u,'iron',5);m.cash=sellPrice('iron')*2+1;const idx=u.pack.findIndex(s=>s.id==='iron'),n=sellTo(u,m,idx,5);
       const partial=n===2&&countItem(u,'iron')===3&&m.cash===1&&m.stock.iron===2&&!sellTo(u,m,u.pack.findIndex(s=>s.id==='iron'));
       const inn=merchantState('inn'),c1=merchantState('caravan','caravan:first'),c2=merchantState('caravan','caravan:second');
-      c1.stock.ration=0;const independent=inn!==m&&c1!==c2&&c2.stock.ration===12;
+      c1.stock.ration=0;const independent=inn!==m&&c1!==c2&&c2.stock.ration===6;
       save(false);return {finite,partial,independent};
     }));
     await p.evaluate(()=>{const u=allies()[0];u.x=TRADER.x;u.y=TRADER.y;arriveTalk(u,TRADER)});
@@ -32,9 +32,9 @@ function allTrue(o){for(const [key,value]of Object.entries(o))assert.equal(value
     await reload(p);
     allTrue(await p.evaluate(()=>{
       const m=merchantState('village');const persisted=m.cash===1&&m.stock.ration===0&&m.stock.iron===2;
-      simT=ECONOMY_DAY;const same=merchantState('village');const replenished=same.cash===900&&same.stock.ration===12&&same.stock.iron===2;
+      simT=ECONOMY_DAY;const same=merchantState('village');const replenished=same.cash===180&&same.stock.ration===2&&same.stock.iron===2;
       same.cash=1000;same.stock.medkit=10;simT+=ECONOMY_DAY*3;merchantState('village');
-      const noStack=same.cash===1000&&same.stock.medkit===10&&same.stock.ration===12;
+      const noStack=same.cash===1000&&same.stock.medkit===10&&same.stock.ration===2;
       money=0;const before=same.stock.ration;const noFree=!buyFrom(allies()[0],same,'ration')&&same.stock.ration===before;
       return {persisted,replenished,noStack,noFree};
     }));

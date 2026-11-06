@@ -2,9 +2,9 @@
 // One game day is ten minutes of running simulation; menus/pause do not advance it.
 const ECONOMY_DAY=600;
 const MERCHANTS={
-  village:{title:'青葉村商人／工匠',stock:STOCK,cash:900,craft:true},
-  inn:{title:'青葉宿屋',stock:INN_STOCK,cash:250},
-  caravan:{title:'遊商',stock:CARAVAN_STOCK,cash:600}
+  village:{title:'青葉村商人／工匠',stock:['ration','medkit','kit','knife','cloth','p_scrap'],supply:{ration:2,medkit:1,kit:1,knife:1,cloth:1,p_scrap:1},cash:180,craft:true},
+  inn:{title:'青葉宿屋',stock:INN_STOCK,supply:{ration:2,medkit:1},cash:50},
+  caravan:{title:'遊商',stock:CARAVAN_STOCK,supply:{ration:6,medkit:4,kit:2},cash:600}
 };
 const RECIPES=[
   {id:'cooked_meat',fee:2,needs:{meat:1}},
@@ -16,11 +16,25 @@ const RECIPES=[
 ];
 let economy={merchants:{},smithing:false};
 function stockCount(id){const t=ITEMS[id].type;return t==='food'?12:t==='med'?8:t==='tool'?4:t==='pros'?1:2}
+const supplyCount=(kind,id)=>MERCHANTS[kind].supply[id]??1;
+function rebalanceMerchant(m){
+  if(m.balance===2)return;
+  const def=MERCHANTS[m.kind],oldStock=m.kind==='village'?STOCK:m.kind==='inn'?INN_STOCK:CARAVAN_STOCK;
+  for(const id of Object.keys(m.stock))if(oldStock.includes(id)){
+    const extras=Math.max(0,m.stock[id]-stockCount(id));
+    m.stock[id]=Math.min(m.stock[id],def.stock.includes(id)?supplyCount(m.kind,id):0)+extras;
+    if(!m.stock[id]&&!def.stock.includes(id))delete m.stock[id];
+  }
+  for(const id of def.stock)if(m.stock[id]===undefined)m.stock[id]=supplyCount(m.kind,id);
+  const oldCash=m.kind==='village'?900:m.kind==='inn'?250:600;
+  m.cash=Math.min(m.cash,def.cash)+Math.max(0,m.cash-oldCash);m.balance=2;
+}
 function merchantState(kind,key=kind){
   const def=MERCHANTS[kind],day=Math.floor(simT/ECONOMY_DAY);
   let m=economy.merchants[key];
-  if(!m)m=economy.merchants[key]={kind,cash:def.cash,day,stock:Object.fromEntries(def.stock.map(id=>[id,stockCount(id)]))};
-  if(day>m.day){m.day=day;m.cash=Math.max(m.cash,def.cash);for(const id of def.stock)m.stock[id]=Math.max(m.stock[id]||0,stockCount(id))}
+  if(!m)m=economy.merchants[key]={kind,cash:def.cash,day,balance:2,stock:Object.fromEntries(def.stock.map(id=>[id,supplyCount(kind,id)]))};
+  rebalanceMerchant(m);
+  if(day>m.day){m.day=day;m.cash=Math.max(m.cash,def.cash);for(const id of def.stock)m.stock[id]=Math.max(m.stock[id]||0,supplyCount(kind,id))}
   return m;
 }
 function buyFrom(u,m,id){

@@ -64,8 +64,8 @@ async function travel(p){
     await p.evaluate(()=>{dropToGround(allies()[0],{id:'iron',n:1});save(false)});
     await reload(p);
     assert.equal(await p.evaluate(ids=>{const a=units.find(u=>u.id===ids.a),b=units.find(u=>u.id===ids.b);return a.carry===b&&b.carriedBy===a},ids),true);
-    // Changing control to reserves moves nobody and keeps the expedition frozen.
-    const result=await p.evaluate(()=>{const before=JSON.stringify(areaStates.village.units.map(u=>({id:u.id,x:u.x,y:u.y,p:u.p,food:u.food})));const start=simT;simulate(.5);const after=JSON.stringify(areaStates.village.units.map(u=>({id:u.id,x:u.x,y:u.y,p:u.p,food:u.food})));return {same:before===after,switched:switchReserve(),area:activeArea,total:allSquad().length,start}});
+    // Residents pause in inactive areas; travelling merchants have their own schedule.
+    const result=await p.evaluate(()=>{const residents=()=>areaStates.village.units.filter(u=>u.team!=='v').map(u=>({id:u.id,x:u.x,y:u.y,p:u.p,food:u.food}));const before=JSON.stringify(residents());const start=simT;simulate(.5);const after=JSON.stringify(residents());return {same:before===after,switched:switchReserve(),area:activeArea,total:allSquad().length,start}});
     assert.equal(result.same,true);assert.equal(result.switched,true);assert.equal(result.area,'village');assert.equal(result.total,4);
     await p.evaluate(()=>{simT+=500});
     assert.equal(await p.evaluate(()=>switchReserve()),true);

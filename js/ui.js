@@ -67,12 +67,12 @@ function lootRows(b){const rows=[];if(b.eq.weapon)rows.push({slot:'weapon',id:b.
 function renderLoot(){
   const b=lootBody,u=lootUnit;
   if(b.pile&&!piles.includes(b))b.pack=[];
-  $('#lootTitle').textContent=b.permanent?b.name:b.pile?'執起地上嘅嘢':`執嘢 · ${b.name}${b.dead?'（屍體）':''}`;
+  $('#lootTitle').textContent=b.permanent?b.name:b.pile?'執起地上嘅嘢':`搜身 · ${b.name}${b.dead?'（屍體）':''}`;
   $('#lootSub').textContent=`${u.name} 負重 ${load(u)} / ${cap(u)} kg · 超重會行慢，銅幣直接入全隊錢包`;
   if(b.kind==='dog'&&!b.dead)$('#lootSub').textContent+=' · 宰割取皮／肉會令動物死亡';
   const rows=lootRows(b);
   lootList.innerHTML=rows.length?rows.map((r,i)=>{const it=ITEMS[r.id];return `<li><div class="nm"><b>${it.name}${r.n>1?' ×'+r.n:''}${r.slot?' · 身上著緊':''}</b><span>${r.id==='coin'?'全隊錢包':desc(r.id)+` · 賣 ${sellPrice(r.id)} 文`}</span></div><div class="btns"><button data-i="${i}">拎</button></div></li>`}).join('')
-    :'<li><span class="empty">已經執清光</span></li>';
+    :`<li><span class="empty">${b.pile?'已經搜清光':'已被搜清 · 身上冇可取物品，可能已被其他人搜走'}</span></li>`;
   lootList.querySelectorAll('button[data-i]').forEach(bt=>{if(fatalHarvest(rows[+bt.dataset.i]))bt.textContent=harvestArmed?'確認宰割':'宰割取材（會死亡）'});
   $('#bLootAll').textContent=rows.some(fatalHarvest)?harvestArmed?'確認宰割並全拎':'宰割並全拎（會死亡）':'全部拎走';
   $('#bLootAll').disabled=!rows.length;
@@ -125,7 +125,7 @@ function updatePortraits(force){
     if(!up&&e.up){e.up.remove();e.up=null}
   });
   moneyTxt.textContent=money+' 文';updateCtx();
-  $('#journey').textContent=pendingTravel?'正集合到路牌 · 到齊自動出發 · 點路牌可取消':activeArea==='village'?'青葉村｜商人可交易／委託工匠；點路牌出發':economy.smithing?'荒寺山道｜採鐵、尋玉鋼，帶返村製作裝備':'荒寺山道｜尋找工匠藏箱：鍛冶圖錄、玉鋼';
+  $('#journey').textContent=(pendingTravel?'正集合到路牌 · 到齊自動出發 · 點路牌可取消':activeArea==='village'?'青葉村｜貧村補給／工匠；銅礦喺西面':'荒寺山道｜鐵礦喺北面；尋圖錄同玉鋼')+` · 遊商：${caravanLocation()}`;
   if(!charSheet.hidden&&cardUnit)fillCard();
 }
 
