@@ -7,7 +7,7 @@ const ground=document.createElement('canvas');ground.width=gw;ground.height=gh;
   const g=ground.getContext('2d');const ox=gw/2;
   const hash=(i,j)=>{const n=Math.sin(i*127.1+j*311.7)*43758.5453;return n-Math.floor(n)};
   const mix=(a,b,t)=>a.map((v,k)=>Math.round(v+(b[k]-v)*t));
-  const sandA=[196,151,92],sandB=[216,180,124],bed=[160,120,76],dark=[150,108,70],scrub=[150,140,88],pave=[214,196,160];
+  const sandA=[204,160,98],sandB=[226,188,126],bed=[160,120,76],dark=[150,108,70],scrub=[150,140,88],pave=[214,196,160];
   for(let i=0;i<MAP;i++)for(let j=0;j<MAP;j++){
     const dune=(Math.sin(i*.33)+Math.cos(j*.27)+Math.sin((i+j)*.19))/6+.5;
     let c=mix(sandA,sandB,Math.min(1,Math.max(0,dune*.8+hash(i,j)*.25)));
@@ -19,11 +19,18 @@ const ground=document.createElement('canvas');ground.width=gw;ground.height=gh;
     const p=[[i,j],[i+1,j],[i+1,j+1],[i,j+1]].map(([a,b])=>[isoX(a,b)+ox,isoY(a,b)]);
     g.beginPath();p.forEach(([x,y],k)=>k?g.lineTo(x,y):g.moveTo(x,y));g.closePath();
     g.fillStyle=`rgb(${c})`;g.fill();
-    g.strokeStyle=town<2.8?'rgba(90,70,45,.22)':'rgba(70,45,20,.10)';g.lineWidth=1;g.stroke();
+    g.strokeStyle=town<2.8?'rgba(90,70,45,.22)':'rgba(70,45,20,.035)';g.lineWidth=1;g.stroke();
     if(hash(j,i)>.72&&town>3){const cx=isoX(i+.5,j+.5)+ox+(hash(i+3,j)-.5)*20,cy=isoY(i+.5,j+.5)+(hash(i,j+5)-.5)*10;
       g.fillStyle='rgba(90,60,30,.35)';g.beginPath();g.ellipse(cx,cy,2+hash(i,j)*2,1+hash(i,j),0,0,Math.PI*2);g.fill();}
     if(river<1&&hash(i+9,j)>.5){g.strokeStyle='rgba(80,50,25,.35)';g.beginPath();const cx=isoX(i+.5,j+.5)+ox,cy=isoY(i+.5,j+.5);
       g.moveTo(cx-10,cy);g.lineTo(cx-2,cy+3);g.lineTo(cx+8,cy-2);g.stroke();}
+    // Sparse ink tufts are baked once; they add no per-frame objects or collision.
+    if(town>3&&hash(i+41,j+19)>.88){
+      const cx=isoX(i+.5,j+.5)+ox,cy=isoY(i+.5,j+.5);
+      g.strokeStyle='#79633c';g.lineWidth=1.2;g.lineCap='round';g.beginPath();
+      g.moveTo(cx-4,cy);g.lineTo(cx-7,cy-5);g.moveTo(cx-2,cy);g.lineTo(cx-3,cy-8);
+      g.moveTo(cx,cy);g.lineTo(cx+2,cy-6);g.moveTo(cx+2,cy);g.lineTo(cx+6,cy-3);g.stroke();
+    }
   }
   const dx=isoX(DEN.x,DEN.y)+ox,dy=isoY(DEN.x,DEN.y);
   g.fillStyle='rgba(45,28,14,.75)';g.beginPath();g.ellipse(dx,dy,26,11,0,0,Math.PI*2);g.fill();
