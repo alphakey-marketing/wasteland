@@ -2,21 +2,21 @@
 <html lang="zh-HK">
 <head>
 <meta charset="utf-8">
+<title>機關浪人：川霧之間</title>
+<meta name="description" content="架空戰國小隊生存 RPG：探索、機關義肢與武田／上杉邊境糧道抉擇。">
+<link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
-<title>機關浪人原型</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;600;800&family=Chakra+Petch:wght@500;700&display=swap">
 <style>
 /* Layout: full-bleed isometric desert field; HUD floats along the top and bottom edges like a field radio */
 :root{
   --ink:#17120d; --panel:rgba(31,24,18,.92); --panel2:#2a2018; --line:#54422f;
   --text:#f2e7d4; --muted:#b4a084; --accent:#eaa93a; --ally:#5fb3a8; --enemy:#d65b41; --ok:#8fc56e; --warn:#e5a23c; --bad:#d8553d; --gold:#f0c45a;
-  --font-body:"Noto Sans HK",system-ui,-apple-system,"PingFang HK","Microsoft JhengHei",sans-serif;
-  --font-num:"Chakra Petch","Noto Sans HK",ui-monospace,monospace;
+  --font-body:system-ui,-apple-system,"PingFang HK","Microsoft JhengHei",sans-serif;
+  --font-num:ui-monospace,monospace;
   color-scheme:dark;
 }
 html,body{height:100%;overflow:hidden;background:var(--ink);color:var(--text);font-family:var(--font-body)}
@@ -168,7 +168,12 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (max-width:380px){.tool{padding:8px 7px;font-size:12px}.body{grid-template-columns:96px 1fr}.body svg{width:96px}.status{padding:7px 10px}}
 </style>
 
+<style>
+.objective{position:fixed;top:calc(env(safe-area-inset-top,0px) + 142px);left:16px;max-width:calc(100% - 32px);z-index:2;border:1px solid var(--line);border-radius:9px;padding:7px 12px;background:var(--panel);color:var(--gold);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#journalActions .wide{margin:8px 0}#journalSheet .note{line-height:1.65}#saveFile{max-width:100%;margin:8px 0}
+</style>
 <canvas id="cv"></canvas>
+<button id="bObjective" class="objective">序章 · 川霧之間 · 行腳錄</button>
 
 <header class="top">
   <div class="status" id="status"><span class="dot"></span><span id="statusTxt">進行中</span><span class="money" id="moneyTxt">100 文</span></div>
@@ -272,7 +277,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     <div class="presets" id="presets"></div>
     <div class="eyebrow">勢力關係</div>
     <ul class="ws" id="factions"></ul>
-    <div class="eyebrow">試玩設定</div>
+    <div class="eyebrow">遊戲設定 · 0.2.0-rc1</div>
     <ul class="rules">
       <li class="rule"><div class="tx"><b>硬派模式</b><span>會斷肢、會流血致死、會陣亡。關咗就只會倒地</span></div><input type="checkbox" class="sw2" id="optHard" checked aria-label="硬派模式"></li>
       <li class="rule"><div class="tx"><b>一齊行時等最慢嗰個</b><span>多過一個人一齊移動，全組會跟最慢嗰個嘅速度，唔會散晒</span></div><input type="checkbox" class="sw2" id="optSync" checked aria-label="一齊行時等最慢嗰個"></li>
@@ -281,17 +286,39 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     <div class="btnrow" style="margin-top:8px">
       <button id="bWave">再嚟一波野武士</button>
       <button id="bSave">存檔</button>
+      <button id="bJournal">行腳錄／委託</button>
+      <button id="bExport">匯出存檔</button>
+      <button id="bRestoreSave">還原上次備份</button>
       <button id="bReset">重新開始</button>
       <button id="bHelp2">操作說明</button>
     </div>
+    <label class="wide" for="saveFile">匯入存檔（會取代進度，並保留備份）</label>
+    <input type="file" id="saveFile" accept="application/json,.json" aria-label="匯入存檔">
+    <p class="note" id="saveNotice" role="status">存檔留喺目前瀏覽器；換機、清除資料或更新下載版前，請先匯出備份。</p>
+    <p class="note"><a href="https://github.com/alphakey-marketing/wasteland/releases/tag/v0.2.0-rc1" target="_blank" rel="noopener" style="color:var(--gold)">下載離線候選版／版本說明</a> · 未正式開售，實機遊玩及商用權利仍需確認。</p>
     <button class="close" id="bClose">收埋</button>
   </div>
 </div>
 
+<div id="journalSheet" class="scrim" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="journalTitle">
+    <h2 id="journalTitle">行腳錄</h2>
+    <p class="sub">機關浪人：川霧之間 · 架空戰國地方篇</p>
+    <p class="note" id="journalObjective"></p>
+    <p class="note" id="journalLocation"></p>
+    <div id="journalActions"></div>
+    <div class="eyebrow">邊境勢力</div><ul class="ws" id="journalFactions"></ul>
+    <div class="eyebrow">行腳記錄</div><div id="journalLog"></div>
+    <button class="close" id="bJournalClose">返回旅途</button>
+  </div>
+</div>
 <div id="help" class="scrim">
   <div class="card">
-    <h2>機關浪人 · 架空戰國</h2>
+    <h2>機關浪人：川霧之間</h2>
+    <p class="sub">1561 年前後，一條機關技術改變命運嘅歷史分歧線。武田信玄、上杉謙信爭奪邊境糧道；你只係幾個想活落去嘅浪人。人物採用熟悉通稱；青葉村、委託、對白同會面均屬虛構，唔係史實重演。</p>
     <p class="sub">戰亂中，你帶住 4 個浪人同 100 文嚟到青葉村。村內有宿屋、商人同足輕；村外荒寺有遺留物資，亦有野武士。木鐵機關肢可以代替斷咗嘅手腳。</p>
+    <p class="note">先做三件事：① 暫停檢查隊伍　② 按「行腳錄」叫人到宿屋接委託　③ 帶糧同藥，再點路牌出發。戰鬥失利可以撤退、揹人返村；三條立場路線各有結局。</p>
+    <details><summary style="padding:12px 0;cursor:pointer;color:var(--gold)">完整操作與生存說明</summary>
     <dl class="gest">
       <dt>單指拖</dt><dd>移動鏡頭；兩指捏縮放</dd>
       <dt>山道</dt><dd>點地圖路牌揀目的地，已選隊友會集合後自動出發。追兵可能跟過區，可引去村中足輕附近；傷者要先揹起。點路牌可以取消出發，手動落新指令亦會取消。留守隊友同其他地區會暫停。</dd>
@@ -305,6 +332,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
       <dt>角色</dt><dd>傷勢、義肢、裝備、背包同技能</dd>
       <dt>❚❚ 暫停</dt><dd>暫停時連續落指令會排隊</dd>
     </dl>
+    <p class="note">故事起點：按畫面上方「行腳錄」查看目標，叫隊友到宿屋接尋糧委託。先用暫停檢查傷勢同背包，再經路牌出發。故事有三條選擇路線及護送失敗結局；完成後可以繼續探索。</p>
     <p class="note">第一趟行腳：點路牌去荒寺，搜查遺留箱，帶飯糰、藥包同舊寺銅印返村。銅印可以賣錢；箱內物資唔會因為離開或讀檔而補滿。</p>
     <p class="note">餓暈後可自行起身一次，有 120 秒搵食；再餓倒就有 90 秒救援時間，硬派模式會餓死。點傷者或角色卡叫隊友餵食，飽肚至少 25 先解除危機。暫停時倒數亦會停。</p>
     <p class="note">隊友共用食物：飽肚低於 40 又冇隨身食物，會喺安全時向 6 格內有糧隊友行近取食。手動指令、撤退同救援優先；倒地角色仍要人餵食，唔會隔空食糧。</p>
@@ -313,29 +341,31 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     <p class="note">鍛冶場有探索迷霧：全隊共享視野；行過嘅地形同建築會保留暗影，敵人、屍體同箱要接近先再睇到。倒地隊友視野縮細，被揹住或陣亡就冇視野。可以點迷霧落移動指令探路；探索記錄會存檔，村莊同荒寺暫時冇迷霧。</p>
     <p class="note">探索到鍛冶場嘅礦脈、鍛爐同工房後，離開視野仍會有「記錄」標記。按路牌 →「已發現地點」可以移動鏡頭搵返位置，唔會改隊友指令；當地敵情同物資仍要接近確認。</p>
     <p class="note">青葉村係貧村，補給好少。遊商帶較好裝備，會喺村內同荒寺山道各停留一分鐘，再去外地兩分鐘後返村；畫面提示會顯示佢喺邊。銅礦喺村西，鐵礦喺山道北面；路牌選單可以幫你搵礦。</p>
-    <p class="note">遊戲會自動保存兩個地區。包紮要用藥包；重傷可以租床（每人 10 文）。舊版角色會帶住原有進度喺青葉村繼續。</p>
+    <p class="note">遊戲會自動保存三個地區。戰術頁可匯出／匯入存檔、還原上次備份；下載版離線可玩，瀏覽器同檔案位置改變可能影響本地存檔，請用匯出功能搬移。包紮要用藥包；重傷可以租床（每人 10 文）。舊角色可接新故事。</p>
     <p class="note">倒地唔再係計時：要等頭同身慢慢回復先醒，流緊血就唔會回復，冇人止血會死。野犬會咬倒地嘅人，野武士有機會補刀。敵人倒地一陣都會醒返。</p>
     <p class="note">青葉村對你係中立。交懸賞會加關係，攻擊足輕會即刻變敵對。友好時買嘢有折扣。掉低嘅嘢會留喺地上 5 分鐘。</p>
     <p class="note">負重超過上限會行慢，但揹重嘢同採礦會練力量。揹人好重，記住揀強壯嘅隊友。只有生擒嘅懸賞犯先有賞金。</p>
     <p class="note">傷勢分三層：殘廢可以醫返；手腳斷咗就要去商人度買義肢；頭或身打得太重、或者倒地冇人止血，就會陣亡。</p>
-    <button class="close primary" id="bStart" style="margin-top:14px">開始玩</button>
+    </details>
+    <button class="close primary" id="bStart" style="margin-top:14px">開始旅途</button>
   </div>
 </div>
 
-<script src="js/core.js?v=sengoku-9"></script>
-<script src="js/data.js?v=sengoku-9"></script>
-<script src="js/world.js?v=sengoku-9"></script>
-<script src="js/sim.js?v=sengoku-9"></script>
-<script src="js/areas.js?v=sengoku-9"></script>
-<script src="js/economy.js?v=sengoku-9"></script>
-<script src="js/caravan.js?v=sengoku-9"></script>
-<script src="js/fog.js?v=sengoku-9"></script>
-<script src="js/hunger.js?v=sengoku-9"></script>
-<script src="js/render.js?v=sengoku-9"></script>
-<script src="js/input.js?v=sengoku-9"></script>
-<script src="js/ui.js?v=sengoku-9"></script>
-<script src="js/save.js?v=sengoku-9"></script>
-<script src="js/main.js?v=sengoku-9"></script>
+<script src="js/core.js?v=sengoku-10"></script>
+<script src="js/data.js?v=sengoku-10"></script>
+<script src="js/world.js?v=sengoku-10"></script>
+<script src="js/sim.js?v=sengoku-10"></script>
+<script src="js/areas.js?v=sengoku-10"></script>
+<script src="js/economy.js?v=sengoku-10"></script>
+<script src="js/caravan.js?v=sengoku-10"></script>
+<script src="js/fog.js?v=sengoku-10"></script>
+<script src="js/hunger.js?v=sengoku-10"></script>
+<script src="js/render.js?v=sengoku-10"></script>
+<script src="js/input.js?v=sengoku-10"></script>
+<script src="js/ui.js?v=sengoku-10"></script>
+<script src="js/campaign.js?v=sengoku-10"></script>
+<script src="js/save.js?v=sengoku-10"></script>
+<script src="js/main.js?v=sengoku-10"></script>
 
 </body>
 </html>

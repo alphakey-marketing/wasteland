@@ -43,7 +43,7 @@ function buyFrom(u,m,id){
   const price=buyPrice(id);money-=price;m.cash+=price;m.stock[id]--;addItem(u,id);return true;
 }
 function sellTo(u,m,idx,amount=1){
-  const s=u.pack[idx];if(!s)return 0;
+  const s=u.pack[idx];if(!s||ITEMS[s.id].type==='quest')return 0;
   const price=sellPrice(s.id),n=Math.min(s.n,Math.max(0,Math.floor(amount)),Math.floor(m.cash/price));if(!n)return 0;
   m.cash-=price*n;money+=price*n;m.stock[s.id]=(m.stock[s.id]||0)+n;s.n-=n;if(!s.n)u.pack.splice(idx,1);return n;
 }

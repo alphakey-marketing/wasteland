@@ -190,7 +190,8 @@ function drawUnit(u){
     else if(w){ctx.moveTo(x+6*k*u.face,y-14*k);ctx.lineTo(x+(13+u.lunge*3)*k*u.face,y-25*k)}
     ctx.stroke();
     if(w==='axe'&&!droop){ctx.fillStyle='#c8ccd0';ctx.fillRect(x+(11+u.lunge*3)*k*u.face-(u.face<0?5*k:0),y-28*k,5*k,6*k)}}
-  if(u.team==='n'||u.team==='g')label(u===TRADER?'商人 · 交易／工匠':u===INNKEEPER?'宿屋 · 酒場':'足輕',x,y-46*k,u.team==='n'?'#f0c45a':'#bcd0ec',10);
+  if(u.kind?.startsWith('border_'))label(u.name+(u.kind==='border_refugee'&&u.team==='c'?' · 護送':''),x,y-46*k,'#f0c45a',10);
+  else if(u.team==='n'||u.team==='g')label(u===TRADER?'商人 · 交易／工匠':u===INNKEEPER?'宿屋 · 酒場':'足輕',x,y-46*k,u.team==='n'?'#f0c45a':'#bcd0ec',10);
   else if(u.kind==='caravan')label('遊商 · 點我交易',x,y-46*k,'#f0c45a',10);
   else if(u.team==='s'&&!scavAngry.has(u.gid))label('落武者',x,y-46*k,'#d9d29a',9);
   else if(pct(u)<1||isSel||paused)hpBar(u,x,y-42*k,k);

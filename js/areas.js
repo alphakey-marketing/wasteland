@@ -50,13 +50,18 @@ function startTravel(target=AREAS[activeArea].links[0]){
 function updateTravel(){
   if(!pendingTravel)return;const {area,party}=pendingTravel;
   if(area!==activeArea||party.some(u=>!units.includes(u)||(!u.carriedBy&&(u.dead||u.down))||(u.carry&&!party.includes(u.carry)))||party.some(u=>u.carriedBy&&!party.includes(u.carriedBy))){cancelTravel();return}
-  if(party.filter(u=>!u.carriedBy).every(u=>dist(u,AREAS[area].gate)<=1.3))travelArea(party,pendingTravel.target);
+  if(party.filter(u=>!u.carriedBy).every(u=>dist(u,AREAS[area].gate)<=1.3)){
+    if(!campaignEscortReady(party)){if(!pendingTravel.escortWarned){toast('等阿澄到路牌先出發；倒地要揹起，亦可喺行腳錄叫佢等候');pendingTravel.escortWarned=true}return}
+    travelArea(party,pendingTravel.target);
+  }
 }
 function travelArea(party=travelParty(),target=AREAS[activeArea].links[0]){
+  party=campaignTravelParty(party);
   if(!AREAS[activeArea].links.includes(target)){toast('呢條山道去唔到該地區');return false}
   const walkers=party.filter(u=>!u.carriedBy),gate=AREAS[activeArea].gate;
   if(!walkers.length){toast('先揀可以出發嘅隊友；倒地同伴要有人揹');return false}
   if(walkers.some(u=>dist(u,gate)>2.4)){toast('先叫出發隊友集合到山道口');return false}
+  if(!campaignEscortReady(party)){toast('阿澄未到路牌；等埋佢，倒地就先揹起');return false}
   const pursuers=units.filter(u=>u.team!=='g'&&!u.down&&!u.dead&&!u.carriedBy&&!party.includes(u)&&(u.aggro||u.pursuitId)&&dist(u,gate)<5&&walkers.some(a=>hostile(u,a)&&dist(u,a)<6));
   pendingTravel=null;
   for(const u of party){u.cmd=[];u.moving=false;u.lunge=0}
@@ -80,6 +85,7 @@ function travelMenu(sx=W-60,sy=H-220){
   const a=AREAS[activeArea],n=travelParty().filter(u=>!u.carriedBy).length;
   showMenu(sx,sy,`${a.name} · 山道口`,[
     ...a.links.map(id=>({label:`${id==='village'?'返回':'出發'}：${AREAS[id].name}`,sub:`已選 ${n} 人 · 自動集合；追兵會跟隨 · ${id==='forge'?'危險較高，可先搜外圍再撤退':'傷者要先揹起'}`,fn:()=>startTravel(id)})),
+    {label:'行腳錄／邊境委託',sub:'查看目前目標同勢力抉擇',fn:openJournal},
     ...(pendingTravel?[{label:'取消出發',fn:cancelTravel}]:[]),
     ...Object.keys(AREAS).filter(id=>id!==activeArea&&areaStates[id].units.some(u=>u.team==='a'&&!u.dead)).map(id=>({label:`切換留守隊 · ${AREAS[id].name}`,sub:'只切換控制地區；出征隊留喺原位',fn:()=>switchReserve(id)})),
     ...(knownLandmarks().length?[{label:`已發現地點 · ${knownLandmarks().length}`,sub:'查看已記錄嘅路牌、礦脈同工房位置',fn:()=>landmarkMenu(sx,sy)}]:[]),
@@ -101,7 +107,7 @@ function restoreAreas(saved,id){
     const a=saved[key];if(!a&&key==='forge')continue; // Pre-forge saves keep their existing regions and receive the new region once.
     if(!a||!Array.isArray(a.units)||!Array.isArray(a.piles))throw Error('區域存檔不完整');
     const byId=new Map(),restored=a.units.map(o=>{
-      const npc=key==='village'?(o.role==='trader'?TRADER:o.role==='inn'?INNKEEPER:o.team==='g'?GUARD:null):null;
+      const npc=key==='village'?(o.role==='trader'?TRADER:o.role==='inn'?INNKEEPER:o.team==='g'&&!o.kind?GUARD:null):null;
       const u=Object.assign(npc||{},mk(o),{p:o.p,sk:o.sk,food:o.food==null?100:o.food});if(u.kind==='dog')u.natural=BITE;
       if(u.team==='a'&&!u.rules)u.rules={flee:true,rescue:false,fight:true};byId.set(u.id,u);return u;
     });

@@ -77,6 +77,7 @@ function tap(sx,sy){
   const u=hits[0];
   if(u){
     if(u.carriedBy){toast(`${u.carriedBy.name} 揹緊 ${u.name}`);return}
+    if(!u.down&&['border_refugee','border_lord'].includes(u.kind)&&u.team!=='a'){const v=issueOne({t:'talk',npc:u,act:'campaign'},u);if(v)toast(`${v.name} 去同 ${u.name} 交談`);return}
     if(u===TRADER){const v=issueOne({t:'talk',npc:u},u);if(v)toast(`${v.name} 行去搵商人`);return}
     if(u===INNKEEPER){innMenu(sx,sy);return}
     if(u.team==='v'&&!u.down){const opts=[];
