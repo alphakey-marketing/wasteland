@@ -2,7 +2,7 @@
 /* 商人、宿屋、足輕、頭像、角色卡、戰術頁、酒場 */
 /* ---------- trader, inn & guard ---------- */
 function innMenu(sx,sy){showMenu(sx,sy,'青葉宿屋 · 酒場',[
-  {label:'邊境糧運委託／行腳錄',sub:'武田、上杉同青葉村嘅地方故事',fn:()=>{const v=issueOne({t:'talk',npc:INNKEEPER,act:'campaign'},INNKEEPER);if(v)toast(`${v.name} 去了解委託`)}},
+  {label:'打聽傳聞／世情報',sub:'人物位置、可做嘅事同關所局勢；自由選擇先後',fn:()=>{const v=issueOne({t:'talk',npc:INNKEEPER,act:'campaign'},INNKEEPER);if(v)toast(`${v.name} 去打聽傳聞`)}},
   {label:'租床瞓（每人 10 文）',sub:'瞓到傷醫好為止，好快過包紮',fn:()=>{
     const list=[...sel].filter(a=>!a.down&&!a.carry);if(!list.length){toast('先揀冇揹人嘅隊友');return}
     const taken=new Set(allies().map(a=>a.cmd[0]&&a.cmd[0].t==='sleep'?a.cmd[0].bed:null));let n=0;

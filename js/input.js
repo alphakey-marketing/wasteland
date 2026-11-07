@@ -72,12 +72,14 @@ function issueOne(c,target,why,filter){ // send only the nearest suitable select
 function tap(sx,sy){
   const gate=AREAS[activeArea].gate,gs=scr(gate.x,gate.y,20);
   if(fogKnown(gate)&&Math.hypot(sx-gs.x,sy-gs.y)<24*Math.max(.8,cam.z)){travelMenu(sx,sy);return}
+  if(activeArea==='temple'){const s=scr(OUTPOST.x,OUTPOST.y,48);if(Math.hypot(sx-s.x,sy-s.y)<24*Math.max(.8,cam.z)){outpostMenu(sx,sy);return}}
   const hits=pickHits(sx,sy),bodies=hits.filter(u=>u.down&&!u.carriedBy);
   if(bodies.length&&hits.length>1){showMenu(sx,sy,'附近倒地角色 · 揀操作目標',bodies.map((b,i)=>({label:`${i+1}. ${b.name} · ${b.dead?'屍體':'倒地'}`,sub:hasLoot(b)?'身上仲有物品':'已被搜清 · 身上冇可取物品',fn:()=>bodyMenu(b,sx,sy)})));return}
   const u=hits[0];
   if(u){
     if(u.carriedBy){toast(`${u.carriedBy.name} 揹緊 ${u.name}`);return}
-    if(!u.down&&['border_refugee','border_lord'].includes(u.kind)&&u.team!=='a'){const v=issueOne({t:'talk',npc:u,act:'campaign'},u);if(v)toast(`${v.name} 去同 ${u.name} 交談`);return}
+    if(!u.down&&outpostSide(u)){outpostMenu(sx,sy,u);return}
+    if(!u.down&&(u.kind==='border_refugee'||u.kind?.startsWith('border_lord'))&&u.team!=='a'){const v=issueOne({t:'talk',npc:u,act:'campaign'},u);if(v)toast(`${v.name} 去同 ${u.name} 交談`);return}
     if(u===TRADER){const v=issueOne({t:'talk',npc:u},u);if(v)toast(`${v.name} 行去搵商人`);return}
     if(u===INNKEEPER){innMenu(sx,sy);return}
     if(u.team==='v'&&!u.down){const opts=[];
