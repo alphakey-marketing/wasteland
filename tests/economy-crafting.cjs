@@ -51,10 +51,17 @@ function allTrue(o){for(const [key,value]of Object.entries(o))assert.equal(value
     allTrue(await p.evaluate(()=>{
       const u=allies()[0],ore=ORES.find(o=>o.ore==='iron');u.sk.str.lv=40;u.x=ore.x+1;u.y=ore.y;u.cmd=[{t:'mine',node:ore}];
       for(let i=0;i<100&&countItem(u,'iron')<6;i++)runCmd(u,.5,null,99);u.cmd=[];
-      save(false);return {scroll:countItem(u,'smith_scroll')===1,steel:countItem(u,'steel')===6,mined:countItem(u,'iron')===6};
+      save(false);return {scroll:countItem(u,'smith_scroll')===1,steel:countItem(u,'steel')===2,mined:countItem(u,'iron')===6};
     }));
     await reload(p);
     assert.equal(await p.evaluate(()=>piles.find(p=>p.id==='smith-cache').pack.length),0);
+    // Additional advanced gear requires another expedition; use actual cache transfer controls.
+    await p.evaluate(()=>{const g=AREAS.temple.gate;allies().forEach(u=>{u.x=g.x;u.y=g.y});travelArea(travelParty(),'forge')});
+    for(const id of ['forge-parts','forge-plans']){
+      await p.evaluate(id=>{const u=allies()[0],box=piles.find(p=>p.id===id);u.x=box.x;u.y=box.y;openLoot(u,box)},id);
+      await p.click('#bLootAll');await p.click('#bLootClose');
+    }
+    await p.evaluate(()=>{const g=AREAS.forge.gate;allies().forEach(u=>{u.x=g.x;u.y=g.y});travelArea()});
     await p.evaluate(()=>{
       const g=AREAS[activeArea].gate;allies().forEach(u=>{u.x=g.x;u.y=g.y});travelArea();
       const u=allies()[0],ore=ORES.find(o=>o.ore==='copper');u.x=ore.x+1;u.y=ore.y;u.cmd=[{t:'mine',node:ore}];for(let i=0;i<100&&countItem(u,'copper')<4;i++)runCmd(u,.5,null,99);u.cmd=[];
@@ -62,14 +69,14 @@ function allTrue(o){for(const [key,value]of Object.entries(o))assert.equal(value
     });
     await p.locator('[data-buy="p_scrap"]').click();await p.click('#segCraft');
     assert.equal(await p.locator('[data-recipe="forged_blade"]').isDisabled(),true);
-    await p.locator('[data-learn]').click();
+    await p.locator('[data-learn="1"]').click();
     assert.equal(await p.evaluate(()=>economy.smithing&&!countItem(allies()[0],'smith_scroll')),true);
     for(const id of ['cooked_meat','kit','worked_armor','forged_blade','forged_armor','p_forged']){
       assert.equal(await p.locator(`[data-recipe="${id}"]`).isDisabled(),false,id);
       await p.locator(`[data-recipe="${id}"]`).click();
     }
     allTrue(await p.evaluate(()=>{
-      const u=allies()[0];return {outputs:RECIPES.every(r=>countItem(u,r.id)>=1),consumed:!countItem(u,'steel')&&!countItem(u,'iron')&&!countItem(u,'copper')&&!countItem(u,'hide')&&!countItem(u,'p_scrap'),
+      const u=allies()[0];return {outputs:RECIPES.filter(r=>!r.forge).every(r=>countItem(u,r.id)>=1),consumed:!countItem(u,'steel')&&!countItem(u,'iron')&&!countItem(u,'copper')&&!countItem(u,'hide')&&!countItem(u,'p_scrap'),
         blade:ITEMS.forged_blade.dmg[0]>ITEMS.axe.dmg[0]&&ITEMS.forged_blade.dmg[1]>ITEMS.axe.dmg[1],
         armor:ITEMS.forged_armor.red>ITEMS.plate.red&&ITEMS.forged_armor.w<ITEMS.plate.w,
         limb:PROS.master.hp>PROS.mil.hp&&PROS.master.mul>PROS.mil.mul,

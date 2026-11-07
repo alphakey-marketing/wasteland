@@ -34,9 +34,10 @@ function renderShop(){
   $('#shopFunds').textContent=`商人：${m.cash} 文`;
   $('#shopNote').textContent=`第 ${Math.floor(simT/ECONOMY_DAY)+1} 日 · 距下次補給 ${Math.ceil((ECONOMY_DAY-simT%ECONOMY_DAY)/60)} 分鐘遊戲時間；暫停唔計時`;
   if(shopTab==='craft'){
-    $('#shopNote').textContent=`只用${u.name}背包材料；交工錢即時製成。進階裝備優於商店成品，需荒寺圖錄及玉鋼。`;
+    $('#shopNote').textContent=`只用${u.name}背包材料；交工錢即時製成。荒寺得少量玉鋼，鍛冶場深處有新圖樣同零件；材料賣出前先睇配方。`;
     shopList.innerHTML=`<li class="col"><b>${economy.smithing?'荒寺鍛冶術 · 已解鎖全隊':'荒寺鍛冶術 · 未解鎖'}</b><span>${economy.smithing?'圖錄已交予工匠，配方永久保留':'到荒寺工匠藏箱尋找鍛冶圖錄，帶返嚟交予工匠'}</span>${!economy.smithing?`<button data-learn="1" ${!countItem(u,'smith_scroll')||smithReason(u,{needs:{},fee:0})?'disabled':''}>交出圖錄，解鎖進階配方</button>`:''}</li>`+
-      RECIPES.map(r=>{const why=smithReason(u,r);return `<li class="col"><b>${ITEMS[r.id].name}${r.advanced?' · 圖錄秘傳':''}</b><span>${desc(r.id)}</span><span>${Object.entries(r.needs).map(([id,n])=>`${ITEMS[id].name} ${countItem(u,id)}/${n}`).join(' · ')} · 工錢 ${r.fee} 文</span><div class="opts"><button data-recipe="${r.id}" ${why?'disabled':''}>${why||'委託製作'}</button></div></li>`}).join('');return;
+      `<li class="col"><b>鍛冶場機關術 · ${economy.forging?'已解鎖全隊':'未解鎖'}</b><span>經荒寺路牌去廢棄鍛冶場；圖樣同零件喺浪人守住嘅深處，唔使清場先可以搜箱。</span>${!economy.forging?`<button data-learn="forge" ${!countItem(u,'forge_scroll')||smithReason(u,{needs:{},fee:0})?'disabled':''}>交出機關圖樣</button>`:''}</li>`+
+      RECIPES.map(r=>{const why=smithReason(u,r);return `<li class="col"><b>${ITEMS[r.id].name}${r.forge?' · 機關秘傳':r.advanced?' · 圖錄秘傳':''}</b><span>${desc(r.id)}</span><span>${Object.entries(r.needs).map(([id,n])=>`${ITEMS[id].name} ${countItem(u,id)}/${n}`).join(' · ')} · 工錢 ${r.fee} 文</span><div class="opts"><button data-recipe="${r.id}" ${why?'disabled':''}>${why||'委託製作'}</button></div></li>`}).join('');return;
   }
   if(shopTab==='buy'){
     shopList.innerHTML=(repTown>=30?'<li><span class="empty">青葉村當你係朋友：買嘢九折，賣嘢多一成</span></li>':'')+Object.entries(m.stock).map(([id,n])=>{const it=ITEMS[id],pr=buyPrice(id);return `<li><div class="nm"><b>${it.name} · 餘 ${n}</b><span>${desc(id)}</span></div><span class="price">${pr} 文</span><div class="btns"><button class="buy" data-buy="${id}" ${money<pr||!n?'disabled':''}>${n?'買':'售罄'}</button></div></li>`}).join('');
@@ -50,7 +51,7 @@ shopList.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||
   if(b.dataset.buy){const id=b.dataset.buy;if(buyFrom(u,m,id))toast(`買咗${ITEMS[id].name}，放咗入${u.name}背包`)}
   else if(b.dataset.sell)sellTo(u,m,+b.dataset.sell);
   else if(b.dataset.sellall){const i=+b.dataset.sellall;sellTo(u,m,i,u.pack[i]?.n||0)}
-  else if(b.dataset.learn&&shopVendor.craft){if(learnSmithing(u))toast('已交出圖錄，全隊解鎖荒寺鍛冶術')}
+  else if(b.dataset.learn&&shopVendor.craft){const forge=b.dataset.learn==='forge';if(learnSmithing(u,forge))toast(forge?'已交出圖樣，全隊解鎖機關護胴':'已交出圖錄，全隊解鎖荒寺鍛冶術')}
   else if(b.dataset.recipe&&shopVendor.craft){if(commission(u,b.dataset.recipe))toast(`工匠製好${ITEMS[b.dataset.recipe].name}，放入${u.name}背包`)}
   renderShop();updatePortraits(true);save(false)});
 $('#segBuy').addEventListener('click',()=>{shopTab='buy';renderShop()});
@@ -125,7 +126,7 @@ function updatePortraits(force){
     if(!up&&e.up){e.up.remove();e.up=null}
   });
   moneyTxt.textContent=money+' 文';updateCtx();
-  $('#journey').textContent=(pendingTravel?'正集合到路牌 · 到齊自動出發 · 點路牌可取消':activeArea==='village'?'青葉村｜貧村補給／工匠；銅礦喺西面':'荒寺山道｜鐵礦喺北面；尋圖錄同玉鋼')+` · 遊商：${caravanLocation()}`;
+  $('#journey').textContent=(pendingTravel?`正集合去${AREAS[pendingTravel.target].name} · 點路牌可取消`:`${AREAS[activeArea].name}｜${AREAS[activeArea].hint}`)+` · 遊商：${caravanLocation()}`;
   if(!charSheet.hidden&&cardUnit)fillCard();
 }
 
