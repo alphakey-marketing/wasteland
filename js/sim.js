@@ -244,6 +244,7 @@ function updAlly(u,dt){
     if(nd>6&&!u.cmd.length){const pat=nearest(allies().filter(a=>a!==u&&!a.down&&hurt(a)&&canTreat(u,a)&&(a.bleed>0||pct(a)<.85)&&dist(u,a)<10),u);
       if(pat){u.state='醫'+pat.name;if(dist(u,pat)>.8)step(u,pat.x,pat.y,dt);else treat(u,pat,dt);return}}
   }
+  if(nd>6&&shareFood(u,dt))return;
   if(u.rules.fight&&ne&&nd<6&&!u.carry){u.state='見敵就打';engage(u,ne,dt);return}
   if(hurt(u)&&nd>6&&!u.carry&&canTreat(u,u)){u.state='包紮緊';treat(u,u,dt);return}
   u.state=u.carry?'揹緊'+u.carry.name:ratio(u,'legs')<=0?'爬行中':encMul(u)<1?'負重過重':'待命';
