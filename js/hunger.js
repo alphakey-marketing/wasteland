@@ -15,12 +15,23 @@ function eatFood(donor,patient,id){
   if(patient.starvation&&patient.food>=HUNGER.sated){patient.starvation=null;toast(`${patient.name} 已脫離飢餓危機，自救機會重置`)}
   return true;
 }
+function sharedFoodSource(u){
+  return nearest(allies().filter(d=>d!==u&&!d.dead&&(!d.carriedBy||d.carriedBy===u)&&dist(u,d)<=6&&feedingSource(d,d)),u);
+}
+function shareFood(u,dt){
+  if(u.food>=40||feedingSource(u,u))return false;
+  const donor=sharedFoodSource(u);if(!donor)return false;
+  u.state=`向${donor.name}取食`;
+  if(dist(u,donor)>.9)step(u,donor.x,donor.y,dt);
+  else{const source=feedingSource(donor,donor);if(source)eatFood(donor,u,source.id)}
+  return true;
+}
 function tickHunger(u,dt){
   if(u.dead)return;
   u.food=Math.max(0,u.food-(u.state==='瞓緊'?.06:.12)*dt);
   if(u.food<40&&!u.down){const item=u.pack.find(s=>ITEMS[s.id].type==='food');
     if(item)eatFood(u,u,item.id);
-    else if(u.food<25&&!u.hungryWarned&&!u.starvation){u.hungryWarned=true;toast(`${u.name} 好肚餓，背包冇嘢食；餓到倒地會有生命危險`)}}
+    else if(u.food<25&&!u.hungryWarned&&!u.starvation){u.hungryWarned=true;toast(`${u.name} 冇隨身食物；安全時會向附近隊友分糧，餓到倒地會有生命危險`)}}
   const s=u.starvation;
   if(s){
     s.left=Math.max(0,s.left-dt);
