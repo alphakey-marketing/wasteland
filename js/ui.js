@@ -117,7 +117,8 @@ function updatePortraits(force){
     const p=pct(u);e.hp.style.width=(p*100).toFixed(1)+'%';e.hp.style.background=p<.3?'#e5813c':'#8fc56e';
     PARTS.forEach(([k],i)=>e.pips[i].style.background=partCol(u,k));
     const q=u.cmd.length>1?` · 排隊 ${u.cmd.length}`:'';
-    e.st.textContent=(u.food<25&&!u.dead?'肚餓 · ':'')+(u.dead?'陣亡':u.down?(u.carriedBy?'俾人揹緊':u.bleed>0?'倒地 · 流血中':`倒地 · 回復 ${Math.round(recov(u)*100)}%`):u.state)+(u.bleed>.15&&!u.dead?' · 流血':'')+q;e.nm.textContent=u.name;
+    const hungry=starvationText(u);
+    e.st.textContent=(u.food<25&&!u.dead&&!hungry?'肚餓 · ':'')+(u.dead?'陣亡':hungry?hungry+(u.carriedBy?' · 被揹緊':u.down?'':` · ${u.state}`):u.down?(u.carriedBy?'俾人揹緊':u.bleed>0?'倒地 · 流血中':`倒地 · 回復 ${Math.round(recov(u)*100)}%`):u.state)+(u.bleed>.15&&!u.dead?' · 流血':'')+q;e.nm.textContent=u.name;
     const f=cam.follow===u;
     if(f&&!e.cam){e.cam=document.createElement('span');e.cam.className='cam';e.cam.textContent='鏡頭';e.b.appendChild(e.cam)}
     if(!f&&e.cam){e.cam.remove();e.cam=null}
@@ -143,7 +144,7 @@ function openCard(u){cardUnit=u||[...sel][0]||allies()[0];buildCard();charSheet.
 function buildCard(){allies().forEach(a=>a.tab.setAttribute('aria-selected',a===cardUnit));wsSig=eqSig=packSig='';fillCard()}
 function fillCard(){
   const u=cardUnit;$('#chName').textContent=`${u.name} · ${u.role}`;u.tab.lastChild.textContent=u.name;
-  const notes=[];if(u.dead)notes.push('已陣亡 · 可以將佢移離隊伍，去宿屋酒場請新人');else if(u.down)notes.push(u.carriedBy?`俾 ${u.carriedBy.name} 揹緊`:u.bleed>0?'倒地中 · 流緊血，冇人止血會死':`倒地中 · 回復緊 ${Math.round(recov(u)*100)}%`);
+  const notes=[];if(u.dead)notes.push('已陣亡 · 可以將佢移離隊伍，去宿屋酒場請新人');else{const hungry=starvationText(u);if(hungry)notes.push(`${hungry} · 飽肚至少 ${HUNGER.sated} 先解除危機`);if(u.down)notes.push(u.carriedBy?`俾 ${u.carriedBy.name} 揹緊`:u.bleed>0?'倒地中 · 流緊血，冇人止血會死':hungerBlocksRecovery(u)?'需要食物救援':`倒地中 · 回復緊 ${Math.round(recov(u)*100)}%`)}
   if(u.bleed>.05&&!u.dead)notes.push(`流血中，每秒 −${u.bleed.toFixed(1)}`);
   PARTS.forEach(([k,l])=>{if(u.p[k].lost)notes.push(`${l}斷咗`)});
   if(!u.p.legs.lost&&ratio(u,'legs')<=0)notes.push('腳殘廢，只可以爬');else if(ratio(u,'legs')>0&&ratio(u,'legs')<.6)notes.push(`腳傷，速度 ${Math.round(legMul(u)*100)}%`);
@@ -156,7 +157,8 @@ function fillCard(){
     const v=$('#pv_'+k);if(p.lost){v.textContent='斷咗';v.classList.add('cr')}else if(p.hp<=0){v.textContent=p.pros?'義肢壞咗':'殘廢';v.classList.add('cr')}
     else{v.textContent=(p.pros?'義 ':'')+`${Math.ceil(p.hp)} / ${p.max}`;v.classList.remove('cr')}});
   fillWorkshop(u);fillEquip(u);
-  const f=Math.round(u.food);$('#foodTxt').textContent=`飽肚 ${f} / 100`;$('#foodEff').textContent=u.food<=0?'餓到扣血':u.food<30?'肚餓：傷害同速度下降':'';
+  const f=Math.round(u.food);$('#foodTxt').textContent=`飽肚 ${f} / 100`;$('#foodEff').textContent=starvationText(u)||(u.food<=0?'餓到扣血':u.food<30?'肚餓：傷害同速度下降':'');
+  const helper=feedingHelper(u),feedButton=$('#bFeed');feedButton.hidden=u.dead||u.food>=40;feedButton.disabled=!helper;feedButton.textContent=helper?`叫${helper.name}餵食`:'餵食（需要隊友同食物）';
   const ff=$('#foodFill');ff.style.width=f+'%';ff.style.background=u.food<30?'#d8553d':u.food<50?'#e5a23c':'#8fc56e';
   $('#bDismiss').hidden=!u.dead;{const bb=$('#bBandage');bb.disabled=u.dead||u.down||!hurt(u);bb.textContent=u.cmd[0]&&u.cmd[0].t==='bandage'&&u.cmd[0].pat===u?'包紮緊…':hurt(u)?`包紮自己（藥包 ${countItem(u,'medkit')} 個）`:'冇傷，唔使包紮'}
   const l=load(u),c=cap(u);$('#loadTxt').textContent=`負重 ${l} / ${c} kg${u.carry?'（包括揹緊嘅人 30kg）':''}`;
@@ -202,6 +204,7 @@ packEl.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)ret
   eqSig=packSig=wsSig='';updatePortraits(true)});
 $('#bChar').addEventListener('click',()=>openCard());
 $('#bBandage').addEventListener('click',()=>{const u=cardUnit;if(u&&!u.dead&&!u.down&&hurt(u)){orderBandage(u,u);charSheet.hidden=true}});
+$('#bFeed').addEventListener('click',()=>{if(cardUnit&&orderFeed(cardUnit))charSheet.hidden=true});
 $('#bDismiss').addEventListener('click',()=>{const u=cardUnit;if(!u||!u.dead)return;u.team='c';sel.delete(u);if(cam.follow===u)cam.follow=null;
   toast(`${u.name} 已移離隊伍，屍體上嘅嘢仲可以執`);buildSquadUI();const n=allies()[0];if(n){cardUnit=n;buildCard()}else charSheet.hidden=true});
 $('#bCharClose').addEventListener('click',()=>charSheet.hidden=true);

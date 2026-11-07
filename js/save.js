@@ -6,7 +6,7 @@ let restarting=false;
 function serialize(){const keep=units.filter(u=>u.team==='a'||u.team==='e'||u.team==='c');
   return JSON.stringify({v:1,money,repTown,wave,hardcore,groupSync,autoPause,simT,recruitN,hired:[...hired],economy,caravan:packCaravan(),exploration:packExploration(),activeArea,areas:packAreas(),caravanAngry,scavAngry:[...scavAngry],cam:{x:cam.x,y:cam.y,z:cam.z},
     units:keep.map(u=>({id:u.id,team:u.team,kind:u.kind,name:u.name,role:u.role,color:u.color,base:u.base,x:u.x,y:u.y,p:u.p,sk:u.sk,eq:u.eq,pack:u.pack,bounty:u.bounty,
-      down:u.down,dead:u.dead,bleed:u.bleed,rules:u.rules,home:u.home,aggroR:u.aggroR,leash:u.leash,food:u.food,kitUse:u.kitUse,carryId:u.carry?u.carry.id:null})),
+      down:u.down,dead:u.dead,bleed:u.bleed,rules:u.rules,home:u.home,aggroR:u.aggroR,leash:u.leash,food:u.food,starvation:u.starvation,kitUse:u.kitUse,carryId:u.carry?u.carry.id:null})),
     piles:piles.map(p=>({x:p.x,y:p.y,pack:p.pack,t:p.t}))})}
 function save(manual){if(restarting)return;try{localStorage.setItem(SAVE_KEY,serialize());if(manual)toast('已存檔')}catch(e){if(manual)toast('存唔到檔：呢個瀏覽器唔俾儲存')}}
 function loadGame(){let d=null;try{d=JSON.parse(localStorage.getItem(SAVE_KEY)||localStorage.getItem(LEGACY_SAVE_KEY)||'null')}catch(e){return false}if(!d||d.v!==1)return false;

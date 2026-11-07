@@ -94,8 +94,9 @@ function tap(sx,sy){
     if(u.team==='a'){const others=[...sel].filter(a=>a!==u&&!a.down);
       const pickIt=()=>{sel.clear();sel.add(u);updatePortraits(true);toast(`揀咗 ${u.name}（${u.role}）`)};
       const selfBand={label:'包紮自己',sub:bandSub(u,u),fn:()=>orderBandage(u,u)};
-      if(!others.length){if(sel.has(u)&&hurt(u)){showMenu(sx,sy,u.name,[selfBand]);return}pickIt();return}
-      const healer=nearest(others,u);const opts=[{label:`揀${u.name}`,fn:pickIt}];
+      const feed=feedOption(u);
+      if(!others.length){const opts=[...(hurt(u)?[selfBand]:[]),...(feed?[feed]:[])];if(sel.has(u)&&opts.length){showMenu(sx,sy,u.name,opts);return}pickIt();return}
+      const healer=nearest(others,u);const opts=[{label:`揀${u.name}`,fn:pickIt},...(feed?[feed]:[])];
       if(hurt(u))opts.push({label:`叫${healer.name}幫${u.name}包紮`,sub:bandSub(healer,u),fn:()=>orderBandage(healer,u)},selfBand);
       showMenu(sx,sy,u.name,[...opts,
         {label:`叫${others.map(a=>a.name).join('、')}跟住${u.name}`,sub:'一直跟住佢行，見敵照打。落新指令就會取消',fn:()=>{fleeCheck(others);others.forEach(a=>{a.cmd=[{t:'follow',u}]});toast(`${others.map(a=>a.name).join('、')} 跟住 ${u.name}`)}}]);return}
@@ -123,9 +124,19 @@ function showMenu(sx,sy,title,opts){
 }
 function bandSub(h,p){const kits=countItem(h,'medkit');return `${kits?`${h.name}有 ${kits} 個藥包`:`${h.name}冇藥包，淨係止到血`} · 包紮期間唔會還手，被打會中斷`}
 function orderBandage(h,p){if(h.down){toast(`${h.name} 倒咗地`);return}fleeCheck([h]);push(h,{t:'bandage',pat:p});toast(p===h?`${h.name} 開始包紮自己`:`${h.name} 去幫 ${p.name} 包紮`)}
+function orderFeed(p){
+  const h=feedingHelper(p);if(!h){toast('需要可行動隊友；隊友或傷者背包要有食物，揹住傷者嘅人可直接餵');return false}
+  fleeCheck([h]);push(h,{t:'feed',pat:p});toast(`${h.name} 去餵 ${p.name}；飽肚至少 ${HUNGER.sated} 先解除危機`);return true;
+}
+function feedOption(p){
+  if(p.dead||p.team!=='a'||p.food>=40)return null;
+  const h=feedingHelper(p),s=h&&feedingSource(h,p);
+  return {label:h?`叫${h.name}餵食`:'餵食 · 需要隊友同食物',sub:s?`${s.donor.name}背包：${ITEMS[s.id].name} · 飽肚 +${ITEMS[s.id].food}`:'可用隊友或傷者背包嘅食物',fn:()=>orderFeed(p)};
+}
 function hasLoot(b){return b.pack.length>0||!!b.eq.weapon||!!b.eq.armor}
 function bodyMenu(b,sx,sy){
   const opts=[];
+  const feed=feedOption(b);if(feed)opts.push(feed);
   if(b.team!=='a'||b.dead)opts.push({label:hasLoot(b)?'搜身／取裝備':'搜身 · 已被搜清',sub:hasLoot(b)?'行過去搜查背包同身上裝備':'身上冇可取物品；可能已被其他人搜走',fn:()=>{const v=issueOne({t:'loot',body:b},b);if(v)toast(`${v.name} 去搜身`)}});
   if(!b.dead&&b.team!=='a')opts.push({label:'補刀',sub:'打到佢死為止，唔會再醒',fn:()=>{if(issue(()=>({t:'attack',u:b,finish:true})))fx.pings.push({x:b.x,y:b.y,t:performance.now(),col:'#d65b41'})}});
   if(!b.dead&&b.team==='a'&&!b.pile){const h=nearest([...sel].filter(a=>!a.down&&a!==b),b);
@@ -133,7 +144,7 @@ function bodyMenu(b,sx,sy){
   if(!b.dead&&b.team!=='a'&&b.bleed>0)opts.push({label:'幫佢止血',sub:b.bounty?`保住條命先攞到懸賞 ${b.bounty} 文 · 會練急救`:'唔會醫好佢，淨係止血 · 會練急救',fn:()=>{const v=issueOne({t:'aid',body:b},b);if(v)toast(`${v.name} 去幫 ${b.name} 止血`)}});
   opts.push({label:b.bounty&&!b.dead?`揹起佢（懸賞 ${b.bounty} 文）`:'揹起佢',sub:b.bounty&&!b.dead?'揹去青葉村足輕度領賞':b.team==='a'&&!b.dead?'揹佢離開險地，等人救':'好重，會行得好慢',
     fn:()=>{const v=issueOne({t:'carry',body:b},b,'揀咗嘅隊友已經揹緊人',a=>!a.carry);if(v)toast(`${v.name} 去揹 ${b.name}`)}});
-  const title=`${b.name} · ${b.dead?'屍體':'倒地'}${!b.dead?`（${b.bleed>0?'流緊血':'回復 '+Math.round(recov(b)*100)+'%'}）`:''}`;
+  const title=`${b.name} · ${b.dead?'屍體':starvationText(b)||`倒地（${b.bleed>0?'流緊血':'回復 '+Math.round(recov(b)*100)+'%'}）`}`;
   showMenu(sx,sy,title,opts);
 }
 
