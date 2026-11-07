@@ -51,7 +51,7 @@ function updateTravel(){
   if(!pendingTravel)return;const {area,party}=pendingTravel;
   if(area!==activeArea||party.some(u=>!units.includes(u)||(!u.carriedBy&&(u.dead||u.down))||(u.carry&&!party.includes(u.carry)))||party.some(u=>u.carriedBy&&!party.includes(u.carriedBy))){cancelTravel();return}
   if(party.filter(u=>!u.carriedBy).every(u=>dist(u,AREAS[area].gate)<=1.3)){
-    if(!campaignEscortReady(party)){if(!pendingTravel.escortWarned){toast('等阿澄到路牌先出發；倒地要揹起，亦可喺行腳錄叫佢等候');pendingTravel.escortWarned=true}return}
+    if(!campaignEscortReady(party)){if(!pendingTravel.escortWarned){toast('等阿澄到路牌先出發；倒地要揹起，亦可喺世情報叫佢等候');pendingTravel.escortWarned=true}return}
     travelArea(party,pendingTravel.target);
   }
 }
@@ -85,7 +85,7 @@ function travelMenu(sx=W-60,sy=H-220){
   const a=AREAS[activeArea],n=travelParty().filter(u=>!u.carriedBy).length;
   showMenu(sx,sy,`${a.name} · 山道口`,[
     ...a.links.map(id=>({label:`${id==='village'?'返回':'出發'}：${AREAS[id].name}`,sub:`已選 ${n} 人 · 自動集合；追兵會跟隨 · ${id==='forge'?'危險較高，可先搜外圍再撤退':'傷者要先揹起'}`,fn:()=>startTravel(id)})),
-    {label:'行腳錄／邊境委託',sub:'查看目前目標同勢力抉擇',fn:openJournal},
+    {label:'世情報／傳聞',sub:'人物由開局已經存在，冇章節先後限制',fn:openJournal},
     ...(pendingTravel?[{label:'取消出發',fn:cancelTravel}]:[]),
     ...Object.keys(AREAS).filter(id=>id!==activeArea&&areaStates[id].units.some(u=>u.team==='a'&&!u.dead)).map(id=>({label:`切換留守隊 · ${AREAS[id].name}`,sub:'只切換控制地區；出征隊留喺原位',fn:()=>switchReserve(id)})),
     ...(knownLandmarks().length?[{label:`已發現地點 · ${knownLandmarks().length}`,sub:'查看已記錄嘅路牌、礦脈同工房位置',fn:()=>landmarkMenu(sx,sy)}]:[]),

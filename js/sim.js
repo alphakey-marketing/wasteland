@@ -37,6 +37,7 @@ const allies=()=>units.filter(u=>u.team==='a');
 const bandits=()=>units.filter(u=>u.team==='e');
 let caravanAngry=false;const scavAngry=new Set();
 function hostile(a,b){
+  const outpost=outpostHostile(a,b);if(outpost!==null)return outpost;
   if((a.kind==='border_refugee'&&a.team==='c')||(b.kind==='border_refugee'&&b.team==='c'))return ['e','w'].includes((a.kind==='border_refugee'&&a.team==='c'?b:a).team);
   if(a.team===b.team||a.team==='n'||b.team==='n'||a.team==='c'||b.team==='c')return false;
   const pair=(x,y)=>(a.team===x&&b.team===y)||(a.team===y&&b.team===x);
@@ -108,7 +109,9 @@ function step(u,tx,ty,dt,mul=1){
 }
 function pickPart(){let r=Math.random()*HIT_TOTAL;for(const p of PARTS){r-=p[3];if(r<=0)return p}return PARTS[1]}
 function attack(u,t){
-  if(u.team==='a'&&t.team==='g'&&repTown>-30){changeRep(-60,'攻擊足輕');repTown=Math.min(repTown,-40)}
+  const side=outpostSide(t);
+  if(u.team==='a'&&side&&!campaign.outpost.anger[side]){campaign.outpost.anger[side]=true;campaign.rep[side]=Math.max(-100,campaign.rep[side]-40);toast(`${BORDER_SIDES[side].name}關所部隊開始反擊`)}
+  if(u.team==='a'&&t.team==='g'&&!side&&repTown>-30){changeRep(-60,'攻擊足輕');repTown=Math.min(repTown,-40)}
   if(u.team==='a'&&t.team==='v'&&!caravanAngry){caravanAngry=true;changeRep(-25,'搶商隊');float(t,'商隊嬲咗','#ff7a5c',true)}
   if(u.team==='a'&&t.team==='s'&&!scavAngry.has(t.gid)){scavAngry.add(t.gid);float(t,'落武者嬲咗','#ff7a5c',true)}
   const wpn=weapon(u);u.cd=wpn.cd;u.lunge=1;const tArm=t.eq.armor?ITEMS[t.eq.armor]:null;
@@ -267,7 +270,7 @@ function updOther(u,dt){
       if(u.rolled[o.id]){u.victim=o;toast(u.team==='w'?`野犬咬緊倒地嘅${o.name}！`:`野武士想補刀${o.name}！快啲去救`);break}}}
   if(u.victim){u.state=u.team==='w'?'咬緊':'補刀';engage(u,u.victim,dt);return}
   u.aggro=false;u.lastHit=null;u.state='巡邏';
-  if(u.team==='g'){for(const [k] of PARTS){const p=u.p[k];if(!p.lost&&p.hp<p.max)p.hp=Math.min(p.max,p.hp+3*dt)}u.bleed=0}
+  if(u.team==='g'&&!outpostSide(u)){for(const [k] of PARTS){const p=u.p[k];if(!p.lost&&p.hp<p.max)p.hp=Math.min(p.max,p.hp+3*dt)}u.bleed=0}
   if(dist(u,u.home)>2.2)step(u,u.home.x,u.home.y,dt,.55);
   else{if(!u.wp||dist(u,u.wp)<.2)u.wp={x:u.home.x+rand(-1.6,1.6),y:u.home.y+rand(-1.6,1.6)};step(u,u.wp.x,u.wp.y,dt,.22)}
 }

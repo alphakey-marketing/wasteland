@@ -191,6 +191,7 @@ function drawUnit(u){
     ctx.stroke();
     if(w==='axe'&&!droop){ctx.fillStyle='#c8ccd0';ctx.fillRect(x+(11+u.lunge*3)*k*u.face-(u.face<0?5*k:0),y-28*k,5*k,6*k)}}
   if(u.kind?.startsWith('border_'))label(u.name+(u.kind==='border_refugee'&&u.team==='c'?' · 護送':''),x,y-46*k,'#f0c45a',10);
+  else if(outpostSide(u))label(u.name,x,y-46*k,BORDER_SIDES[outpostSide(u)].color,10);
   else if(u.team==='n'||u.team==='g')label(u===TRADER?'商人 · 交易／工匠':u===INNKEEPER?'宿屋 · 酒場':'足輕',x,y-46*k,u.team==='n'?'#f0c45a':'#bcd0ec',10);
   else if(u.kind==='caravan')label('遊商 · 點我交易',x,y-46*k,'#f0c45a',10);
   else if(u.team==='s'&&!scavAngry.has(u.gid))label('落武者',x,y-46*k,'#d9d29a',9);
@@ -243,6 +244,12 @@ function render(){
   const list=[...piles.filter(fogVisible).map(p=>({d:p.x+p.y-.25,f:()=>drawPile(p)})),...props.filter(p=>fogKnown(p)||fogVisible(p)).map(p=>({d:p.x+p.y,f:()=>{ctx.save();ctx.globalAlpha=fogVisible(p)?1:.35;drawProp(p);ctx.restore()}})),...units.filter(unitVisible).map(u=>({d:u.x+u.y+(u.carriedBy?.02:u.down?-.3:0),f:()=>drawUnit(u)}))];
   list.sort((a,b)=>a.d-b.d).forEach(o=>o.f());
   drawLandmarks();
+  if(activeArea==='temple'){
+    const s=scr(OUTPOST.x,OUTPOST.y,48),owner=campaign.outpost.owner,col=owner?BORDER_SIDES[owner].color:'#a39983';
+    inkRect(s.x-1.5*cam.z,s.y,3*cam.z,45*cam.z,'#70513a');
+    ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x+20*cam.z,s.y+8*cam.z);ctx.lineTo(s.x,s.y+16*cam.z);inkFill();
+    label(`${OUTPOST.name} · ${outpostText()}`,s.x,s.y-8*cam.z,col,10);
+  }
   for(const s of fx.shots){const a=scr(s.a.x,s.a.y,18),b=scr(s.b.x,s.b.y,18),k=s.t/.18;
     if(!fogVisible(s.a)||!fogVisible(s.b))continue;
     ctx.strokeStyle='#f6e2b0';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(a.x+(b.x-a.x)*k*.6,a.y+(b.y-a.y)*k*.6);ctx.lineTo(a.x+(b.x-a.x)*Math.min(1,k+.4),a.y+(b.y-a.y)*Math.min(1,k+.4));ctx.stroke()}

@@ -10,4 +10,5 @@ function frame(t){
 }
 buildSquadUI();
 if(loadGame())setTimeout(()=>toast('讀取咗上次嘅存檔'),400);
+ensureCampaignWorld();
 refreshStatus();updatePortraits(true);requestAnimationFrame(frame);
