@@ -68,8 +68,11 @@ function allTrue(result){for(const [name,value] of Object.entries(result))assert
     allTrue(await p.evaluate(id=>{
       const e=units.find(u=>u.id===id),a=allies()[0];const persisted=e.pursuitId===a.id;
       a.x=GUARD.x+1.5;a.y=GUARD.y;e.x=GUARD.x+.5;e.y=GUARD.y;e.cd=0;GUARD.cd=0;
+      e.p=mkParts(e.base);e.down=e.dead=false;e.bleed=0;
       updOther(GUARD,.05);updOther(e,.05);
-      const guardDefends=GUARD.cd>0&&e.state==='戰鬥';
+      const guardDefends=GUARD.cd>0&&(e.down||e.state==='戰鬥');
+      // A random head hit can down the pursuer. Test return travel independently with a live pursuer.
+      e.p=mkParts(e.base);e.down=e.dead=false;e.bleed=0;
       a.x=8;a.y=10;e.x=8.8;e.y=10;sel.clear();sel.add(a);travelArea();
       return {persisted,guardDefends,returnChase:activeArea==='temple'&&units.includes(e)&&e.pursuitId===a.id,
         unique:new Set([...areaStates.village.units,...units].map(u=>u.id)).size===areaStates.village.units.length+units.length};

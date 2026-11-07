@@ -66,6 +66,7 @@ function travelArea(party=travelParty(),target=AREAS[activeArea].links[0]){
   sel.clear();walkers.filter(u=>u.team==='a').forEach(u=>sel.add(u));finishAreaChange();toast(`到達${AREAS[target].name} · ${walkers.length} 人同行${pursuers.length?' · 有追兵！':''}`);return true;
 }
 function finishAreaChange(){
+  updateFog();
   cam.follow=null;centerOn(8,8);
   for(const key of Object.keys(fx))fx[key]=[];
   hideMenu();charSheet.hidden=sheet.hidden=shopSheet.hidden=lootSheet.hidden=barSheet.hidden=true;setModal(false);buildSquadUI();refreshStatus();updatePortraits(true);save(false);
@@ -81,7 +82,7 @@ function travelMenu(sx=W-60,sy=H-220){
     ...a.links.map(id=>({label:`${id==='village'?'返回':'出發'}：${AREAS[id].name}`,sub:`已選 ${n} 人 · 自動集合；追兵會跟隨 · ${id==='forge'?'危險較高，可先搜外圍再撤退':'傷者要先揹起'}`,fn:()=>startTravel(id)})),
     ...(pendingTravel?[{label:'取消出發',fn:cancelTravel}]:[]),
     ...Object.keys(AREAS).filter(id=>id!==activeArea&&areaStates[id].units.some(u=>u.team==='a'&&!u.dead)).map(id=>({label:`切換留守隊 · ${AREAS[id].name}`,sub:'只切換控制地區；出征隊留喺原位',fn:()=>switchReserve(id)})),
-    {label:activeArea==='village'?'查看西面銅礦':'查看北面鐵礦',sub:'移動鏡頭到礦脈，再點礦石落採礦指令',fn:()=>{const ore=ORES[0];if(ore){cam.follow=null;centerOn(ore.x,ore.y);toast(`點礦石就可以採${ITEMS[ore.ore].name}，揹緊人嘅隊友做唔到`)}}}
+    ...(ORES.some(fogKnown)?[{label:activeArea==='village'?'查看西面銅礦':hasFog()?'查看已發現鐵礦':'查看北面鐵礦',sub:'移動鏡頭到已發現礦脈，再點礦石落採礦指令',fn:()=>{const ore=ORES.find(fogKnown);if(ore){cam.follow=null;centerOn(ore.x,ore.y);toast(`點礦石就可以採${ITEMS[ore.ore].name}，揹緊人嘅隊友做唔到`)}}}]:[])
   ]);
 }
 function packAreaUnit(u){

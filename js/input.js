@@ -44,12 +44,12 @@ function finishBox(){
   if(hit.length){sel.clear();hit.forEach(u=>sel.add(u));toast(`框選咗 ${hit.length} 個隊友`)}else toast('個框入面冇隊友');
   updatePortraits(true);
 }
-function pickHits(sx,sy){const hits=[];for(const u of units){const s=scr(u.x,u.y,u.carriedBy?22:u.down?4:u.kind==='dog'?8:14);const d=Math.hypot(s.x-sx,(s.y-sy)*.8);
+function pickHits(sx,sy){const hits=[];for(const u of units){if(!unitVisible(u))continue;const s=scr(u.x,u.y,u.carriedBy?22:u.down?4:u.kind==='dog'?8:14);const d=Math.hypot(s.x-sx,(s.y-sy)*.8);
   if(d<(u.down?20:26)*Math.max(.8,cam.z))hits.push({u,d})}return hits.sort((a,b)=>a.d-b.d).map(h=>h.u)}
 function pick(sx,sy){return pickHits(sx,sy)[0]||null}
-function pickPile(sx,sy){for(const p of piles){const s=scr(p.x,p.y,4);if(Math.hypot(s.x-sx,s.y-sy)<22*Math.max(.8,cam.z))return p}return null}
-function pickBed(sx,sy){for(const b of BEDS){const s=scr(b.x,b.y,5);if(Math.hypot(s.x-sx,s.y-sy)<20*Math.max(.8,cam.z))return b}return null}
-function pickOre(sx,sy){for(const o of ORES){const s=scr(o.x,o.y,o.h*.6);if(Math.hypot(s.x-sx,s.y-sy)<28*Math.max(.8,cam.z))return o}return null}
+function pickPile(sx,sy){for(const p of piles){if(!fogVisible(p))continue;const s=scr(p.x,p.y,4);if(Math.hypot(s.x-sx,s.y-sy)<22*Math.max(.8,cam.z))return p}return null}
+function pickBed(sx,sy){for(const b of BEDS){if(!fogVisible(b))continue;const s=scr(b.x,b.y,5);if(Math.hypot(s.x-sx,s.y-sy)<20*Math.max(.8,cam.z))return b}return null}
+function pickOre(sx,sy){for(const o of ORES){if(!fogVisible(o))continue;const s=scr(o.x,o.y,o.h*.6);if(Math.hypot(s.x-sx,s.y-sy)<28*Math.max(.8,cam.z))return o}return null}
 function formation(n,i){const cols=Math.ceil(Math.sqrt(n)),rows=Math.ceil(n/cols),r=Math.floor(i/cols),c=i%cols;return{dx:(c-(cols-1)/2)*.85,dy:(r-(rows-1)/2)*.85}}
 function fleeCheck(list){
   if(pendingTravel&&list.some(u=>pendingTravel.party.includes(u)))cancelTravel(false);
@@ -71,7 +71,7 @@ function issueOne(c,target,why,filter){ // send only the nearest suitable select
 }
 function tap(sx,sy){
   const gate=AREAS[activeArea].gate,gs=scr(gate.x,gate.y,20);
-  if(Math.hypot(sx-gs.x,sy-gs.y)<24*Math.max(.8,cam.z)){travelMenu(sx,sy);return}
+  if(fogKnown(gate)&&Math.hypot(sx-gs.x,sy-gs.y)<24*Math.max(.8,cam.z)){travelMenu(sx,sy);return}
   const hits=pickHits(sx,sy),bodies=hits.filter(u=>u.down&&!u.carriedBy);
   if(bodies.length&&hits.length>1){showMenu(sx,sy,'附近倒地角色 · 揀操作目標',bodies.map((b,i)=>({label:`${i+1}. ${b.name} · ${b.dead?'屍體':'倒地'}`,sub:hasLoot(b)?'身上仲有物品':'已被搜清 · 身上冇可取物品',fn:()=>bodyMenu(b,sx,sy)})));return}
   const u=hits[0];

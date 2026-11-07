@@ -9,6 +9,7 @@ function inkFill(){ctx.fill();ctx.strokeStyle='#35251c';ctx.lineWidth=1.35*cam.z
 function inkRect(x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(x,y,w,h);ctx.strokeStyle='#35251c';ctx.lineWidth=1.1*cam.z;ctx.strokeRect(x,y,w,h)}
 function label(txt,x,y,col,size=11){ctx.font=`700 ${size*Math.max(.8,cam.z)}px "Noto Sans HK",sans-serif`;ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='rgba(23,18,13,.75)';ctx.strokeText(txt,x,y);ctx.fillStyle=col;ctx.fillText(txt,x,y)}
 function drawProp(p){
+  if(!fogKnown(p)&&!fogVisible(p))return;
   const hs=p.s/2,h=p.h;
   const N=[p.x-hs,p.y-hs],E=[p.x+hs,p.y-hs],S=[p.x+hs,p.y+hs],Wc=[p.x-hs,p.y+hs];
   const P=(q,hh)=>scr(q[0],q[1],hh);
@@ -73,9 +74,10 @@ function drawProp(p){
   }
   if(p.isOre){const t=P([p.x,p.y],h);ctx.fillStyle=p.ore==='copper'?'#e39a5c':'#c9d4dc';
     [[-6,-1],[4,2],[1,-4],[7,-2]].forEach(([dx,dy])=>{ell(t.x+dx*cam.z,t.y+dy*cam.z,1.8*cam.z,1.2*cam.z);ctx.fill()});
-    label(ITEMS[p.ore].name,t.x,t.y-8*cam.z,'#f2e7d4',10)}
+    if(fogVisible(p))label(ITEMS[p.ore].name,t.x,t.y-8*cam.z,'#f2e7d4',10)}
 }
 function drawPile(p){const s=scr(p.x,p.y),z=cam.z;
+  if(!fogVisible(p))return;
   if(p.permanent){drawProp({x:p.x,y:p.y,s:.65,h:10,c:p.pack.length?[155,116,64]:[106,97,74],crate:1});label(p.pack.length?p.name:'已搜清',s.x,s.y-20*z,'#e8d9ae',9);return}
   const fade=simT-p.t>240?.5+.5*Math.sin(simT*6):1;ctx.globalAlpha=fade;
   ctx.fillStyle='rgba(35,20,8,.35)';ell(s.x,s.y+1*z,9*z,3.5*z);ctx.fill();
@@ -139,6 +141,7 @@ function drawBodyLying(u,s,z,lift){
   ctx.restore();
 }
 function drawUnit(u){
+  if(!unitVisible(u))return;
   const z=cam.z,isSel=sel.has(u);
   if(u.carriedBy){const s=scr(u.x,u.y);if(u.kind==='dog')drawDog(u,{x:s.x,y:s.y-20*z},z);else drawBodyLying(u,s,z,20);return}
   const s=scr(u.x,u.y);
@@ -202,7 +205,7 @@ function drawPaths(){
   for(const u of allies()){if(u.down||!u.cmd.length)continue;
     const strong=paused||sel.has(u);ctx.globalAlpha=strong?1:.35;
     let prev=scr(u.x,u.y);
-    u.cmd.forEach((c,i)=>{const tgt=c.t==='move'?c:c.t==='bandage'?c.pat:c.t==='sleep'?c.bed:c.t==='mine'?c.node:c.t==='talk'?c.npc:(c.t==='attack'||c.t==='follow')?c.u:c.body;const p=scr(tgt.x,tgt.y);
+    u.cmd.forEach((c,i)=>{const tgt=c.t==='move'?c:c.t==='bandage'?c.pat:c.t==='sleep'?c.bed:c.t==='mine'?c.node:c.t==='talk'?c.npc:(c.t==='attack'||c.t==='follow')?c.u:c.body;if(c.t!=='move'&&tgt.team!=='a'&&!fogVisible(tgt))return;const p=scr(tgt.x,tgt.y);
       ctx.strokeStyle=c.t==='attack'?'#d65b41':c.t==='move'?'#eaa93a':'#f0c45a';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(prev.x,prev.y);ctx.lineTo(p.x,p.y);ctx.stroke();
       if(c.t==='move'){ctx.setLineDash([]);ctx.fillStyle='rgba(234,169,58,.9)';ell(p.x,p.y,7*cam.z,3.5*cam.z);ctx.fill();
         if(paused&&u.cmd.length>1){ctx.fillStyle='#24180a';ctx.font=`700 ${9*cam.z}px "Chakra Petch",sans-serif`;ctx.textAlign='center';ctx.fillText(i+1,p.x,p.y+3*cam.z)}
@@ -211,25 +214,32 @@ function drawPaths(){
   ctx.restore();
 }
 function render(){
+  updateFog();
   ctx.setTransform(DPR,0,0,DPR,0,0);
   ctx.fillStyle='#1d1610';ctx.fillRect(0,0,W,H);
   ctx.imageSmoothingEnabled=true;
   ctx.drawImage(ground,(-gw/2-cam.x)*cam.z+W/2,(-cam.y)*cam.z+H/2,gw*cam.z,gh*cam.z);
+  drawFog();
   if(activeArea==='temple'){const dl=scr(DEN.x,DEN.y,46);label('野犬出沒',dl.x,dl.y,'#f2e7d4')}
-  const tl=activeArea==='village'?scr(TOWN.x-1.6,TOWN.y-1.6,78):scr(13,13,60);label(AREAS[activeArea].name,tl.x,tl.y,'#f2e7d4',12);
-  const gate=AREAS[activeArea].gate,gs=scr(gate.x,gate.y);ctx.strokeStyle='#e0b464';ctx.lineWidth=2*cam.z;ell(gs.x,gs.y,18*cam.z,9*cam.z);ctx.stroke();
+  const tl=activeArea==='village'?scr(TOWN.x-1.6,TOWN.y-1.6,78):scr(13,13,60);if(fogKnown({x:13,y:13}))label(AREAS[activeArea].name,tl.x,tl.y,'#f2e7d4',12);
+  const gate=AREAS[activeArea].gate,gs=scr(gate.x,gate.y);
+  if(fogKnown(gate)){ctx.save();ctx.globalAlpha=fogVisible(gate)?1:.4;
+  ctx.strokeStyle='#e0b464';ctx.lineWidth=2*cam.z;ell(gs.x,gs.y,18*cam.z,9*cam.z);ctx.stroke();
   inkRect(gs.x-1.5*cam.z,gs.y-27*cam.z,3*cam.z,25*cam.z,'#81603f');inkRect(gs.x-12*cam.z,gs.y-27*cam.z,24*cam.z,9*cam.z,'#7c6748');label(activeArea==='village'?'往荒寺':activeArea==='forge'?'返荒寺':'村落／鍛冶場',gs.x,gs.y-33*cam.z,'#f4d28d',9);
+  ctx.restore();}
   const now=performance.now();
   fx.pings=fx.pings.filter(p=>now-p.t<600);
   for(const p of fx.pings){const k=(now-p.t)/600,s=scr(p.x,p.y);ctx.strokeStyle=p.col;ctx.globalAlpha=1-k;ctx.lineWidth=2;ell(s.x,s.y,(6+k*14)*cam.z,(3+k*7)*cam.z);ctx.stroke();ctx.globalAlpha=1}
   drawPaths();
-  const list=[...piles.map(p=>({d:p.x+p.y-.25,f:()=>drawPile(p)})),...props.map(p=>({d:p.x+p.y,f:()=>drawProp(p)})),...units.map(u=>({d:u.x+u.y+(u.carriedBy?.02:u.down?-.3:0),f:()=>drawUnit(u)}))];
+  const list=[...piles.filter(fogVisible).map(p=>({d:p.x+p.y-.25,f:()=>drawPile(p)})),...props.filter(p=>fogKnown(p)||fogVisible(p)).map(p=>({d:p.x+p.y,f:()=>{ctx.save();ctx.globalAlpha=fogVisible(p)?1:.35;drawProp(p);ctx.restore()}})),...units.filter(unitVisible).map(u=>({d:u.x+u.y+(u.carriedBy?.02:u.down?-.3:0),f:()=>drawUnit(u)}))];
   list.sort((a,b)=>a.d-b.d).forEach(o=>o.f());
   for(const s of fx.shots){const a=scr(s.a.x,s.a.y,18),b=scr(s.b.x,s.b.y,18),k=s.t/.18;
+    if(!fogVisible(s.a)||!fogVisible(s.b))continue;
     ctx.strokeStyle='#f6e2b0';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(a.x+(b.x-a.x)*k*.6,a.y+(b.y-a.y)*k*.6);ctx.lineTo(a.x+(b.x-a.x)*Math.min(1,k+.4),a.y+(b.y-a.y)*Math.min(1,k+.4));ctx.stroke()}
-  fx.drops=fx.drops.filter(d=>(d.t+=1/60)<.6);for(const d of fx.drops){const s=scr(d.x,d.y,22-d.t*30);ctx.fillStyle=`rgba(190,30,20,${1-d.t/.6})`;ell(s.x+3*cam.z,s.y,1.6*cam.z,2.4*cam.z);ctx.fill()}
+  fx.drops=fx.drops.filter(d=>(d.t+=1/60)<.6);for(const d of fx.drops){if(!fogVisible(d))continue;const s=scr(d.x,d.y,22-d.t*30);ctx.fillStyle=`rgba(190,30,20,${1-d.t/.6})`;ell(s.x+3*cam.z,s.y,1.6*cam.z,2.4*cam.z);ctx.fill()}
   ctx.textAlign='center';
   for(const f of fx.floats){const life=f.big?1.8:1.1;const s=scr(f.x,f.y,44+f.t*(f.big?16:24)+(f.big?14:0));ctx.globalAlpha=Math.min(1,(life-f.t)*2);
+    if(!fogVisible(f))continue;
     ctx.font=`${f.big?800:700} ${(f.big?13:11.5)*Math.max(.85,cam.z)}px "Chakra Petch","Noto Sans HK",sans-serif`;
     ctx.lineWidth=3;ctx.strokeStyle='rgba(20,12,4,.85)';ctx.strokeText(f.txt,s.x,s.y);ctx.fillStyle=f.col;ctx.fillText(f.txt,s.x,s.y)}
   ctx.globalAlpha=1;

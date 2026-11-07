@@ -42,7 +42,7 @@ function hostile(a,b){if(a.team===b.team||a.team==='n'||b.team==='n'||a.team==='
   if(pair('g','v')||pair('g','s')||pair('v','s'))return false;return true}
 function changeRep(d,why){const before=repLabel(repTown);repTown=clamp(Math.round(repTown+d),-100,100);const after=repLabel(repTown);
   toast(after!==before?`青葉村而家對你${after}（${why}）`:`青葉村關係 ${d>0?'+':''}${Math.round(d)}（${why}）`);if(after==='敵對'){GUARD.aggro=true}}
-const hostiles=u=>units.filter(o=>!o.down&&hostile(u,o));
+const hostiles=u=>units.filter(o=>!o.down&&hostile(u,o)&&(u.team!=='a'||fogVisible(o)));
 const weapon=u=>u.eq.weapon?ITEMS[u.eq.weapon]:(u.natural||FIST);
 const range=u=>weapon(u).range||.95;
 
@@ -180,7 +180,7 @@ function runCmd(u,dt,ne,nd){
       if(dist(u,b)>.9){u.state='去止血';step(u,b.x,b.y,dt);break}
       u.state='幫'+b.name+'止血';{const kit=countItem(u,'medkit')>0,r=(1+u.sk.aid.lv*.05)*(kit?1:.4);b.bleed=Math.max(0,b.bleed-r*dt);if(kit)useKit(u,r*dt*2)}train(u,'aid',1.2*dt);
       if(b.bleed<=0){u.cmd.shift();float(b,'止咗血','#a9e08a')}break}
-    case 'attack':if(c.u.dead||(c.u.down&&!c.finish))u.cmd.shift();else{u.state=forced||'攻擊目標';engage(u,c.u,dt)}break;
+    case 'attack':if(c.u.dead||(c.u.down&&!c.finish)||(u.team==='a'&&!unitVisible(c.u)))u.cmd.shift();else{u.state=forced||'攻擊目標';engage(u,c.u,dt)}break;
     case 'mine':{
       if(ne&&nd<3&&!u.carry){u.state='自衛';engage(u,ne,dt);break}
       const r=c.node.s*.62+.6;if(dist(u,c.node)>r){u.state='去採礦';step(u,c.node.x,c.node.y,dt);break}
@@ -322,8 +322,9 @@ function simulate(dt){
     a.x=clamp(a.x,.5,MAP-.5);a.y=clamp(a.y,.5,MAP-.5);}
   fx.floats.forEach(f=>f.t+=dt);fx.floats=fx.floats.filter(f=>f.t<(f.big?1.8:1.1));
   fx.shots.forEach(f=>f.t+=dt);fx.shots=fx.shots.filter(f=>f.t<.18);
-  if(autoPause&&!alerted&&bandits().some(e=>!e.down&&allies().some(a=>!a.down&&dist(a,e)<e.aggroR))){alerted=true;setPaused(true);toast(`${activeArea==='forge'?'發現鍛冶場浪人':'發現野武士'} · 已自動暫停，慢慢落指令`)}
-  if(!cleared&&bandits().length&&bandits().every(e=>e.down)){cleared=true;toast(activeArea==='forge'?'鍛冶場浪人全部倒地 · 記得搜箱，留力帶物資返村':'野武士全部倒地 · 記得執嘢，頭目有懸賞')}
+  updateFog();
+  if(autoPause&&!alerted&&bandits().some(e=>!e.down&&fogVisible(e)&&allies().some(a=>!a.down&&dist(a,e)<e.aggroR))){alerted=true;setPaused(true);toast(`${activeArea==='forge'?'發現鍛冶場浪人':'發現野武士'} · 已自動暫停，慢慢落指令`)}
+  if(!cleared&&bandits().length&&bandits().every(e=>e.down)&&(!hasFog()||bandits().every(fogVisible))){cleared=true;toast(activeArea==='forge'?'鍛冶場浪人全部倒地 · 記得搜箱，留力帶物資返村':'野武士全部倒地 · 記得執嘢，頭目有懸賞')}
   tickCaravan(dt);updateTravel();
 }
 
