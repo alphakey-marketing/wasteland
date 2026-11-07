@@ -18,8 +18,8 @@ for(const [x,y] of [[1,4],[2,9],[8,1],[11,6],[15,12],[5,12],[8,15],[16,7],[3,13]
 areaStates.village={units:units.filter(u=>u.team!=='e'&&u.team!=='w'),piles:[],props:villageProps,ores:villageOres,beds:[...BEDS],alerted:false,cleared:false};
 areaStates.temple={units:units.filter(u=>u.team==='e'||u.team==='w'),piles:[{pile:true,permanent:true,id:'temple-supplies',name:'荒寺遺留箱',x:10.8,y:10.6,t:0,eq:{weapon:null,armor:null},pack:[{id:'ration',n:2},{id:'medkit',n:1},{id:'kit',n:1},{id:'seal',n:1}]}],props:templeProps,ores:templeOres,beds:[],alerted:false,cleared:false};
 areaStates.temple.units.filter(u=>u.team==='e').forEach((u,i)=>{u.x=14+(i%2)*.8;u.y=12+Math.floor(i/2)*.8;u.home={x:14,y:12};u.leash=5});
-const forgeOre={x:5,y:4.5,ore:'iron',isOre:1,s:.8,h:14,c:[118,122,117]};
-const forgeProps=[forgeOre,{x:13.5,y:12,s:1.8,h:25,c:[92,89,82],furnace:1},{x:16.5,y:15,s:1.5,h:27,c:[116,107,92],house:1,temple:1},
+const forgeOre={x:5,y:4.5,ore:'iron',isOre:1,s:.8,h:14,c:[118,122,117],landmark:'鐵礦脈'};
+const forgeProps=[forgeOre,{x:13.5,y:12,s:1.8,h:25,c:[92,89,82],furnace:1,landmark:'舊鍛爐'},{x:16.5,y:15,s:1.5,h:27,c:[116,107,92],house:1,temple:1,landmark:'舊工房'},
   ...[[9,5],[10,13],[15,8],[17,11]].map(([x,y])=>({x,y,s:.65,h:9,c:[104,100,88]})),
   ...[[3,5],[4,13],[8,16],[18,17]].map(([x,y])=>({x,y,s:.5,h:30,c:[80,91,66],tree:1}))];
 function forgeCache(id,name,x,y,pack){return {pile:true,permanent:true,id,name,x,y,t:0,eq:{weapon:null,armor:null},pack}}
@@ -82,7 +82,14 @@ function travelMenu(sx=W-60,sy=H-220){
     ...a.links.map(id=>({label:`${id==='village'?'返回':'出發'}：${AREAS[id].name}`,sub:`已選 ${n} 人 · 自動集合；追兵會跟隨 · ${id==='forge'?'危險較高，可先搜外圍再撤退':'傷者要先揹起'}`,fn:()=>startTravel(id)})),
     ...(pendingTravel?[{label:'取消出發',fn:cancelTravel}]:[]),
     ...Object.keys(AREAS).filter(id=>id!==activeArea&&areaStates[id].units.some(u=>u.team==='a'&&!u.dead)).map(id=>({label:`切換留守隊 · ${AREAS[id].name}`,sub:'只切換控制地區；出征隊留喺原位',fn:()=>switchReserve(id)})),
-    ...(ORES.some(fogKnown)?[{label:activeArea==='village'?'查看西面銅礦':hasFog()?'查看已發現鐵礦':'查看北面鐵礦',sub:'移動鏡頭到已發現礦脈，再點礦石落採礦指令',fn:()=>{const ore=ORES.find(fogKnown);if(ore){cam.follow=null;centerOn(ore.x,ore.y);toast(`點礦石就可以採${ITEMS[ore.ore].name}，揹緊人嘅隊友做唔到`)}}}]:[])
+    ...(knownLandmarks().length?[{label:`已發現地點 · ${knownLandmarks().length}`,sub:'查看已記錄嘅路牌、礦脈同工房位置',fn:()=>landmarkMenu(sx,sy)}]:[]),
+    ...(!hasFog()&&ORES.some(fogKnown)?[{label:activeArea==='village'?'查看西面銅礦':'查看北面鐵礦',sub:'移動鏡頭到已發現礦脈，再點礦石落採礦指令',fn:()=>{const ore=ORES.find(fogKnown);if(ore){cam.follow=null;centerOn(ore.x,ore.y);toast(`點礦石就可以採${ITEMS[ore.ore].name}，揹緊人嘅隊友做唔到`)}}}]:[])
+  ]);
+}
+function landmarkMenu(sx,sy){
+  showMenu(sx,sy,'已發現地點 · 只查看位置',[
+    ...knownLandmarks().map(p=>({label:p.name,sub:'敵情同物資要接近確認',fn:()=>{cam.follow=null;centerOn(p.x,p.y);toast(`查看已記錄地點：${p.name}`)}})),
+    {label:'返回路牌選單',fn:()=>travelMenu(sx,sy)}
   ]);
 }
 function packAreaUnit(u){
