@@ -2,6 +2,8 @@
 /* 物品定義、價錢、說明文字 */
 /* ---------- items ---------- */
 const ITEMS={
+  border_grain:{name:'青葉村失散糧袋',type:'quest',w:10,v:0,stack:1},
+  border_orders:{name:'武田／上杉軍令',type:'quest',w:1,v:0,stack:1},
   knife:{name:'舊脇差',type:'weapon',w:2,v:20,dmg:[4,7],cd:.9},
   club:{name:'金碎棒',type:'weapon',w:5,v:45,dmg:[6,10],cd:1.2},
   machete:{name:'打刀',type:'weapon',w:4,v:90,dmg:[7,11],cd:1.0},
@@ -39,6 +41,7 @@ const INN_STOCK=['ration','medkit'];
 const CARAVAN_STOCK=['ration','medkit','kit','machete','axe','plate','bow','leather','p_scrap','p_mil'];
 const PROS={scrap:{name:'木鐵機關肢',hp:.8,mul:.85},mil:{name:'精製機關肢',hp:1.3,mul:1.15},master:{name:'匠製機關肢',hp:1.6,mul:1.25}};
 function desc(id){const it=ITEMS[id];
+  if(it.type==='quest')return `委託物品 · 帶返青葉宿屋交付 · 不可出售 · ${it.w}kg`;
   if(it.type==='weapon')return `傷害 ${it.dmg[0]}–${it.dmg[1]} · 每 ${it.cd} 秒${it.range?' · 遠程':''}${it.heavy?' · 重武器（靠力量）':''} · ${it.w}kg`;
   if(it.type==='armor')return `減傷 ${Math.round(it.red*100)}%${it.dod?` · 閃避 ${it.dod}`:''} · ${it.w}kg`;
   if(it.type==='pros'){const p=PROS[it.pros];return `耐久 ${Math.round(p.hp*100)}% · 力量／速度 ${p.mul<1?'−':'+'}${Math.round(Math.abs(p.mul-1)*100)}%`}

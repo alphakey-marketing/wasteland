@@ -2,6 +2,7 @@
 /* 商人、宿屋、足輕、頭像、角色卡、戰術頁、酒場 */
 /* ---------- trader, inn & guard ---------- */
 function innMenu(sx,sy){showMenu(sx,sy,'青葉宿屋 · 酒場',[
+  {label:'邊境糧運委託／行腳錄',sub:'武田、上杉同青葉村嘅地方故事',fn:()=>{const v=issueOne({t:'talk',npc:INNKEEPER,act:'campaign'},INNKEEPER);if(v)toast(`${v.name} 去了解委託`)}},
   {label:'租床瞓（每人 10 文）',sub:'瞓到傷醫好為止，好快過包紮',fn:()=>{
     const list=[...sel].filter(a=>!a.down&&!a.carry);if(!list.length){toast('先揀冇揹人嘅隊友');return}
     const taken=new Set(allies().map(a=>a.cmd[0]&&a.cmd[0].t==='sleep'?a.cmd[0].bed:null));let n=0;
@@ -11,6 +12,7 @@ function innMenu(sx,sy){showMenu(sx,sy,'青葉宿屋 · 酒場',[
   {label:'買飯糰同藥包',fn:()=>{const v=issueOne({t:'talk',npc:INNKEEPER,act:'shop'},INNKEEPER);if(v)toast(`${v.name} 去宿屋`)}}])}
 function arriveTalk(u,npc,act){
   if(anyModal()){toast(`${u.name} 到咗`);return}
+  if(act==='campaign'){if(npc===INNKEEPER)openJournal();else borderTalk(u,npc);return}
   if(npc===INNKEEPER){if(act==='bar')openBar(u);else openShop(u,'inn');return}
   if(npc.kind==='caravan'){if(caravanAngry){toast('遊商：強盜！我唔同你做生意');return}openShop(u,'caravan','caravan:'+npc.id);return}
   if(npc===TRADER){if(repTown<=-30){toast('商人：你哋係青葉村嘅敵人，我唔做你生意');return}openShop(u,'village');return}
@@ -21,7 +23,7 @@ function arriveTalk(u,npc,act){
     if(c&&c.team==='e'){toast('足輕：呢個人冇懸賞');return}
     toast('足輕：有懸賞犯就揹過嚟，生擒先有錢')}
 }
-function anyModal(){return !shopSheet.hidden||!lootSheet.hidden||!barSheet.hidden}
+function anyModal(){return !shopSheet.hidden||!lootSheet.hidden||!barSheet.hidden||!$('#journalSheet').hidden}
 function setModal(on){modal=on}
 
 const shopSheet=$('#shopSheet'),shopList=$('#shopList');let shopUnit=null,shopTab='buy',shopVendor=null;
@@ -43,7 +45,7 @@ function renderShop(){
     shopList.innerHTML=(repTown>=30?'<li><span class="empty">青葉村當你係朋友：買嘢九折，賣嘢多一成</span></li>':'')+Object.entries(m.stock).map(([id,n])=>{const it=ITEMS[id],pr=buyPrice(id);return `<li><div class="nm"><b>${it.name} · 餘 ${n}</b><span>${desc(id)}</span></div><span class="price">${pr} 文</span><div class="btns"><button class="buy" data-buy="${id}" ${money<pr||!n?'disabled':''}>${n?'買':'售罄'}</button></div></li>`}).join('');
   }else{
     if(!u.pack.length){shopList.innerHTML='<li><span class="empty">背包係空嘅。打倒敵人去執嘢，或者去採礦。裝備緊嘅嘢要先喺角色卡卸低先賣得。</span></li>';return}
-    shopList.innerHTML=u.pack.map((s,i)=>{const it=ITEMS[s.id],p=sellPrice(s.id),n=Math.min(s.n,Math.floor(m.cash/p));return `<li><div class="nm"><b>${it.name}${s.n>1?' ×'+s.n:''}</b><span>每件 ${p} 文 · 最多收 ${n} 件 · ${desc(s.id)}</span></div><div class="btns"><button data-sell="${i}" ${!n?'disabled':''}>${n?'賣 1':'商人唔夠錢'}</button>${s.n>1?`<button data-sellall="${i}" ${!n?'disabled':''}>賣 ${n} 件 +${p*n} 文</button>`:''}</div></li>`}).join('');
+    shopList.innerHTML=u.pack.map((s,i)=>{const it=ITEMS[s.id];if(it.type==='quest')return `<li><div class="nm"><b>${it.name}</b><span>${desc(s.id)}</span></div><span>不可出售</span></li>`;const p=sellPrice(s.id),n=Math.min(s.n,Math.floor(m.cash/p));return `<li><div class="nm"><b>${it.name}${s.n>1?' ×'+s.n:''}</b><span>每件 ${p} 文 · 最多收 ${n} 件 · ${desc(s.id)}</span></div><div class="btns"><button data-sell="${i}" ${!n?'disabled':''}>${n?'賣 1':'商人唔夠錢'}</button>${s.n>1?`<button data-sellall="${i}" ${!n?'disabled':''}>賣 ${n} 件 +${p*n} 文</button>`:''}</div></li>`}).join('');
   }
 }
 shopList.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;const u=shopUnit;
@@ -72,7 +74,7 @@ function renderLoot(){
   $('#lootSub').textContent=`${u.name} 負重 ${load(u)} / ${cap(u)} kg · 超重會行慢，銅幣直接入全隊錢包`;
   if(b.kind==='dog'&&!b.dead)$('#lootSub').textContent+=' · 宰割取皮／肉會令動物死亡';
   const rows=lootRows(b);
-  lootList.innerHTML=rows.length?rows.map((r,i)=>{const it=ITEMS[r.id];return `<li><div class="nm"><b>${it.name}${r.n>1?' ×'+r.n:''}${r.slot?' · 身上著緊':''}</b><span>${r.id==='coin'?'全隊錢包':desc(r.id)+` · 賣 ${sellPrice(r.id)} 文`}</span></div><div class="btns"><button data-i="${i}">拎</button></div></li>`}).join('')
+  lootList.innerHTML=rows.length?rows.map((r,i)=>{const it=ITEMS[r.id];return `<li><div class="nm"><b>${it.name}${r.n>1?' ×'+r.n:''}${r.slot?' · 身上著緊':''}</b><span>${r.id==='coin'?'全隊錢包':it.type==='quest'?desc(r.id):desc(r.id)+` · 賣 ${sellPrice(r.id)} 文`}</span></div><div class="btns"><button data-i="${i}">拎</button></div></li>`}).join('')
     :`<li><span class="empty">${b.pile?'已經搜清光':'已被搜清 · 身上冇可取物品，可能已被其他人搜走'}</span></li>`;
   lootList.querySelectorAll('button[data-i]').forEach(bt=>{if(fatalHarvest(rows[+bt.dataset.i]))bt.textContent=harvestArmed?'確認宰割':'宰割取材（會死亡）'});
   $('#bLootAll').textContent=rows.some(fatalHarvest)?harvestArmed?'確認宰割並全拎':'宰割並全拎（會死亡）':'全部拎走';

@@ -36,7 +36,9 @@ units.push(TRADER,GUARD,INNKEEPER);
 const allies=()=>units.filter(u=>u.team==='a');
 const bandits=()=>units.filter(u=>u.team==='e');
 let caravanAngry=false;const scavAngry=new Set();
-function hostile(a,b){if(a.team===b.team||a.team==='n'||b.team==='n'||a.team==='c'||b.team==='c')return false;
+function hostile(a,b){
+  if((a.kind==='border_refugee'&&a.team==='c')||(b.kind==='border_refugee'&&b.team==='c'))return ['e','w'].includes((a.kind==='border_refugee'&&a.team==='c'?b:a).team);
+  if(a.team===b.team||a.team==='n'||b.team==='n'||a.team==='c'||b.team==='c')return false;
   const pair=(x,y)=>(a.team===x&&b.team===y)||(a.team===y&&b.team===x);
   if(pair('g','a'))return repTown<=-30;if(pair('v','a'))return caravanAngry;if(pair('s','a'))return scavAngry.has((a.team==='s'?a:b).gid);
   if(pair('g','v')||pair('g','s')||pair('v','s'))return false;return true}
@@ -250,7 +252,7 @@ function updAlly(u,dt){
   u.state=u.carry?'揹緊'+u.carry.name:ratio(u,'legs')<=0?'爬行中':encMul(u)<1?'負重過重':'待命';
 }
 function updOther(u,dt){
-  if(u.team==='n'||u.down)return;
+  if(u.team==='n'||u.kind==='border_refugee'||u.down)return;
   const pursued=units.find(a=>a.id===u.pursuitId&&!a.down&&hostile(u,a));
   if(pursued&&dist(u,pursued)<10){u.home={x:pursued.x,y:pursued.y};u.aggro=true}else u.pursuitId=null;
   const leash=u.pursuitId?10:u.leash;
@@ -305,7 +307,7 @@ function simulate(dt){
     ['head','torso'].forEach(k=>{u.p[k].hp=Math.min(u.p[k].max,u.p[k].hp+r*dt)});
     if(tryStarvationRise(u))continue;
     if(recov(u)>=1&&!u.carriedBy&&!hungerBlocksRecovery(u)){getUp(u,0);float(u,u.team==='a'?'自己爬起身':'醒返','#a9e08a');u.victim=null;if(u.team!=='a'){u.aggro=false;u.lastHit=null}}}
-  piles=piles.filter(p=>p.permanent||(p.pack.length&&simT-p.t<300));
+  piles=piles.filter(p=>p.permanent||p.pack.some(s=>ITEMS[s.id].type==='quest')||(p.pack.length&&simT-p.t<300));
   if(repTown<0)repTown=Math.min(0,repTown+dt/30);
   for(const u of units){u.moving=false;u.cd=Math.max(0,u.cd-dt);u.lunge=Math.max(0,u.lunge-dt*5);if(u.carriedBy)continue;if(u.team==='a')updAlly(u,dt);else if(u.kind==='caravan')updCaravan(u,dt);else if(u.kind==='scav')updScav(u,dt);else{if(u.kind==='cguard'&&u.leader&&!u.leader.down)u.home={x:u.leader.x,y:u.leader.y};updOther(u,dt)}}
   for(const u of units){if(!u.carriedBy)continue;const c=u.carriedBy;if(c.down||c.carry!==u){u.carriedBy=null;if(c.carry===u)c.carry=null}else{u.x=c.x;u.y=c.y;
@@ -325,6 +327,6 @@ function simulate(dt){
   updateFog();
   if(autoPause&&!alerted&&bandits().some(e=>!e.down&&fogVisible(e)&&allies().some(a=>!a.down&&dist(a,e)<e.aggroR))){alerted=true;setPaused(true);toast(`${activeArea==='forge'?'發現鍛冶場浪人':'發現野武士'} · 已自動暫停，慢慢落指令`)}
   if(!cleared&&bandits().length&&bandits().every(e=>e.down)&&(!hasFog()||bandits().every(fogVisible))){cleared=true;toast(activeArea==='forge'?'鍛冶場浪人全部倒地 · 記得搜箱，留力帶物資返村':'野武士全部倒地 · 記得執嘢，頭目有懸賞')}
-  tickCaravan(dt);updateTravel();
+  tickCaravan(dt);tickCampaign(dt);updateTravel();
 }
 

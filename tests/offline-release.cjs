@@ -1,0 +1,20 @@
+const assert=require('node:assert/strict');const {chromium}=require('playwright');const {pathToFileURL}=require('node:url');const path=require('node:path');
+let browser;const errors=[],remote=[];
+(async()=>{
+  assert.ok(process.argv[2],'Provide extracted index.html path');
+  browser=await chromium.launch({executablePath:process.env.WASTELAND_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+  const p=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,acceptDownloads:true});
+  await p.context().setOffline(true);p.on('pageerror',e=>errors.push(e.stack));p.on('console',m=>{if(m.type()==='error')errors.push(m.text())});p.on('request',r=>{if(/^https?:/.test(r.url()))remote.push(r.url())});
+  await p.addInitScript(()=>{const raf=requestAnimationFrame.bind(window);window.requestAnimationFrame=cb=>raf(t=>{setPaused(true);cb(t)})});
+  await p.goto(pathToFileURL(path.resolve(process.argv[2])).href,{waitUntil:'load'});await p.click('#bStart');
+  await p.click('#bObjective');assert.equal(await p.locator('#journalSheet').isVisible(),true);await p.click('#bJournalClose');
+  await p.evaluate(()=>{for(const u of allies()){u.x=INNKEEPER.x+.6;u.y=INNKEEPER.y}money=361;acceptBorderQuest();save(false)});
+  await p.reload({waitUntil:'load'});assert.deepEqual(await p.evaluate(()=>[money,campaign.stage]),[361,'grain']);
+  const downloadPromise=p.waitForEvent('download');await p.evaluate(()=>{sheet.hidden=false;exportSave()});const download=await downloadPromise;assert.match(download.suggestedFilename(),/\.json$/);
+  const fs=require('node:fs');const raw=fs.readFileSync(await download.path(),'utf8');assert.equal(JSON.parse(raw).campaign.stage,'grain');
+  await p.evaluate(()=>{money=999;save(false);sheet.hidden=false});
+  await Promise.all([p.waitForNavigation({waitUntil:'load'}),p.locator('#saveFile').setInputFiles({name:'offline-save.json',mimeType:'application/json',buffer:Buffer.from(raw)})]);
+  assert.deepEqual(await p.evaluate(()=>[money,campaign.stage]),[361,'grain']);
+  assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);assert.deepEqual(remote,[]);assert.deepEqual(errors,[]);
+  console.log('PASS extracted file:// package, offline startup, campaign save/reload, actual export/import and zero network/runtime errors');
+})().catch(e=>{console.error(e);if(errors.length)console.error(errors);process.exitCode=1}).finally(async()=>{if(browser)await browser.close()});

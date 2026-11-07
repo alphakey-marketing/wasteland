@@ -21,7 +21,7 @@ let browser;const errors=[];
   check(await p.evaluate(()=>{
     let [a,b]=resetFood();a.cmd=[{t:'move',x:5,y:8}];updAlly(a,.1);const manual=a.x<8&&countItem(b,'ration')===2;
     [a,b]=resetFood();a.retreating=true;a.rules.flee=true;a.p.head.hp=1;updAlly(a,.1);const retreat=a.state.includes('\u4f11\u990a')&&a.x===8;
-    [a,b]=resetFood();const e=mk({team:'e',base:50,x:10,y:9});units.push(e);updAlly(a,.1);const danger=a.x===8&&a.food===10;
+    [a,b]=resetFood();const e=mk({team:'e',name:'Test enemy',base:50,x:10,y:9});units.push(e);updAlly(a,.1);const danger=a.x===8&&a.food===10;
     [a,b]=resetFood();b.x=15;updAlly(a,.1);const distant=a.x===8&&a.food===10;
     b.x=11;b.dead=true;updAlly(a,.1);const corpse=a.food===10&&a.x===8;
     [a,b]=resetFood();a.down=true;advance(.2);return{manual,retreat,danger,distant,corpse,downed:a.food<10&&countItem(b,'ration')===2};
