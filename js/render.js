@@ -42,6 +42,14 @@ function drawProp(p){
     for(const a of [-.34,.34])seam(point(a,-1,h),point(a,1,h));
     panel(point(-.88,1,h*.12),point(-.65,1,h*.12),point(.88,1,h*.88),point(.65,1,h*.88),'#c09761');
   }
+  if(p.furnace){
+    panel(point(-.7,1,h*.15),point(.7,1,h*.15),point(.7,1,h*.72),point(-.7,1,h*.72),'#292a28');
+    for(const v of [.3,.65]){seam(P(Wc,h*v),P(S,h*v),'#56564f');seam(P(S,h*v),P(E,h*v),'#56564f')}
+    panel(point(-.4,-.4,h),point(.35,-.4,h),point(.35,-.4,h+24),point(-.4,-.4,h+24),'#77766b');
+    panel(point(.35,-.4,h),point(.35,.25,h),point(.35,.25,h+24),point(.35,-.4,h+24),'#4f514b');
+    panel(point(-.4,-.4,h+24),point(.35,-.4,h+24),point(.35,.25,h+24),point(-.4,.25,h+24),'#333631');
+    return;
+  }
   if(p.house){
     panel(point(-1,1,0),point(1,1,0),point(1,1,h),point(-1,1,h),'#c8b58c');
     panel(point(1,1,0),point(1,-1,0),point(1,-1,h),point(1,1,h),'#777360');
@@ -68,7 +76,7 @@ function drawProp(p){
     label(ITEMS[p.ore].name,t.x,t.y-8*cam.z,'#f2e7d4',10)}
 }
 function drawPile(p){const s=scr(p.x,p.y),z=cam.z;
-  if(p.permanent){drawProp({x:p.x,y:p.y,s:.65,h:10,c:p.pack.length?[155,116,64]:[106,97,74],crate:1});label(p.pack.length?'遺留物資':'已搜清',s.x,s.y-20*z,'#e8d9ae',9);return}
+  if(p.permanent){drawProp({x:p.x,y:p.y,s:.65,h:10,c:p.pack.length?[155,116,64]:[106,97,74],crate:1});label(p.pack.length?p.name:'已搜清',s.x,s.y-20*z,'#e8d9ae',9);return}
   const fade=simT-p.t>240?.5+.5*Math.sin(simT*6):1;ctx.globalAlpha=fade;
   ctx.fillStyle='rgba(35,20,8,.35)';ell(s.x,s.y+1*z,9*z,3.5*z);ctx.fill();
   ctx.fillStyle='#9b7a4f';ell(s.x,s.y-4*z,7.5*z,6*z);ctx.fill();ctx.fillStyle='#7d5f3b';ell(s.x+2*z,s.y-3*z,4.5*z,4.5*z);ctx.fill();
@@ -112,7 +120,7 @@ function drawBodyLying(u,s,z,lift){
   limb('legs',-5,-6,-14,-6);limb('legs',-5,-2,-13,0);
   limb('larm',2,-8,-3,-11);
   box(-6,-9,12,9,u.color);
-  box(-6,-9,4,9,u.eq.armor==='forged_armor'?'#789c9e':u.eq.armor==='plate'?'#a6afb1':['leather','worked_armor'].includes(u.eq.armor)?'#806044':u.color);
+  box(-6,-9,4,9,u.eq.armor==='mechanism_armor'?'#9b895d':u.eq.armor==='forged_armor'?'#789c9e':u.eq.armor==='plate'?'#a6afb1':['leather','worked_armor'].includes(u.eq.armor)?'#806044':u.color);
   box(-5,-9,2,9,'#66503a');
   if(u.team==='a'||u.team==='e')box(3,-9,3,9,u.team==='e'?'#8e392d':'#b97942');
   limb('rarm',2,-2,-2,1);
@@ -153,7 +161,7 @@ function drawUnit(u){
   if(!crawl){const legColor=u.p.legs.pros?'#8d9aa3':'#514332';inkRect(x-4*k,y-9*k,3*k,9*k,legColor);inkRect(x+1*k,y-9*k,3*k,9*k,legColor)}
   ctx.save();rr(x-6.5*k,y-23*k,13*k,15*k,2*k);ctx.fillStyle=u.color;inkFill();ctx.clip();
   ctx.fillStyle='rgba(42,28,19,.32)';ctx.fillRect(x-6.5*k,y-23*k,5*k,15*k);
-  const ar=u.eq.armor;if(['leather','plate','worked_armor','forged_armor'].includes(ar)){ctx.fillStyle=ar==='forged_armor'?'rgba(120,170,175,.85)':ar==='plate'?'rgba(190,200,210,.7)':'rgba(110,70,40,.65)';ctx.fillRect(x-6.5*k,y-23*k,13*k,7*k);if(ar==='forged_armor'){ctx.fillStyle='#d4ac61';ctx.fillRect(x-6.5*k,y-18*k,13*k,1.5*k)}}
+  const ar=u.eq.armor;if(['leather','plate','worked_armor','forged_armor','mechanism_armor'].includes(ar)){ctx.fillStyle=ar==='mechanism_armor'?'#9b895d':ar==='forged_armor'?'rgba(120,170,175,.85)':ar==='plate'?'rgba(190,200,210,.7)':'rgba(110,70,40,.65)';ctx.fillRect(x-6.5*k,y-23*k,13*k,7*k);if(['forged_armor','mechanism_armor'].includes(ar)){ctx.fillStyle='#d4ac61';ctx.fillRect(x-6.5*k,y-18*k,13*k,1.5*k)}}
   ctx.restore();
   inkRect(x-6*k,y-11*k,12*k,2.2*k,'#66503a');
   inkRect(x-1.5*k,y-11*k,3*k,2.2*k,'#d4ac61');
@@ -210,7 +218,7 @@ function render(){
   if(activeArea==='temple'){const dl=scr(DEN.x,DEN.y,46);label('野犬出沒',dl.x,dl.y,'#f2e7d4')}
   const tl=activeArea==='village'?scr(TOWN.x-1.6,TOWN.y-1.6,78):scr(13,13,60);label(AREAS[activeArea].name,tl.x,tl.y,'#f2e7d4',12);
   const gate=AREAS[activeArea].gate,gs=scr(gate.x,gate.y);ctx.strokeStyle='#e0b464';ctx.lineWidth=2*cam.z;ell(gs.x,gs.y,18*cam.z,9*cam.z);ctx.stroke();
-  inkRect(gs.x-1.5*cam.z,gs.y-27*cam.z,3*cam.z,25*cam.z,'#81603f');inkRect(gs.x-12*cam.z,gs.y-27*cam.z,24*cam.z,9*cam.z,'#7c6748');label(activeArea==='village'?'往荒寺':'返青葉村',gs.x,gs.y-33*cam.z,'#f4d28d',9);
+  inkRect(gs.x-1.5*cam.z,gs.y-27*cam.z,3*cam.z,25*cam.z,'#81603f');inkRect(gs.x-12*cam.z,gs.y-27*cam.z,24*cam.z,9*cam.z,'#7c6748');label(activeArea==='village'?'往荒寺':activeArea==='forge'?'返荒寺':'村落／鍛冶場',gs.x,gs.y-33*cam.z,'#f4d28d',9);
   const now=performance.now();
   fx.pings=fx.pings.filter(p=>now-p.t<600);
   for(const p of fx.pings){const k=(now-p.t)/600,s=scr(p.x,p.y);ctx.strokeStyle=p.col;ctx.globalAlpha=1-k;ctx.lineWidth=2;ell(s.x,s.y,(6+k*14)*cam.z,(3+k*7)*cam.z);ctx.stroke();ctx.globalAlpha=1}

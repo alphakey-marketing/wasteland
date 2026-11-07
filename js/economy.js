@@ -12,7 +12,8 @@ const RECIPES=[
   {id:'worked_armor',fee:18,needs:{hide:3,iron:1}},
   {id:'forged_blade',fee:100,needs:{steel:2,iron:2},advanced:true},
   {id:'forged_armor',fee:90,needs:{steel:2,hide:3,iron:2},advanced:true},
-  {id:'p_forged',fee:180,needs:{steel:2,copper:3,p_scrap:1},advanced:true}
+  {id:'p_forged',fee:180,needs:{steel:2,copper:3,p_scrap:1},advanced:true},
+  {id:'mechanism_armor',fee:140,needs:{mechanism:2,steel:2,iron:2},forge:true}
 ];
 let economy={merchants:{},smithing:false};
 function stockCount(id){const t=ITEMS[id].type;return t==='food'?12:t==='med'?8:t==='tool'?4:t==='pros'?1:2}
@@ -51,6 +52,7 @@ function smithReason(u,r){
   if(repTown<=-30)return '青葉村拒絕交易';
   if(inDanger(u))return '附近有敵人，暫時做唔到';
   if(r.advanced&&!economy.smithing)return '先去荒寺搵鍛冶圖錄';
+  if(r.forge&&!economy.forging)return '先去廢棄鍛冶場搵機關圖樣';
   if(Object.entries(r.needs).some(([id,n])=>countItem(u,id)<n))return '背包材料不足';
   if(money<r.fee)return '工錢不足';return '';
 }
@@ -59,13 +61,14 @@ function commission(u,id){
   for(const [item,n]of Object.entries(r.needs))for(let i=0;i<n;i++)useItem(u,item);
   money-=r.fee;merchantState('village').cash+=r.fee;addItem(u,id);return true;
 }
-function learnSmithing(u){
-  if(economy.smithing||!countItem(u,'smith_scroll')||smithReason(u,{needs:{},fee:0}))return false;
-  useItem(u,'smith_scroll');economy.smithing=true;return true;
+function learnSmithing(u,forge=false){
+  const key=forge?'forging':'smithing',item=forge?'forge_scroll':'smith_scroll';
+  if(economy[key]||!countItem(u,item)||smithReason(u,{needs:{},fee:0}))return false;
+  useItem(u,item);economy[key]=true;return true;
 }
 function ensureSmithCache(){
   const a=areaStates.temple;
-  if(!a.piles.some(p=>p.id==='smith-cache'))a.piles.push({pile:true,permanent:true,id:'smith-cache',name:'荒寺工匠藏箱',x:12,y:11.6,t:0,eq:{weapon:null,armor:null},pack:[{id:'smith_scroll',n:1},{id:'steel',n:6}]});
+  if(!a.piles.some(p=>p.id==='smith-cache'))a.piles.push({pile:true,permanent:true,id:'smith-cache',name:'荒寺工匠藏箱',x:12,y:11.6,t:0,eq:{weapon:null,armor:null},pack:[{id:'smith_scroll',n:1},{id:'steel',n:2}]});
   if(activeArea==='temple')piles=[...a.piles];
 }
 ensureSmithCache();

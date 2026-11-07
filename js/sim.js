@@ -322,8 +322,8 @@ function simulate(dt){
     a.x=clamp(a.x,.5,MAP-.5);a.y=clamp(a.y,.5,MAP-.5);}
   fx.floats.forEach(f=>f.t+=dt);fx.floats=fx.floats.filter(f=>f.t<(f.big?1.8:1.1));
   fx.shots.forEach(f=>f.t+=dt);fx.shots=fx.shots.filter(f=>f.t<.18);
-  if(autoPause&&!alerted&&bandits().some(e=>!e.down&&allies().some(a=>!a.down&&dist(a,e)<e.aggroR))){alerted=true;setPaused(true);toast('發現野武士 · 已自動暫停，慢慢落指令')}
-  if(!cleared&&bandits().length&&bandits().every(e=>e.down)){cleared=true;toast('野武士全部倒地 · 記得執嘢，頭目有懸賞')}
+  if(autoPause&&!alerted&&bandits().some(e=>!e.down&&allies().some(a=>!a.down&&dist(a,e)<e.aggroR))){alerted=true;setPaused(true);toast(`${activeArea==='forge'?'發現鍛冶場浪人':'發現野武士'} · 已自動暫停，慢慢落指令`)}
+  if(!cleared&&bandits().length&&bandits().every(e=>e.down)){cleared=true;toast(activeArea==='forge'?'鍛冶場浪人全部倒地 · 記得搜箱，留力帶物資返村':'野武士全部倒地 · 記得執嘢，頭目有懸賞')}
   tickCaravan(dt);updateTravel();
 }
 

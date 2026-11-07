@@ -28,6 +28,9 @@ const ITEMS={
   forged_blade:{name:'玉鋼打刀',type:'weapon',w:5,v:320,dmg:[13,19],cd:1.2},
   forged_armor:{name:'玉鋼胴丸',type:'armor',w:7,v:400,red:.38,dod:-4},
   p_forged:{name:'匠製機關肢',type:'pros',w:4,v:950,pros:'master'},
+  mechanism:{name:'精密機關零件',type:'goods',w:2,v:90,stack:1},
+  forge_scroll:{name:'鍛冶場機關圖樣',type:'goods',w:1,v:120},
+  mechanism_armor:{name:'機關護胴',type:'armor',w:6,v:540,red:.43,dod:-2},
 };
 const FIST={name:'拳頭',dmg:[2,4],cd:.8};
 const BITE={name:'咬',dmg:[2,4],cd:.9,range:.8};
@@ -40,7 +43,9 @@ function desc(id){const it=ITEMS[id];
   if(it.type==='armor')return `減傷 ${Math.round(it.red*100)}%${it.dod?` · 閃避 ${it.dod}`:''} · ${it.w}kg`;
   if(it.type==='pros'){const p=PROS[it.pros];return `耐久 ${Math.round(p.hp*100)}% · 力量／速度 ${p.mul<1?'−':'+'}${Math.round(Math.abs(p.mul-1)*100)}%`}
   if(id==='smith_scroll')return '帶返青葉村商人嘅工匠頁，交出圖錄解鎖全隊進階配方';
-  if(id==='steel')return '荒寺藏箱／野武士頭目所得 · 用於玉鋼裝備及匠製機關肢';
+  if(id==='forge_scroll')return '鍛冶場深處所得 · 帶返青葉村工匠解鎖機關護胴';
+  if(id==='mechanism')return '鍛冶場舊料箱／工房秘藏所得 · 保留製作機關護胴';
+  if(id==='steel')return '荒寺少量藏料／頭目／鍛冶場所得 · 製作材料，賣出前留意配方';
   if(it.type==='tool')return '修理一個義肢部位';
   if(it.type==='food')return `食咗回復飽肚 ${it.food} · ${it.w}kg`;
   if(it.type==='med')return '包紮用，每個大約醫 20 點 · 冇藥包淨係止到血';

@@ -18,6 +18,7 @@ function paintGround(area){
     const town=Math.hypot(i+.5-TOWN.x,j+.5-TOWN.y);if(town<3.6)c=mix(c,pave,(town<2.8?.7:.35)*(hash(i+1,j)*.3+.7));
     if(Math.abs(i-j)<1.5)c=mix(c,pave,.65);
     if(area==='village'&&i>8&&i<13&&j>2&&j<6)c=mix(c,[98,132,69],.8);
+    if(area==='forge'){c=mix(c,[106,102,93],.65);if(Math.hypot(i-14,j-13)<4)c=mix(c,[55,52,47],.55);if(Math.abs(j-8)<1&&i<12)c=mix(c,pave,.45)}
     const p=[[i,j],[i+1,j],[i+1,j+1],[i,j+1]].map(([a,b])=>[isoX(a,b)+ox,isoY(a,b)]);
     g.beginPath();p.forEach(([x,y],k)=>k?g.lineTo(x,y):g.moveTo(x,y));g.closePath();
     g.fillStyle=`rgb(${c})`;g.fill();
@@ -44,7 +45,7 @@ function paintGround(area){
   }
   return ground;
 }
-const grounds={village:paintGround('village'),temple:paintGround('temple')};
+const grounds={village:paintGround('village'),temple:paintGround('temple'),forge:paintGround('forge')};
 let ground=grounds.village;
 
 /* ---------- props (2.5D blocks) ---------- */

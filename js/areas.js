@@ -1,6 +1,10 @@
 'use strict';
 // Inactive areas retain their objects and pause simulation.
-const AREAS={village:{name:'青葉村',gate:{x:8,y:10},entry:{x:7.5,y:8.5}},temple:{name:'荒寺山道',gate:{x:7,y:8},entry:{x:7.5,y:8.5}}};
+const AREAS={
+  village:{name:'青葉村',gate:{x:8,y:10},entry:{x:7.5,y:8.5},links:['temple'],hint:'貧村補給／工匠；西面銅礦'},
+  temple:{name:'荒寺山道',gate:{x:7,y:8},entry:{x:7.5,y:8.5},links:['village','forge'],hint:'北面鐵礦；尋圖錄，路牌可往鍛冶場'},
+  forge:{name:'廢棄鍛冶場',gate:{x:5,y:8},entry:{x:5.8,y:8.5},links:['temple'],hint:'外圍補給；深處有機關圖樣／零件，毋須清場'}
+};
 let activeArea='village';
 const areaStates={};
 const villageProps=props.filter(p=>p.x<13&&p.y<13&&(!p.isOre||p.ore==='copper'));
@@ -12,8 +16,18 @@ for(const [x,y] of [[1,4],[2,9],[8,1],[11,6],[15,12],[5,12],[8,15],[16,7],[3,13]
   templeProps.push({x:x+3,y:y+3,s:.5,h:30,c:[77,99,62],tree:1});
 }
 areaStates.village={units:units.filter(u=>u.team!=='e'&&u.team!=='w'),piles:[],props:villageProps,ores:villageOres,beds:[...BEDS],alerted:false,cleared:false};
-areaStates.temple={units:units.filter(u=>u.team==='e'||u.team==='w'),piles:[{pile:true,permanent:true,id:'temple-supplies',name:'荒寺遺留箱',x:10.8,y:10.6,t:0,eq:{weapon:null,armor:null},pack:[{id:'ration',n:4},{id:'medkit',n:2},{id:'kit',n:1},{id:'seal',n:1}]}],props:templeProps,ores:templeOres,beds:[],alerted:false,cleared:false};
+areaStates.temple={units:units.filter(u=>u.team==='e'||u.team==='w'),piles:[{pile:true,permanent:true,id:'temple-supplies',name:'荒寺遺留箱',x:10.8,y:10.6,t:0,eq:{weapon:null,armor:null},pack:[{id:'ration',n:2},{id:'medkit',n:1},{id:'kit',n:1},{id:'seal',n:1}]}],props:templeProps,ores:templeOres,beds:[],alerted:false,cleared:false};
 areaStates.temple.units.filter(u=>u.team==='e').forEach((u,i)=>{u.x=14+(i%2)*.8;u.y=12+Math.floor(i/2)*.8;u.home={x:14,y:12};u.leash=5});
+const forgeOre={x:5,y:4.5,ore:'iron',isOre:1,s:.8,h:14,c:[118,122,117]};
+const forgeProps=[forgeOre,{x:13.5,y:12,s:1.8,h:25,c:[92,89,82],furnace:1},{x:16.5,y:15,s:1.5,h:27,c:[116,107,92],house:1,temple:1},
+  ...[[9,5],[10,13],[15,8],[17,11]].map(([x,y])=>({x,y,s:.65,h:9,c:[104,100,88]})),
+  ...[[3,5],[4,13],[8,16],[18,17]].map(([x,y])=>({x,y,s:.5,h:30,c:[80,91,66],tree:1}))];
+function forgeCache(id,name,x,y,pack){return {pile:true,permanent:true,id,name,x,y,t:0,eq:{weapon:null,armor:null},pack}}
+areaStates.forge={units:[[13,10],[15,13],[16,14]].map(([x,y],i)=>mk({team:'e',name:i?'鍛冶場浪人':'守料浪人',color:'#82715b',base:i?62:48,x,y,home:{x,y},aggroR:3.2,leash:6,eq:{weapon:i?'machete':'club',armor:i?'plate':'leather'},lv:{atk:i?23:16,tough:i?22:15,dod:14},pack:[{id:'coin',n:12}]})),
+  piles:[forgeCache('forge-edge','外圍行囊',8,8,[{id:'ration',n:1},{id:'medkit',n:1},{id:'iron',n:2}]),
+    forgeCache('forge-parts','舊料箱',11,9,[{id:'steel',n:2},{id:'mechanism',n:1}]),
+    forgeCache('forge-plans','工房秘藏',15,14,[{id:'steel',n:2},{id:'mechanism',n:1},{id:'forge_scroll',n:1}])],
+  props:forgeProps,ores:[forgeOre],beds:[],alerted:false,cleared:false};
 function captureArea(){Object.assign(areaStates[activeArea],{units:[...units],piles:[...piles],alerted,cleared,pausedAt:simT})}
 function activateArea(id){
   activeArea=id;const a=areaStates[id];
@@ -25,24 +39,25 @@ function allSquad(){return [...units,...Object.entries(areaStates).filter(([id])
 function travelParty(){const party=new Set([...sel].filter(u=>units.includes(u)&&u.team==='a'&&!u.dead&&!u.down));for(const u of party)if(u.carry)party.add(u.carry);return [...party]}
 let pendingTravel=null;
 function cancelTravel(notify=true){if(!pendingTravel)return;for(const u of pendingTravel.party)u.cmd=u.cmd.filter(c=>!c.travel);pendingTravel=null;if(notify)toast('已取消出發')}
-function startTravel(){
+function startTravel(target=AREAS[activeArea].links[0]){
+  if(!AREAS[activeArea].links.includes(target))return false;
   cancelTravel(false);const party=travelParty(),walkers=party.filter(u=>!u.carriedBy),gate=AREAS[activeArea].gate;
   if(!walkers.length){toast('先揀可以行動嘅隊友；傷者要先揹起');return}
-  pendingTravel={area:activeArea,party};
+  pendingTravel={area:activeArea,party,target};
   walkers.forEach((u,i)=>{const f=formation(walkers.length,i);u.cmd=[{t:'move',x:gate.x+f.dx*.5,y:gate.y+f.dy*.5,travel:true}]});
   hideMenu();toast('集合到路牌後自動出發；追兵可能跟過嚟');updateTravel();
 }
 function updateTravel(){
   if(!pendingTravel)return;const {area,party}=pendingTravel;
   if(area!==activeArea||party.some(u=>!units.includes(u)||(!u.carriedBy&&(u.dead||u.down))||(u.carry&&!party.includes(u.carry)))||party.some(u=>u.carriedBy&&!party.includes(u.carriedBy))){cancelTravel();return}
-  if(party.filter(u=>!u.carriedBy).every(u=>dist(u,AREAS[area].gate)<=1.3))travelArea(party);
+  if(party.filter(u=>!u.carriedBy).every(u=>dist(u,AREAS[area].gate)<=1.3))travelArea(party,pendingTravel.target);
 }
-function travelArea(party=travelParty()){
+function travelArea(party=travelParty(),target=AREAS[activeArea].links[0]){
+  if(!AREAS[activeArea].links.includes(target)){toast('呢條山道去唔到該地區');return false}
   const walkers=party.filter(u=>!u.carriedBy),gate=AREAS[activeArea].gate;
   if(!walkers.length){toast('先揀可以出發嘅隊友；倒地同伴要有人揹');return false}
   if(walkers.some(u=>dist(u,gate)>2.4)){toast('先叫出發隊友集合到山道口');return false}
   const pursuers=units.filter(u=>u.team!=='g'&&!u.down&&!u.dead&&!u.carriedBy&&!party.includes(u)&&(u.aggro||u.pursuitId)&&dist(u,gate)<5&&walkers.some(a=>hostile(u,a)&&dist(u,a)<6));
-  const target=activeArea==='village'?'temple':'village';
   pendingTravel=null;
   for(const u of party){u.cmd=[];u.moving=false;u.lunge=0}
   captureArea();areaStates[activeArea].units=areaStates[activeArea].units.filter(u=>!party.includes(u)&&!pursuers.includes(u));areaStates[target].units.push(...party,...pursuers);activateArea(target);
@@ -55,17 +70,17 @@ function finishAreaChange(){
   for(const key of Object.keys(fx))fx[key]=[];
   hideMenu();charSheet.hidden=sheet.hidden=shopSheet.hidden=lootSheet.hidden=barSheet.hidden=true;setModal(false);buildSquadUI();refreshStatus();updatePortraits(true);save(false);
 }
-function switchReserve(){
-  const target=activeArea==='village'?'temple':'village';
+function switchReserve(target=Object.keys(AREAS).find(id=>id!==activeArea&&areaStates[id].units.some(u=>u.team==='a'&&!u.dead))){
+  if(!target||target===activeArea||!areaStates[target]){toast('另一區冇留守隊友');return false}
   if(!areaStates[target].units.some(u=>u.team==='a'&&!u.dead)){toast('另一區冇留守隊友');return false}
   cancelTravel(false);captureArea();activateArea(target);sel.clear();allies().filter(u=>!u.dead).forEach(u=>sel.add(u));finishAreaChange();toast(`切換到${AREAS[target].name}留守隊；冇人跨區移動`);return true;
 }
 function travelMenu(sx=W-60,sy=H-220){
   const a=AREAS[activeArea],n=travelParty().filter(u=>!u.carriedBy).length;
   showMenu(sx,sy,`${a.name} · 山道口`,[
-    {label:activeArea==='village'?'出發：荒寺山道':'返回：青葉村',sub:`已選 ${n} 人 · 自動集合出發；附近追兵會跟隨 · 傷者要先揹起`,fn:startTravel},
+    ...a.links.map(id=>({label:`${id==='village'?'返回':'出發'}：${AREAS[id].name}`,sub:`已選 ${n} 人 · 自動集合；追兵會跟隨 · ${id==='forge'?'危險較高，可先搜外圍再撤退':'傷者要先揹起'}`,fn:()=>startTravel(id)})),
     ...(pendingTravel?[{label:'取消出發',fn:cancelTravel}]:[]),
-    ...(areaStates[activeArea==='village'?'temple':'village'].units.some(u=>u.team==='a'&&!u.dead)?[{label:'切換留守隊',sub:'只切換控制地區；出征隊會留喺原位',fn:switchReserve}]:[]),
+    ...Object.keys(AREAS).filter(id=>id!==activeArea&&areaStates[id].units.some(u=>u.team==='a'&&!u.dead)).map(id=>({label:`切換留守隊 · ${AREAS[id].name}`,sub:'只切換控制地區；出征隊留喺原位',fn:()=>switchReserve(id)})),
     {label:activeArea==='village'?'查看西面銅礦':'查看北面鐵礦',sub:'移動鏡頭到礦脈，再點礦石落採礦指令',fn:()=>{const ore=ORES[0];if(ore){cam.follow=null;centerOn(ore.x,ore.y);toast(`點礦石就可以採${ITEMS[ore.ore].name}，揹緊人嘅隊友做唔到`)}}}
   ]);
 }
@@ -75,7 +90,8 @@ function packAreaUnit(u){
 function packAreas(){captureArea();return Object.fromEntries(Object.entries(areaStates).map(([id,a])=>[id,{units:a.units.map(packAreaUnit),piles:a.piles,alerted:a.alerted,cleared:a.cleared,pausedAt:a.pausedAt}]))}
 function restoreAreas(saved,id){
   for(const key of Object.keys(AREAS)){
-    const a=saved[key];if(!a||!Array.isArray(a.units)||!Array.isArray(a.piles))throw Error('區域存檔不完整');
+    const a=saved[key];if(!a&&key==='forge')continue; // Pre-forge saves keep their existing regions and receive the new region once.
+    if(!a||!Array.isArray(a.units)||!Array.isArray(a.piles))throw Error('區域存檔不完整');
     const byId=new Map(),restored=a.units.map(o=>{
       const npc=key==='village'?(o.role==='trader'?TRADER:o.role==='inn'?INNKEEPER:o.team==='g'?GUARD:null):null;
       const u=Object.assign(npc||{},mk(o),{p:o.p,sk:o.sk,food:o.food==null?100:o.food});if(u.kind==='dog')u.natural=BITE;
