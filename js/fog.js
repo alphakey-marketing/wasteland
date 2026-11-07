@@ -17,6 +17,13 @@ function fogKnown(p){
   return x>=0&&y>=0&&x<FOG_GRID&&y<FOG_GRID&&!!exploredForge[y*FOG_GRID+x];
 }
 const unitVisible=u=>u.team==='a'||fogVisible(u);
+// Static locations only: reuse explored terrain, never infer enemy or container state.
+function knownLandmarks(){
+  if(!hasFog())return [];
+  updateFog();
+  return [{...AREAS[activeArea].gate,name:'返荒寺路牌',gate:true},
+    ...props.filter(p=>p.landmark).map(p=>({x:p.x,y:p.y,h:p.h+(p.furnace?36:25),name:p.landmark,ore:!!p.isOre}))].filter(fogKnown);
+}
 function resetFogMemory(){
   fogMemoryCtx.globalCompositeOperation='copy';fogMemoryCtx.fillStyle='#12150f';fogMemoryCtx.fillRect(0,0,FOG_PIXELS,FOG_PIXELS);
   fogMemoryCtx.globalCompositeOperation='source-over';fogMemoryCtx.fillStyle='rgba(18,21,15,.65)';

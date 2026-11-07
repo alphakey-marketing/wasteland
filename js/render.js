@@ -213,6 +213,14 @@ function drawPaths(){
       prev=p});}
   ctx.restore();
 }
+function drawLandmarks(){
+  for(const p of knownLandmarks()){
+    if(p.gate||(p.ore&&fogVisible(p)))continue; // The road sign and visible ore already have labels.
+    const s=scr(p.x,p.y,p.h),z=cam.z,seen=fogVisible(p),col=seen?'#e5d5a7':'#aa9c79';
+    ctx.strokeStyle=col;ctx.lineWidth=1.2*z;ctx.beginPath();ctx.moveTo(s.x,s.y-3*z);ctx.lineTo(s.x+4*z,s.y);ctx.lineTo(s.x,s.y+3*z);ctx.lineTo(s.x-4*z,s.y);ctx.closePath();ctx.stroke();
+    label(`${p.name}${seen?'':' · 記錄'}`,s.x,s.y-10*z,col,9);
+  }
+}
 function render(){
   updateFog();
   ctx.setTransform(DPR,0,0,DPR,0,0);
@@ -221,7 +229,7 @@ function render(){
   ctx.drawImage(ground,(-gw/2-cam.x)*cam.z+W/2,(-cam.y)*cam.z+H/2,gw*cam.z,gh*cam.z);
   drawFog();
   if(activeArea==='temple'){const dl=scr(DEN.x,DEN.y,46);label('野犬出沒',dl.x,dl.y,'#f2e7d4')}
-  const tl=activeArea==='village'?scr(TOWN.x-1.6,TOWN.y-1.6,78):scr(13,13,60);if(fogKnown({x:13,y:13}))label(AREAS[activeArea].name,tl.x,tl.y,'#f2e7d4',12);
+  const tl=activeArea==='village'?scr(TOWN.x-1.6,TOWN.y-1.6,78):scr(13,13,60);if(!hasFog())label(AREAS[activeArea].name,tl.x,tl.y,'#f2e7d4',12);
   const gate=AREAS[activeArea].gate,gs=scr(gate.x,gate.y);
   if(fogKnown(gate)){ctx.save();ctx.globalAlpha=fogVisible(gate)?1:.4;
   ctx.strokeStyle='#e0b464';ctx.lineWidth=2*cam.z;ell(gs.x,gs.y,18*cam.z,9*cam.z);ctx.stroke();
@@ -233,6 +241,7 @@ function render(){
   drawPaths();
   const list=[...piles.filter(fogVisible).map(p=>({d:p.x+p.y-.25,f:()=>drawPile(p)})),...props.filter(p=>fogKnown(p)||fogVisible(p)).map(p=>({d:p.x+p.y,f:()=>{ctx.save();ctx.globalAlpha=fogVisible(p)?1:.35;drawProp(p);ctx.restore()}})),...units.filter(unitVisible).map(u=>({d:u.x+u.y+(u.carriedBy?.02:u.down?-.3:0),f:()=>drawUnit(u)}))];
   list.sort((a,b)=>a.d-b.d).forEach(o=>o.f());
+  drawLandmarks();
   for(const s of fx.shots){const a=scr(s.a.x,s.a.y,18),b=scr(s.b.x,s.b.y,18),k=s.t/.18;
     if(!fogVisible(s.a)||!fogVisible(s.b))continue;
     ctx.strokeStyle='#f6e2b0';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(a.x+(b.x-a.x)*k*.6,a.y+(b.y-a.y)*k*.6);ctx.lineTo(a.x+(b.x-a.x)*Math.min(1,k+.4),a.y+(b.y-a.y)*Math.min(1,k+.4));ctx.stroke()}
