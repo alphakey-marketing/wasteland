@@ -20,7 +20,7 @@ const ratio=(u,k)=>{const p=u.p[k];return p.lost?0:Math.max(0,p.hp)/p.max};
 /* ---------- units ---------- */
 const units=[];
 function mk(o){const u=Object.assign({cmd:[],cd:0,state:'待命',down:false,dead:false,bleed:0,downT:0,lunge:0,rescueT:0,aggro:false,face:1,id:Math.random(),spd:2.3,flash:0,
-  pack:[],eq:{weapon:null,armor:null},bounty:0,carry:null,carriedBy:null,mineT:0,forceT:0,food:100,kitUse:0},o);
+  pack:[],eq:{weapon:null,armor:null},bounty:0,carry:null,carriedBy:null,mineT:0,forceT:0,food:100,kitUse:0,starvation:null},o);
   u.p=mkParts(o.base);u.sk=mkSkills(o.lv);return u}
 const squadDef=[
   {name:'阿岩',role:'坦克',color:'#5fb3a8',base:70,pack:[{id:'medkit',n:1},{id:'ration',n:2}],eq:{weapon:'club',armor:'leather'},lv:{tough:6,atk:2,dod:1,aid:1,str:4},rules:{flee:false,rescue:false,fight:true}},
@@ -123,7 +123,7 @@ function attack(u,t){
   float(t,`-${Math.round(dmg)} ${pl}`,t.team==='a'?'#ff9b84':'#fff3dc');
   if(range(u)>2)fx.shots.push({a:{x:u.x,y:u.y},b:{x:t.x,y:t.y},t:0});
   train(u,'atk',1.2);train(t,'tough',dmg*.25);train(t,'dod',.6);
-  if(t.cmd[0]&&t.cmd[0].t==='bandage'){t.interruptT=1.2;float(t,'包紮被打斷','#ff9b84')}
+  if(t.cmd[0]&&['bandage','feed'].includes(t.cmd[0].t)){t.interruptT=1.2;float(t,t.cmd[0].t==='feed'?'餵食被打斷':'包紮被打斷','#ff9b84')}
   if(t.team!=='a'){t.aggro=true;t.lastHit=u}
   if(wasUp&&part.hp<=0&&(pk==='larm'||pk==='rarm'||pk==='legs'))float(t,part.pros?`${pl}義肢壞咗`:`${pl}殘廢`,'#ff7a5c',true);
   checkWounds(t,pk,pl);
@@ -153,7 +153,7 @@ function treat(healer,pat,dt){
   let worst=null,wr=2;for(const [k] of PARTS){const q=pat.p[k];if(q.lost||q.pros)continue;const r=q.hp/q.max;if(r<1&&r<wr){wr=r;worst=k}}
   if(!worst)return false;const p=pat.p[worst],amt=Math.min(p.max-p.hp,healRate(healer)*dt);p.hp+=amt;useKit(healer,amt);train(healer,'aid',1.2*dt);return true;
 }
-function getUp(u,f){if(u.dead||u.carriedBy)return;u.down=false;['head','torso'].forEach(k=>{u.p[k].hp=Math.max(u.p[k].hp,u.p[k].max*f)})}
+function getUp(u,f){if(u.dead||u.carriedBy||hungerBlocksRecovery(u))return;u.down=false;['head','torso'].forEach(k=>{u.p[k].hp=Math.max(u.p[k].hp,u.p[k].max*f)})}
 function recov(u){return clamp(Math.min(u.p.head.hp/(u.p.head.max*.1),u.p.torso.hp/(u.p.torso.max*.1)),0,1)}
 function hurt(u){return u.bleed>0||PARTS.some(([k])=>{const q=u.p[k];return !q.lost&&!q.pros&&q.hp<q.max})}
 
@@ -168,6 +168,7 @@ function runCmd(u,dt,ne,nd){
     case 'follow':{const L=c.u;if(L.dead){u.cmd.shift();break}
       if(u.rules.fight&&ne&&nd<6&&!u.carry){u.state='見敵就打';engage(u,ne,dt);break}
       u.state='跟住'+L.name;if(dist(u,L)>1.3)step(u,L.x,L.y,dt);break}
+    case 'feed':runFeed(u,c,dt);break;
     case 'bandage':{const p=c.pat;if(p.dead||(p.carriedBy&&p.carriedBy!==u)){u.cmd.shift();break}
       if(p!==u&&p.carriedBy!==u&&dist(u,p)>.8){u.state='去幫'+p.name+'包紮';step(u,p.x,p.y,dt);break}
       if(!hurt(p)){u.cmd.shift();float(p,'包紮好','#a9e08a');break}
@@ -237,7 +238,8 @@ function updAlly(u,dt){
   if(u.rules.rescue&&!u.carry){
     const da=nearest(allies().filter(a=>a.down&&!a.dead&&!a.carriedBy&&a!==u),u);
     if(da&&dist(u,da)<12){u.state='救人';if(dist(u,da)>.7){u.rescueT=0;step(u,da.x,da.y,dt)}else{u.rescueT+=dt;da.bleed=Math.max(0,da.bleed-2*dt);train(u,'aid',1.5*dt);
-      if(u.rescueT>=2.5/(1+u.sk.aid.lv*.03)){getUp(da,.3);da.bleed=0;u.rescueT=0;float(da,'救返起身','#a9e08a')}}return}
+      if(hungerBlocksRecovery(da)){u.state='救人 · 需要食物';if(feedingSource(u,da))u.cmd=[{t:'feed',pat:da}]}
+      else if(u.rescueT>=2.5/(1+u.sk.aid.lv*.03)){getUp(da,.3);da.bleed=0;u.rescueT=0;float(da,'救返起身','#a9e08a')}}return}
     u.rescueT=0;
     if(nd>6&&!u.cmd.length){const pat=nearest(allies().filter(a=>a!==u&&!a.down&&hurt(a)&&canTreat(u,a)&&(a.bleed>0||pct(a)<.85)&&dist(u,a)<10),u);
       if(pat){u.state='醫'+pat.name;if(dist(u,pat)>.8)step(u,pat.x,pat.y,dt);else treat(u,pat,dt);return}}
@@ -290,11 +292,7 @@ function spawnScavs(){const gid=Math.random(),side=Math.random()<.5,x=side?.8:MA
     eq:{weapon:i?'club':'knife',armor:'cloth'},lv:{tough:5,atk:6,dod:6}}))}
 function simulate(dt){
   simT+=dt;
-  for(const u of allies()){if(u.dead)continue;const sleeping=u.state==='瞓緊';u.food=Math.max(0,u.food-(sleeping?.06:.12)*dt);
-    if(u.food<40&&!u.down){const fi=u.pack.findIndex(x=>ITEMS[x.id].type==='food');
-      if(fi>=0){const id=takeOne(u,fi);u.food=Math.min(100,u.food+ITEMS[id].food);float(u,'食咗'+ITEMS[id].name,'#e8c79a');u.hungryWarned=false}
-      else if(u.food<25&&!u.hungryWarned){u.hungryWarned=true;toast(`${u.name} 好肚餓，背包冇嘢食`)}}
-    if(u.food<=0&&!u.down){u.p.torso.hp-=.15*dt;checkWounds(u,'torso','身')}
+  for(const u of allies()){tickHunger(u,dt);if(u.dead)continue;const sleeping=u.state==='瞓緊';
     if(!u.down&&u.bleed<=0&&u.food>0&&!sleeping&&!hostiles(u).some(h=>dist(h,u)<6))for(const [k] of PARTS){const q=u.p[k];if(!q.lost&&!q.pros&&q.hp<q.max)q.hp=Math.min(q.max,q.hp+.12*dt)}}
   scavTimer+=dt;if(activeArea==='temple'&&scavTimer>100){scavTimer=0;if(new Set(units.filter(u=>u.kind==='scav'&&!u.down).map(u=>u.gid)).size<2)spawnScavs()}
   for(let i=units.length-1;i>=0;i--)if(units[i].gone)units.splice(i,1);
@@ -302,9 +300,10 @@ function simulate(dt){
   for(const u of units){if(u.dead||!(u.bleed>0))continue;
     u.p.torso.hp-=u.bleed*(u.down?1.4:1)*dt;u.bleed=Math.max(0,u.bleed-(u.down?.03:.1)*dt);
     if(!hardcore)u.p.torso.hp=Math.max(-u.p.torso.max*.5,u.p.torso.hp);checkWounds(u,'torso','身')}
-  for(const u of units){if(!u.down||u.dead||u.bleed>0)continue;const r=.6+u.sk.tough.lv*.03;
+  for(const u of units){if(!u.down||u.dead||u.bleed>0||u.starvation?.phase==='dying')continue;const r=.6+u.sk.tough.lv*.03;
     ['head','torso'].forEach(k=>{u.p[k].hp=Math.min(u.p[k].max,u.p[k].hp+r*dt)});
-    if(recov(u)>=1&&!u.carriedBy){getUp(u,0);float(u,u.team==='a'?'自己爬起身':'醒返','#a9e08a');u.victim=null;if(u.team!=='a'){u.aggro=false;u.lastHit=null}}}
+    if(tryStarvationRise(u))continue;
+    if(recov(u)>=1&&!u.carriedBy&&!hungerBlocksRecovery(u)){getUp(u,0);float(u,u.team==='a'?'自己爬起身':'醒返','#a9e08a');u.victim=null;if(u.team!=='a'){u.aggro=false;u.lastHit=null}}}
   piles=piles.filter(p=>p.permanent||(p.pack.length&&simT-p.t<300));
   if(repTown<0)repTown=Math.min(0,repTown+dt/30);
   for(const u of units){u.moving=false;u.cd=Math.max(0,u.cd-dt);u.lunge=Math.max(0,u.lunge-dt*5);if(u.carriedBy)continue;if(u.team==='a')updAlly(u,dt);else if(u.kind==='caravan')updCaravan(u,dt);else if(u.kind==='scav')updScav(u,dt);else{if(u.kind==='cguard'&&u.leader&&!u.leader.down)u.home={x:u.leader.x,y:u.leader.y};updOther(u,dt)}}

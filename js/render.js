@@ -205,7 +205,7 @@ function drawPaths(){
   for(const u of allies()){if(u.down||!u.cmd.length)continue;
     const strong=paused||sel.has(u);ctx.globalAlpha=strong?1:.35;
     let prev=scr(u.x,u.y);
-    u.cmd.forEach((c,i)=>{const tgt=c.t==='move'?c:c.t==='bandage'?c.pat:c.t==='sleep'?c.bed:c.t==='mine'?c.node:c.t==='talk'?c.npc:(c.t==='attack'||c.t==='follow')?c.u:c.body;if(c.t!=='move'&&tgt.team!=='a'&&!fogVisible(tgt))return;const p=scr(tgt.x,tgt.y);
+    u.cmd.forEach((c,i)=>{const tgt=c.t==='move'?c:(c.t==='bandage'||c.t==='feed')?c.pat:c.t==='sleep'?c.bed:c.t==='mine'?c.node:c.t==='talk'?c.npc:(c.t==='attack'||c.t==='follow')?c.u:c.body;if(c.t!=='move'&&tgt.team!=='a'&&!fogVisible(tgt))return;const p=scr(tgt.x,tgt.y);
       ctx.strokeStyle=c.t==='attack'?'#d65b41':c.t==='move'?'#eaa93a':'#f0c45a';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(prev.x,prev.y);ctx.lineTo(p.x,p.y);ctx.stroke();
       if(c.t==='move'){ctx.setLineDash([]);ctx.fillStyle='rgba(234,169,58,.9)';ell(p.x,p.y,7*cam.z,3.5*cam.z);ctx.fill();
         if(paused&&u.cmd.length>1){ctx.fillStyle='#24180a';ctx.font=`700 ${9*cam.z}px "Chakra Petch",sans-serif`;ctx.textAlign='center';ctx.fillText(i+1,p.x,p.y+3*cam.z)}
