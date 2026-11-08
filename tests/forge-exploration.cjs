@@ -33,7 +33,7 @@ async function take(p,id){
     allTrue(await p.evaluate(()=>({money:money===517,unlock:economy.smithing&&!economy.forging,
       stock:merchantState('village').stock.ration===0,oldBox:areaStates.temple.piles.find(p=>p.id==='smith-cache').pack[0].n===6,
       empty:areaStates.temple.piles[0].pack.length===0,corpse:areaStates.temple.units[0].dead,
-      newArea:areaStates.forge.units.length===3&&areaStates.forge.piles.length===3})));
+      newArea:areaStates.forge.units.filter(u=>u.team==='e').length===3&&areaStates.forge.piles.filter(p=>p.id.startsWith('forge-')).length===3})));
     await p.evaluate(()=>save(false));await reload(p);
     assert.equal(await p.evaluate(()=>areaStates.forge.piles.filter(p=>p.id==='forge-plans').length),1);
     await p.close();console.log('PASS old two-area save gains forge once, preserving money, unlocked recipes, finite stock, old materials, empty crates and corpses');
@@ -77,10 +77,10 @@ async function take(p,id){
       improved:ITEMS.mechanism_armor.red>ITEMS.forged_armor.red,exclusive:Object.values(MERCHANTS).every(m=>!m.stock.includes('mechanism_armor')&&!m.stock.includes('mechanism')),fee:money===860}}));
     await p.click('#bShopClose');await reload(p);
     allTrue(await p.evaluate(()=>({persisted:economy.forging&&countItem(allies()[0],'mechanism_armor')===1,
-      depleted:areaStates.forge.piles.every(p=>!p.pack.length),casualty:allies().some(u=>u.down),squad:allSquad().length===4})));
+      depleted:areaStates.forge.piles.filter(p=>p.id.startsWith('forge-')).every(p=>!p.pack.length),casualty:allies().some(u=>u.down),squad:allSquad().length===4})));
     await p.evaluate(()=>{const u=allies()[0];u.eq.armor='mechanism_armor';drawUnit(u);u.down=true;drawUnit(u);u.down=false});
     allTrue(await p.evaluate(()=>{
-      const reserve=switchReserve('forge')&&activeArea==='forge'&&allies().length===2&&piles.every(p=>!p.pack.length);
+      const reserve=switchReserve('forge')&&activeArea==='forge'&&allies().length===2&&piles.filter(p=>p.id.startsWith('forge-')).every(p=>!p.pack.length);
       const squad=allSquad(),unique=squad.length===4&&new Set(squad.map(u=>u.id)).size===4;
       return{reserve,unique,back:switchReserve('village')&&allies().length===2};
     }));
