@@ -10,7 +10,7 @@ async function open(width=390){
 function allTrue(o){for(const[k,v]of Object.entries(o))assert.equal(v,true,k)}
 async function reload(p){await p.reload({waitUntil:'networkidle'});await p.evaluate(()=>{setPaused(true);autoPause=false})}
 async function travel(p,target,gather=false){
-  const sign=await p.evaluate(gather=>{const g=AREAS[activeArea].gate;travelParty().filter(u=>!u.carriedBy).forEach((u,i)=>{u.x=g.x-(gather?3:0);u.y=g.y+(gather?i*.2:0)});centerOn(g.x,g.y);return scr(g.x,g.y,20)},gather);
+  const sign=await p.evaluate(([gather,target])=>{const g=AREAS[activeArea].exits.find(e=>AREAS[e.to].name.includes(target))||AREAS[activeArea].gate;travelParty().filter(u=>!u.carriedBy).forEach((u,i)=>{u.x=g.x-(gather?3:0);u.y=g.y+(gather?i*.2:0)});centerOn(g.x,g.y);return scr(g.x,g.y,20)},[gather,target]);
   await p.mouse.click(sign.x,sign.y);await p.locator('#cmenu button').filter({hasText:target}).first().click();
   if(gather){assert.equal(await p.evaluate(()=>pendingTravel?.target==='forge'),true);await p.evaluate(()=>{for(let i=0;i<400&&pendingTravel;i++)simulate(.05)});assert.equal(await p.evaluate(()=>activeArea),'forge')}
 }

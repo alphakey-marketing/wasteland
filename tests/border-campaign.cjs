@@ -5,12 +5,12 @@ async function setup(p){await p.evaluate(()=>{
   setPaused(true);autoPause=false;
   for(const u of allSquad()){u.rules={flee:false,rescue:false,fight:false};u.cmd=[]}
   window.quiet=()=>{for(const u of units)if(['e','w','s','v'].includes(u.team)){u.dead=u.down=true}};
-  window.go=target=>{quiet();const g=AREAS[activeArea].gate;for(const u of allies()){u.x=g.x;u.y=g.y;u.cmd=[]}const npc=borderFind('border_refugee');if(campaign.escort&&units.includes(npc)&&!npc.down){npc.x=g.x;npc.y=g.y}sel.clear();allies().forEach(u=>sel.add(u));if(!travelArea(travelParty(),target))throw Error('travel failed');quiet()};
+  window.go=target=>{quiet();const g=exitTo(activeArea,target);for(const u of allies()){u.x=g.x;u.y=g.y;u.cmd=[]}const npc=borderFind('border_refugee');if(campaign.escort&&units.includes(npc)&&!npc.down){npc.x=g.x;npc.y=g.y}sel.clear();allies().forEach(u=>sel.add(u));if(!travelArea(travelParty(),target))throw Error('travel failed');quiet()};
   window.dock=()=>{quiet();for(const u of allies()){u.cmd=[];u.x=INNKEEPER.x+.6;u.y=INNKEEPER.y}};
 })}
 async function reload(p){await p.evaluate(()=>save(false));await p.reload({waitUntil:'networkidle'});await setup(p)}
 async function loot(p,id){
-  const s=await p.evaluate(id=>{quiet();const b=piles.find(p=>p.id===id),a=allies()[0];sel.clear();sel.add(a);a.x=b.x-1.2;a.y=b.y;updateFog();centerOn(b.x,b.y);return scr(b.x,b.y,4)},id);
+  const s=await p.evaluate(id=>{quiet();const b=piles.find(p=>p.id===id),a=allies()[0];for(const o of allies())if(o!==a){o.x=b.x-5;o.y=b.y}sel.clear();sel.add(a);a.x=b.x-1.2;a.y=b.y;updateFog();centerOn(b.x,b.y);return scr(b.x,b.y,4)},id);
   await p.mouse.click(s.x,s.y);await p.locator('#cmenu button').filter({hasText:'搜查'}).click();await p.evaluate(()=>{for(let n=0;n<100&&!modal;n++)simulate(.1)});
   assert.equal(await p.locator('#lootSheet').isVisible(),true,id);await p.click('#bLootAll');await p.click('#bLootClose');
 }
