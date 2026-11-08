@@ -46,7 +46,7 @@ function tickCaravan(dt){
   if(!l||l.dead){j.phase='lost';j.nextAt=simT+180;return}
   if(l.down||l.carriedBy)return;
   const guards=areaUnits(j.area).filter(u=>u.leader===l&&!u.down&&!u.carriedBy);
-  if(j.area!==activeArea){updCaravan(l,dt,j.area);for(const g of guards)if(dist(g,l)>1.2)steer(g,l,dt,[],1,areaStates[j.area].props)}
+  if(j.area!==activeArea&&!liveAreas().includes(j.area)){updCaravan(l,dt,j.area);for(const g of guards)if(dist(g,l)>1.2)steer(g,l,dt,[],1,areaStates[j.area].props)}
   if(j.phase==='arrive'&&dist(l,CARAVAN_STOPS[j.area])<.6){j.phase='stay';j.nextAt=simT+60;toast(`遊商喺${AREAS[j.area].name}停留一分鐘`)}
   else if(j.phase==='stay'&&simT>=j.nextAt){j.phase='exit';toast(j.area==='village'?'遊商收檔，準備經路牌去荒寺山道':'遊商收檔，準備離開山道')}
   else if(j.phase==='exit'&&dist(l,AREAS[j.area].gate)<.6&&guards.every(g=>dist(g,l)<3))moveCaravan(j.area==='village'?'temple':null);

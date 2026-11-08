@@ -297,13 +297,27 @@ let scavTimer=40,saveTimer=0;
 function spawnScavs(){const gid=Math.random(),side=Math.random()<.5,x=side?.8:MAP-.8,y=rand(6,MAP-4);
   for(let i=0;i<2;i++)units.push(mk({team:'s',kind:'scav',gid,name:'落武者',color:'#8d8a5a',base:40,x:x+i*.5,y:y+i*.4,aggroR:3.5,leash:8,home:{x,y},
     eq:{weapon:i?'club':'knife',armor:'cloth'},lv:{tough:5,atk:6,dod:6}}))}
+let bgArea=false;
+// Every area that holds a living ally keeps running; others stay frozen.
+const liveAreas=()=>Object.keys(AREAS).filter(id=>id!==activeArea&&areaStates[id].units.some(u=>u.team==='a'&&!u.dead));
 function simulate(dt){
-  simT+=dt;
+  simT+=dt;scavTimer+=dt;dogTimer+=dt;saveTimer+=dt;
+  const live=liveAreas();
+  simArea(dt);
+  if(live.length){
+    const main=activeArea,saved={};for(const k in fx)saved[k]=fx[k];
+    try{captureArea();bgArea=true;
+      for(const id of live){swapIn(id);for(const k in fx)if(Array.isArray(fx[k]))fx[k]=[];simArea(dt);captureArea()}}
+    finally{bgArea=false;Object.assign(fx,saved);swapIn(main)}
+  }
+  tickCaravan(dt);tickCampaign(dt);updateTravel();
+}
+function simArea(dt){
   for(const u of allies()){tickHunger(u,dt);if(u.dead)continue;const sleeping=u.state==='瞓緊';
     if(!u.down&&u.bleed<=0&&u.food>0&&!sleeping&&!hostiles(u).some(h=>dist(h,u)<6))for(const [k] of PARTS){const q=u.p[k];if(!q.lost&&!q.pros&&q.hp<q.max)q.hp=Math.min(q.max,q.hp+.12*dt)}}
-  scavTimer+=dt;if(activeArea==='temple'&&scavTimer>100){scavTimer=0;if(new Set(units.filter(u=>u.kind==='scav'&&!u.down).map(u=>u.gid)).size<2)spawnScavs()}
+  if(activeArea==='temple'&&scavTimer>100){scavTimer=0;if(new Set(units.filter(u=>u.kind==='scav'&&!u.down).map(u=>u.gid)).size<2)spawnScavs()}
   for(let i=units.length-1;i>=0;i--)if(units[i].gone)units.splice(i,1);
-  saveTimer+=dt;if(saveTimer>20){saveTimer=0;save(false)}
+  if(!bgArea&&saveTimer>20){saveTimer=0;save(false)}
   for(const u of units){if(u.dead||!(u.bleed>0))continue;
     u.p.torso.hp-=u.bleed*(u.down?1.4:1)*dt;u.bleed=Math.max(0,u.bleed-(u.down?.03:.1)*dt);
     if(!hardcore)u.p.torso.hp=Math.max(-u.p.torso.max*.5,u.p.torso.hp);checkWounds(u,'torso','身')}
@@ -316,7 +330,6 @@ function simulate(dt){
   for(const u of units){u.moving=false;u.cd=Math.max(0,u.cd-dt);u.lunge=Math.max(0,u.lunge-dt*5);if(u.carriedBy)continue;if(u.team==='a')updAlly(u,dt);else if(u.kind==='caravan')updCaravan(u,dt);else if(u.kind==='scav')updScav(u,dt);else{if(u.kind==='cguard'&&u.leader&&!u.leader.down)u.home={x:u.leader.x,y:u.leader.y};updOther(u,dt)}}
   for(const u of units){if(!u.carriedBy)continue;const c=u.carriedBy;if(c.down||c.carry!==u){u.carriedBy=null;if(c.carry===u)c.carry=null}else{u.x=c.x;u.y=c.y;
 }}
-  dogTimer+=dt;
   if(activeArea==='temple'&&dogTimer>12){dogTimer=0;
     for(let i=units.length-1;i>=0;i--){const d=units[i];if(d.kind==='dog'&&d.down&&!d.carriedBy&&dist(d,nearest(allies(),d))>3)units.splice(i,1)}
     if(units.filter(u=>u.kind==='dog'&&!u.down).length<3)spawnDog()}
@@ -329,8 +342,7 @@ function simulate(dt){
   fx.floats.forEach(f=>f.t+=dt);fx.floats=fx.floats.filter(f=>f.t<(f.big?1.8:1.1));
   fx.shots.forEach(f=>f.t+=dt);fx.shots=fx.shots.filter(f=>f.t<.18);
   updateFog();
-  if(autoPause&&!alerted&&bandits().some(e=>!e.down&&fogVisible(e)&&allies().some(a=>!a.down&&dist(a,e)<e.aggroR))){alerted=true;setPaused(true);toast(`${activeArea==='forge'?'發現鍛冶場浪人':'發現野武士'} · 已自動暫停，慢慢落指令`)}
+  if(autoPause&&!alerted&&bandits().some(e=>!e.down&&fogVisible(e)&&allies().some(a=>!a.down&&dist(a,e)<e.aggroR))){alerted=true;setPaused(true);toast(`${bgArea?'【'+AREAS[activeArea].name+'】':''}${activeArea==='forge'?'發現鍛冶場浪人':'發現野武士'} · 已自動暫停，慢慢落指令`)}
   if(!cleared&&bandits().length&&bandits().every(e=>e.down)&&(!hasFog()||bandits().every(fogVisible))){cleared=true;toast(activeArea==='forge'?'鍛冶場浪人全部倒地 · 記得搜箱，留力帶物資返村':'野武士全部倒地 · 記得執嘢，頭目有懸賞')}
-  tickCaravan(dt);tickCampaign(dt);updateTravel();
 }
 

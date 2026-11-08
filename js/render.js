@@ -198,6 +198,8 @@ function drawUnit(u){
   else if(u.kind==='caravan')label('遊商 · 點我交易',x,y-46*k,'#f0c45a',10);
   else if(u.team==='s'&&!scavAngry.has(u.gid))label('落武者',x,y-46*k,'#d9d29a',9);
   else if(pct(u)<1||isSel||paused)hpBar(u,x,y-42*k,k);
+  // faction units and guards take the label branch above, so give them a bar here
+  if((outpostSide(u)||u.team==='g'||u.kind?.startsWith('border_'))&&(pct(u)<1||isSel||paused))hpBar(u,x,y-42*k,k);
   if(u.bounty&&u.team==='e')label(`懸賞 ${u.bounty} 文`,x,y-48*k,'#f0c45a',10);
   if(u.state==='救人'&&u.rescueT>0){ctx.strokeStyle='#a9e08a';ctx.lineWidth=2*k;ctx.beginPath();ctx.arc(x,y-50*k,5*k,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(1,u.rescueT*(1+u.sk.aid.lv*.03)/2.5));ctx.stroke()}
   if(u.state==='包紮緊'||u.state.startsWith('醫')){ctx.fillStyle='#a9e08a';ctx.font=`800 ${11*k}px sans-serif`;ctx.textAlign='center';ctx.fillText('+',x+10*k,y-34*k-((simT*20)%8)*k)}

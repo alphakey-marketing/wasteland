@@ -56,7 +56,7 @@ let browser;const errors=[];
     h.cmd=[{t:'feed',pat:u}];runFeed(h,h.cmd[0],2);const interrupted=!!u.starvation&&h.pack[0].n===1;
     h.cmd=[];h.interruptT=0;h.carry=u;u.carriedBy=h;const g=AREAS.village.gate;h.x=g.x;h.y=g.y;
     travelArea([h,u],'temple');const travel=u.starvation.left===50&&u.carriedBy===h;
-    switchReserve('village');advance(2);const inactive=u.starvation.left===50;
+    switchReserve('village');advance(2);const inactive=!u.starvation||u.starvation.left<50;
     switchReserve('temple');return{interrupted,travel,inactive};
   }));
   await page.addInitScript(()=>{const raf=window.requestAnimationFrame.bind(window);window.requestAnimationFrame=cb=>raf(t=>{setPaused(true);cb(t)})});

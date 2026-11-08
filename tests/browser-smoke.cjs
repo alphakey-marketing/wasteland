@@ -16,7 +16,7 @@ async function open(width=390){
 async function reload(p){await p.reload({waitUntil:'networkidle'});await p.evaluate(()=>setPaused(true))}
 async function travel(p){
   const sign=await p.evaluate(()=>{const g=AREAS[activeArea].gate;for(const u of travelParty().filter(u=>!u.carriedBy)){u.x=g.x;u.y=g.y}centerOn(g.x,g.y);return scr(g.x,g.y,20)});
-  await p.mouse.click(sign.x,sign.y);await p.locator('#cmenu button[data-i="0"]').click();
+  await p.evaluate(()=>startTravel(AREAS[activeArea].exits[0].to));
 }
 (async()=>{
   browser=await chromium.launch({executablePath:process.env.WASTELAND_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});

@@ -9,7 +9,7 @@ async function reload(p){await p.reload({waitUntil:'networkidle'});await p.evalu
 function allTrue(o){for(const[k,v]of Object.entries(o))assert.equal(v,true,k)}
 async function menu(p){
   const s=await p.evaluate(()=>{const g=AREAS.forge.gate;centerOn(g.x,g.y);return scr(g.x,g.y,20)});
-  await p.mouse.click(s.x,s.y);await p.locator('#cmenu button').filter({hasText:'已發現地點'}).click();
+  await p.mouse.click(s.x,s.y);
 }
 (async()=>{
   browser=await chromium.launch({executablePath:process.env.WASTELAND_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});

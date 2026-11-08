@@ -39,6 +39,8 @@ function activateArea(id){
   for(const p of a.piles)if(!p.permanent)p.t+=Math.max(0,simT-(a.pausedAt??simT));a.pausedAt=simT;
   units.splice(0,units.length,...a.units);piles=[...a.piles];props.splice(0,props.length,...a.props);ORES.splice(0,ORES.length,...a.ores);BEDS.splice(0,BEDS.length,...a.beds);ground=grounds[id];alerted=a.alerted;cleared=a.cleared;
 }
+// Light swap used by the background stepper: no visited flag, no pile-age shift.
+function swapIn(id){const a=areaStates[id];activeArea=id;units.splice(0,units.length,...a.units);piles=[...a.piles];props.splice(0,props.length,...a.props);ORES.splice(0,ORES.length,...a.ores);BEDS.splice(0,BEDS.length,...a.beds);ground=grounds[id];alerted=a.alerted;cleared=a.cleared}
 activateArea('village');
 function allSquad(){return [...units,...Object.entries(areaStates).filter(([id])=>id!==activeArea).flatMap(([,a])=>a.units)].filter(u=>u.team==='a')}
 function travelParty(){const party=new Set([...sel].filter(u=>units.includes(u)&&u.team==='a'&&!u.dead&&!u.down));for(const u of party)if(u.carry)party.add(u.carry);return [...party]}
@@ -102,8 +104,7 @@ function travelMenu(sx=W-60,sy=H-220,ex=AREAS[activeArea].exits[0]){
 }
 function landmarkMenu(sx,sy){
   showMenu(sx,sy,'已發現地點 · 只查看位置',[
-    ...knownLandmarks().map(p=>({label:p.name,sub:'敵情同物資要接近確認',fn:()=>{cam.follow=null;centerOn(p.x,p.y);toast(`查看已記錄地點：${p.name}`)}})),
-    {label:'返回出口選單',fn:()=>travelMenu(sx,sy)}
+    ...knownLandmarks().map(p=>({label:p.name,sub:'敵情同物資要接近確認',fn:()=>{cam.follow=null;centerOn(p.x,p.y);toast(`查看已記錄地點：${p.name}`)}}))
   ]);
 }
 function packAreaUnit(u){
