@@ -215,6 +215,17 @@ function drawPaths(){
       prev=p});}
   ctx.restore();
 }
+function drawCamp(c){
+  const z=cam.z,g=scr(c.x,c.y+1.2,0),t=scr(c.x,c.y,0),col=FACTIONS[c.side].color;
+  ctx.save();ctx.globalAlpha=fogVisible(c)?1:.45;
+  ctx.fillStyle='rgba(60,45,30,.25)';ell(g.x,g.y,3.8*22*z,3.8*11*z);ctx.fill();
+  ctx.strokeStyle='#6a4e33';ctx.lineWidth=3*z;ctx.setLineDash([2*z,7*z]);ell(g.x,g.y,3.8*22*z,3.8*11*z);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(t.x-34*z,t.y+4*z);ctx.lineTo(t.x,t.y-44*z);ctx.lineTo(t.x+34*z,t.y+4*z);ctx.lineTo(t.x,t.y+16*z);ctx.closePath();inkFill();
+  ctx.fillStyle='#2c2016';ctx.beginPath();ctx.moveTo(t.x-9*z,t.y+11*z);ctx.lineTo(t.x,t.y-12*z);ctx.lineTo(t.x+9*z,t.y+11*z);ctx.closePath();inkFill();
+  for(const dx of [-70,70]){const f=scr(c.x+dx/22*.6,c.y+1.2,0);inkRect(f.x-1.5*z,f.y-40*z,3*z,40*z,'#70513a');ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(f.x,f.y-40*z);ctx.lineTo(f.x+16*z,f.y-34*z);ctx.lineTo(f.x,f.y-27*z);inkFill()}
+  label(c.name,t.x,t.y-52*z,col,11);
+  ctx.restore();
+}
 function drawLandmarks(){
   for(const p of knownLandmarks()){
     if(p.gate||(p.ore&&fogVisible(p)))continue; // The road sign and visible ore already have labels.
@@ -242,6 +253,7 @@ function render(){
   fx.pings=fx.pings.filter(p=>now-p.t<600);
   for(const p of fx.pings){const k=(now-p.t)/600,s=scr(p.x,p.y);ctx.strokeStyle=p.col;ctx.globalAlpha=1-k;ctx.lineWidth=2;ell(s.x,s.y,(6+k*14)*cam.z,(3+k*7)*cam.z);ctx.stroke();ctx.globalAlpha=1}
   drawPaths();
+  for(const c of CAMPS)if(c.area===activeArea&&(fogKnown(c)||fogVisible(c)))drawCamp(c);
   const list=[...piles.filter(fogVisible).map(p=>({d:p.x+p.y-.25,f:()=>drawPile(p)})),...props.filter(p=>fogKnown(p)||fogVisible(p)).map(p=>({d:p.x+p.y,f:()=>{ctx.save();ctx.globalAlpha=fogVisible(p)?1:.35;drawProp(p);ctx.restore()}})),...units.filter(unitVisible).map(u=>({d:u.x+u.y+(u.carriedBy?.02:u.down?-.3:0),f:()=>drawUnit(u)}))];
   list.sort((a,b)=>a.d-b.d).forEach(o=>o.f());
   drawLandmarks();

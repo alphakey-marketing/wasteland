@@ -52,14 +52,50 @@ function seedOutpost(def,side){
     borderSpawn(def.area,{id:kind,kind,team:'g',name:role==='commander'?def.commanders[side]:`${FACTIONS[side].name}${def.name.slice(-2)}兵`,color:FACTIONS[side].color,base:i?42:65,x:def.x+i*.9,y:def.y+1+i,home:{x:def.x,y:def.y+1},aggroR:3,leash:4,eq:{weapon:i?'knife':'machete',armor:'leather'},lv:{atk:i?9:15,tough:i?9:15,dod:9},pack:[{id:'ration',n:1}]});
   }
 }
+function patrolRoute(u){
+  if(u.route)return u.route;
+  const c=CAMPS.find(c=>c.side===outpostSide(u)),d=OUTPOSTS.find(d=>d.area===c.area),mx=(c.x+d.x)/2,my=(c.y+d.y)/2;
+  return u.route=[{x:c.x,y:c.y+2.6},{x:mx+1,y:my+2},{x:d.x,y:d.y+2.4},{x:mx-1,y:my+4}];
+}
+// Picked guards and patrols are much weaker than the lord's own guard, so a patrol cannot wipe out a camp.
+function seedCamp(c){
+  const s=FACTIONS[c.side],area=c.area;
+  [[-1.6,1.6],[1.6,1.6]].forEach(([dx,dy],i)=>{const kind=`camp_guard_${c.side}_${i}`;if(borderFind(kind))return;
+    borderSpawn(area,{id:kind,kind,team:'g',name:`${s.name}親兵`,color:s.color,base:82,x:c.x+dx,y:c.y+dy,home:{x:c.x+dx,y:c.y+dy},aggroR:4,leash:5,eq:{weapon:'forged_blade',armor:'forged_armor'},lv:{atk:28,tough:28,dod:20},pack:[{id:'ration',n:1}]})});
+}
+let patrolWait={};
+function seedPatrols(c){
+  const alive=borderUnits().filter(u=>u.kind?.startsWith(`patrol_${c.side}_`)&&!u.dead&&!u.down).length;
+  if(alive>=2||(patrolWait[c.side]||0)>campaignClockTotal)return;
+  const s=FACTIONS[c.side],kind=`patrol_${c.side}_${Math.floor(campaignClockTotal)}_${alive}`;
+  borderSpawn(c.area,{id:kind,kind,team:'g',name:`${s.name}巡邏兵`,color:s.color,base:48,x:c.x,y:c.y+2.6,home:{x:c.x,y:c.y+2.6},aggroR:4,leash:7,eq:{weapon:alive?'knife':'machete',armor:'leather'},lv:{atk:10,tough:10,dod:8},pack:[{id:'ration',n:1}]});
+  patrolWait[c.side]=campaignClockTotal+(alive?0:90);
+}
+let campaignClockTotal=0,raidTimer={};
+const raiders=def=>borderUnits().filter(u=>u.kind?.startsWith('raid_')&&u.kind.includes(`_${def.id}_`)&&!u.dead&&!u.down);
+const raidActive=def=>raiders(def).length>0;
+function tickRaids(dt){
+  for(const def of OUTPOSTS){
+    const o=campaign.outposts[def.id];if(activeArea!==def.area||!o.owner||raidActive(def))continue;
+    raidTimer[def.id]=(raidTimer[def.id]??rand(100,160))-dt;if(raidTimer[def.id]>0)continue;
+    raidTimer[def.id]=rand(200,300);
+    const rival=Object.keys(FACTIONS).find(k=>factionRel(o.owner,k)==='enemy'),camp=CAMPS.find(c=>c.side===rival);if(!rival||!camp)continue;
+    const from=camp.area===def.area?{x:camp.x,y:camp.y+2.6}:arrivalPoint(def.area,camp.area),s=FACTIONS[rival];
+    for(let i=0;i<4;i++){const kind=`raid_${rival}_${def.id}_${Math.floor(simT)}_${i}`;
+      borderSpawn(def.area,{id:kind,kind,team:'g',name:`${s.name}${i?'先鋒':'隊長'}`,color:s.color,base:i?55:68,x:from.x+i*.7,y:from.y+(i%2)*.7,home:{x:def.x,y:def.y+1.4},aggroR:5,leash:7,eq:{weapon:'machete',armor:i?'leather':'forged_armor'},lv:{atk:i?16:22,tough:i?16:22,dod:i?11:14},pack:[{id:'ration',n:1}]})}
+    borderLog(`${s.name}部隊攻向${def.name}，${FACTIONS[o.owner].name}守軍迎戰。`);toast(`${s.name}部隊進攻${def.name}！`);
+  }
+}
 function ensureCampaignWorld(){
   if(!campaign.jobs.grain)borderCache('border-grain','失散糧袋',9.4,9.6,'border_grain','temple');
   if(!campaign.jobs.orders)borderCache('border-orders','破損運糧車',8.8,10,'border_orders','forge');
   if(!borderFind('border_refugee')){const u=borderSpawn('forge',{id:'border-refugee',team:'c',kind:'border_refugee',role:'機關師',name:'阿澄',color:'#c0a67a',base:52,x:9,y:10.8,home:{x:9,y:10.8},lv:{aid:12,tough:5,str:4},pack:[{id:'medkit',n:2}],eq:{weapon:'knife',armor:'cloth'}});u.p.legs.hp=u.p.legs.max*.55}
   const old=borderFind('border_lord');if(old)old.kind=`border_lord_${campaign.side==='uesugi'?'uesugi':'takeda'}`;
   for(const [side,area]of [['takeda','temple'],['uesugi','forge']])if(!borderFind(`border_lord_${side}`)){
-    const s=FACTIONS[side];borderSpawn(area,{id:`border-lord-${side}`,team:'n',kind:`border_lord_${side}`,role:'大名',name:s.lord,color:s.color,base:95,x:24,y:4,home:{x:24,y:4},eq:{weapon:'forged_blade',armor:'forged_armor'},lv:{atk:45,tough:45,dod:35}});
+    const s=FACTIONS[side];borderSpawn(area,{id:`border-lord-${side}`,team:'n',kind:`border_lord_${side}`,role:'大名',name:s.lord,color:s.color,base:95,x:24,y:3.6,home:{x:24,y:3.6},aggroR:4,leash:5,eq:{weapon:'forged_blade',armor:'forged_armor'},lv:{atk:45,tough:45,dod:35}});
   }
+  for(const side of ['takeda','uesugi']){const l=borderFind(`border_lord_${side}`);if(l&&!l.aggroR)Object.assign(l,{aggroR:4,leash:5})}
+  for(const c of CAMPS){seedCamp(c);seedPatrols(c)}
   for(const def of OUTPOSTS){
     const ps=activeArea===def.area?props:areaStates[def.area].props,o=campaign.outposts[def.id];
     if(!ps.some(p=>p.outpost&&p.x===def.x&&p.y===def.y))ps.push({x:def.x,y:def.y,s:1.3,h:30,c:[125,104,76],house:1,outpost:def.id});
@@ -114,7 +150,7 @@ function tickCampaign(dt){
     if(npc?.dead){campaign.escort=false;borderLog('阿澄陣亡；其他機會同地方仍可自由探索。');save(false)}
     else if(npc&&!npc.down&&units.includes(npc)){const available=allies().filter(u=>!u.down&&!u.dead&&!u.carriedBy),leader=available.find(u=>u.id===campaign.leaderId)||nearest(available,npc);npc.state='跟隨護送隊';if(leader){campaign.leaderId=leader.id;if(dist(npc,leader)>1.25)step(npc,leader.x,leader.y,dt,.85)}}
   }
-  tickOutpost(dt);campaignClock+=dt;if(campaignClock>=1){campaignClock=0;ensureCampaignWorld()}
+  tickOutpost(dt);tickRaids(dt);campaignClockTotal+=dt;campaignClock+=dt;if(campaignClock>=1){campaignClock=0;ensureCampaignWorld()}
 }
 function borderTalk(u,npc){
   if(npc.kind==='border_refugee')beginBorderEscort(u,npc);

@@ -19,4 +19,10 @@ const OUTPOSTS=[
 const OUTPOST_BY_ID=Object.fromEntries(OUTPOSTS.map(o=>[o.id,o]));
 const outpostKind=(def,side,role)=>`outpost_${def.id==='misaka'?'':def.id+'_'}${side}_${role}`;
 function outpostInfo(u){const m=/^outpost_(?:([a-z]+)_)?(takeda|uesugi)_(commander|soldier)$/.exec(u?.kind||'');return m?{id:m[1]||'misaka',side:m[2],role:m[3]}:null}
-const outpostSide=u=>outpostInfo(u)?.side||null;
+// Headquarters: the lord and his picked guards live here. Lord stands at (x,y+.8), tent behind.
+const CAMPS=[
+  {side:'takeda',area:'temple',x:24,y:2.8,name:'武田本陣'},
+  {side:'uesugi',area:'forge',x:24,y:2.8,name:'上杉本陣'}
+];
+// Faction identity of any faction-bound unit: outpost garrison, lord, camp guard, patrol, raider.
+const outpostSide=u=>outpostInfo(u)?.side||/^(?:border_lord|camp_guard|patrol|raid)_(takeda|uesugi)/.exec(u?.kind||'')?.[1]||null;

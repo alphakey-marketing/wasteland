@@ -145,6 +145,6 @@ function drawWorldMap(){
     c.beginPath();c.arc(x,y,22,0,7);c.fill();c.stroke();
     c.fillStyle=seen?'#e5d5a7':'#8a7a5c';c.font='bold 16px sans-serif';c.fillText(seen?(here?'●':'◆'):'？',x,y+6);
     c.font='11px sans-serif';c.fillText(seen?a.name:'未知之地',x,y+38);
-    if(seen)OUTPOSTS.filter(d=>d.area===id).forEach((d,i)=>{const o=campaign.outposts[d.id];c.fillStyle=o.owner?FACTIONS[o.owner].color:'#888';c.fillText(`${d.name} · ${o.owner?FACTIONS[o.owner].name:'無主'}`,x,y-30-i*13)});
+    if(seen)OUTPOSTS.filter(d=>d.area===id).forEach((d,i)=>{const o=campaign.outposts[d.id];c.fillStyle=o.owner?FACTIONS[o.owner].color:'#888';c.fillText(`${d.name} · ${o.owner?FACTIONS[o.owner].name:'無主'}${raidActive(d)?' ⚔交戰中':''}`,x,y-30-i*13)});
   }
 }
