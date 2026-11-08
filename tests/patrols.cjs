@@ -26,6 +26,8 @@ const errors=[];
     drawWorldMap();o.noDoubleRaid=(raidTimer.misaka=.01,tickRaids(.1),raiders(OUTPOSTS[0]).length===4);
     // 5) player stays neutral to raiders
     o.neutral=!hostile(areaStates.village.units.find(u=>u.team==='a'),rs[0]);
+    // 5b) moving faction units (string ids) still draw a finite sprite
+    o.spritesFinite=(()=>{const ms=units.filter(u=>outpostSide(u)&&!u.dead);ms.forEach(u=>u.moving=true);let ok=ms.length>0;const f=ctx.fillRect;ctx.fillRect=function(...a){if(a.some(v=>!Number.isFinite(v)))ok=false;return f.apply(this,a)};for(const u of ms)drawUnit(u);ctx.fillRect=f;return ok})();
     // 6) save keeps camp + raid units
     save(false);return o;
   });

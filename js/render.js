@@ -99,7 +99,7 @@ function drawDog(u,s,z){
     ctx.fillStyle='#59432d';ctx.beginPath();ctx.moveTo(6,-6);ctx.lineTo(7,-9);ctx.lineTo(10,-6);ctx.fill();
     ctx.strokeStyle='#35251c';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(9,-4);ctx.lineTo(11,-3);if(u.dead){ctx.moveTo(9,-3);ctx.lineTo(11,-4)}ctx.stroke();ctx.restore();return;
   }
-  const run=u.moving?Math.sin(simT*18+u.id*30):0,x=s.x+u.lunge*4*f*k,y=s.y;
+  const run=u.moving?Math.sin(simT*18+idNum(u)*30):0,x=s.x+u.lunge*4*f*k,y=s.y;
   ctx.strokeStyle='#4a3524';ctx.lineWidth=2*k;ctx.lineCap='round';
   [[-6,run],[-3,-run],[3,run],[6,-run]].forEach(([dx,r])=>{ctx.beginPath();ctx.moveTo(x+dx*k*f,y-7*k);ctx.lineTo(x+(dx+r*2)*k*f,y);ctx.stroke()});
   ctx.fillStyle=u.color;ell(x,y-9*k,9*k,4.5*k);inkFill();
@@ -140,6 +140,8 @@ function drawBodyLying(u,s,z,lift){
   }
   ctx.restore();
 }
+// ids of faction units are strings; animation phase needs a number
+const idNum=u=>typeof u.id==="number"?u.id:[...String(u.id)].reduce((h,c)=>(h*31+c.charCodeAt(0))%997,7);
 function drawUnit(u){
   if(!unitVisible(u))return;
   const z=cam.z,isSel=sel.has(u);
@@ -158,7 +160,7 @@ function drawUnit(u){
     if(u.team==='e'&&(u.pack.length||u.eq.weapon||u.eq.armor)){ctx.fillStyle='#f0c45a';ell(s.x-12*z,s.y-8*z,2.5*z,2.5*z);ctx.fill()}
     return}
   const crawl=ratio(u,'legs')<=0;
-  const bob=u.moving?Math.abs(Math.sin(simT*11+u.id*20))*-2:0;
+  const bob=u.moving?Math.abs(Math.sin(simT*11+idNum(u)*20))*-2:0;
   const k=z,x=s.x+u.lunge*5*u.face*k,y=s.y+bob*k+(crawl?8*k:0);
   if(u.bleed>.15&&Math.random()<u.bleed*.08)fx.drops.push({x:u.x,y:u.y,t:0});
   if(!crawl){const legColor=u.p.legs.pros?'#8d9aa3':'#514332';inkRect(x-4*k,y-9*k,3*k,9*k,legColor);inkRect(x+1*k,y-9*k,3*k,9*k,legColor)}
