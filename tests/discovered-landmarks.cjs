@@ -16,8 +16,8 @@ async function menu(p){
   for(const width of[360,390]){
     const p=await open(width);
     assert.equal(await p.evaluate(()=>knownLandmarks().length),0);
-    await p.evaluate(()=>{for(const target of['temple','forge']){const g=AREAS[activeArea].gate;allies().forEach(u=>{u.x=g.x;u.y=g.y});travelArea(travelParty(),target)}});
-    assert.deepEqual(await p.evaluate(()=>knownLandmarks().map(p=>p.name)),['返荒寺路牌','鐵礦脈']);
+    await p.evaluate(()=>{for(const target of['temple','forge']){const g=exitTo(activeArea,target);allies().forEach(u=>{u.x=g.x;u.y=g.y});travelArea(travelParty(),target)}});
+    assert.deepEqual(await p.evaluate(()=>knownLandmarks().map(p=>p.name)),['往荒寺山道出口','鐵礦脈']);
     await menu(p);
     assert.equal(await p.locator('#cmenu').textContent().then(t=>t.includes('舊工房')||t.includes('舊鍛爐')),false);
     const before=await p.evaluate(()=>{const a=allies()[0];a.cmd=[{t:'move',x:6,y:8}];return{cmd:JSON.stringify(allies().map(u=>u.cmd)),fog:packExploration().forge}});
@@ -33,7 +33,7 @@ async function menu(p){
       try{render()}finally{label=original}
       const box=piles.find(p=>p.id==='forge-plans'),e=bandits()[2],s=scr(box.x,box.y,4),ore=ORES[0],os=scr(ore.x,ore.y,ore.h*.6);
       return{four:knownLandmarks().length===4,building:labels.includes('舊工房 · 記錄'),furnace:labels.includes('舊鍛爐 · 記錄'),ore:labels.includes('鐵礦脈 · 記錄'),
-        gate:labels.includes('返荒寺'),noBoxLabel:!labels.includes(box.name)&&!labels.includes('已搜清'),hiddenBox:!pickPile(s.x,s.y),
+        gate:labels.includes('往荒寺山道 ➜'),noBoxLabel:!labels.includes(box.name)&&!labels.includes('已搜清'),hiddenBox:!pickPile(s.x,s.y),
         hiddenEnemy:!unitVisible(e)&&!pickHits(s.x,s.y).includes(e),hiddenOre:!fogVisible(ore)&&!pickOre(os.x,os.y)};
     }));
     await menu(p);const rememberedMenu=await p.locator('#cmenu').textContent();
@@ -48,11 +48,11 @@ async function menu(p){
       schema:!('landmarks'in JSON.parse(serialize()))&&JSON.parse(serialize()).exploration.forge.length===4096})));
     await p.evaluate(()=>{const g=AREAS.forge.gate;allies().forEach(u=>{u.x=g.x;u.y=g.y});travelArea()});await reload(p);
     assert.equal(await p.evaluate(()=>knownLandmarks().length),0);
-    await p.evaluate(()=>{const g=AREAS.temple.gate;allies().forEach(u=>{u.x=g.x;u.y=g.y});travelArea(travelParty(),'forge')});
+    await p.evaluate(()=>{const g=exitTo('temple','forge');allies().forEach(u=>{u.x=g.x;u.y=g.y});travelArea(travelParty(),'forge')});
     assert.equal(await p.evaluate(()=>knownLandmarks().length),4);
     // Pre-fog saves reveal only the present party's surroundings, never all named locations.
     await p.evaluate(()=>{allies().forEach(u=>{u.x=6;u.y=10.5});const d=JSON.parse(serialize());delete d.exploration;localStorage.setItem(SAVE_KEY,JSON.stringify(d));restarting=true});
-    await reload(p);assert.deepEqual(await p.evaluate(()=>knownLandmarks().map(p=>p.name)),['返荒寺路牌']);
+    await reload(p);assert.deepEqual(await p.evaluate(()=>knownLandmarks().map(p=>p.name)),['往荒寺山道出口']);
     await p.close();console.log(`PASS ${width}px: discovered-only markers, remembered labels, signpost camera-only navigation, hidden contents/occupants, persistence/travel and old saves`);
   }
   assert.deepEqual(errors,[]);console.log('PASS no browser runtime errors');

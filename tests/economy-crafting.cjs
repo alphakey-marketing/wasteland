@@ -56,7 +56,7 @@ function allTrue(o){for(const [key,value]of Object.entries(o))assert.equal(value
     await reload(p);
     assert.equal(await p.evaluate(()=>piles.find(p=>p.id==='smith-cache').pack.length),0);
     // Additional advanced gear requires another expedition; use actual cache transfer controls.
-    await p.evaluate(()=>{const g=AREAS.temple.gate;allies().forEach(u=>{u.x=g.x;u.y=g.y});travelArea(travelParty(),'forge')});
+    await p.evaluate(()=>{const g=exitTo('temple','forge');allies().forEach(u=>{u.x=g.x;u.y=g.y});travelArea(travelParty(),'forge')});
     for(const id of ['forge-parts','forge-plans']){
       await p.evaluate(id=>{const u=allies()[0],box=piles.find(p=>p.id===id);u.x=box.x;u.y=box.y;openLoot(u,box)},id);
       await p.click('#bLootAll');await p.click('#bLootClose');

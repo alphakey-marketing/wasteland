@@ -70,8 +70,8 @@ function issueOne(c,target,why,filter){ // send only the nearest suitable select
   const u=nearest(list,target);fleeCheck([u]);push(u,c);return u;
 }
 function tap(sx,sy){
-  const gate=AREAS[activeArea].gate,gs=scr(gate.x,gate.y,20);
-  if(fogKnown(gate)&&Math.hypot(sx-gs.x,sy-gs.y)<24*Math.max(.8,cam.z)){travelMenu(sx,sy);return}
+  for(const gate of AREAS[activeArea].exits){const gs=scr(gate.x,gate.y,20);
+    if(fogKnown(gate)&&Math.hypot(sx-gs.x,sy-gs.y)<24*Math.max(.8,cam.z)){travelMenu(sx,sy,gate);return}}
   for(const def of OUTPOSTS)if(def.area===activeArea&&fogKnown(def)){const s=scr(def.x,def.y,48);if(Math.hypot(sx-s.x,sy-s.y)<24*Math.max(.8,cam.z)){outpostMenu(sx,sy,def);return}}
   const hits=pickHits(sx,sy),bodies=hits.filter(u=>u.down&&!u.carriedBy);
   if(bodies.length&&hits.length>1){showMenu(sx,sy,'附近倒地角色 · 揀操作目標',bodies.map((b,i)=>({label:`${i+1}. ${b.name} · ${b.dead?'屍體':'倒地'}`,sub:hasLoot(b)?'身上仲有物品':'已被搜清 · 身上冇可取物品',fn:()=>bodyMenu(b,sx,sy)})));return}
@@ -111,6 +111,7 @@ function tap(sx,sy){
   if(o){const list=[...sel].filter(a=>!a.down&&!a.carry);if(!list.length){toast('先揀冇揹人嘅隊友');return}
     fleeCheck(list);list.forEach(a=>push(a,{t:'mine',node:o}));toast(`${list.map(a=>a.name).join('、')} 去採${ITEMS[o.ore].name}`);return}
   const w=world(sx,sy);if(w.x<0||w.y<0||w.x>MAP||w.y>MAP)return;
+  const ex=exitAt(w.x,w.y);if(ex){startTravel(ex.to);return}
   const grp=groupSync&&!paused?[...sel].filter(u=>!u.down):null;
   if(issue((u,i,n)=>{const f=formation(n,i);return{t:'move',grp:grp&&grp.length>1?grp:null,x:clamp(w.x+f.dx,.5,MAP-.5),y:clamp(w.y+f.dy,.5,MAP-.5)}}))
     fx.pings.push({x:w.x,y:w.y,t:performance.now(),col:'#eaa93a'});

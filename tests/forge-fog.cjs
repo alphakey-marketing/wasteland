@@ -7,7 +7,7 @@ async function open(width){
 }
 async function reload(p){await p.reload({waitUntil:'networkidle'});await p.evaluate(()=>{setPaused(true);autoPause=false})}
 function allTrue(o){for(const[k,v]of Object.entries(o))assert.equal(v,true,k)}
-async function enter(p){await p.evaluate(()=>{for(const target of['temple','forge']){const g=AREAS[activeArea].gate;allies().forEach(u=>{u.x=g.x;u.y=g.y});travelArea(travelParty(),target)}})}
+async function enter(p){await p.evaluate(()=>{for(const target of['temple','forge']){const g=exitTo(activeArea,target);allies().forEach(u=>{u.x=g.x;u.y=g.y});travelArea(travelParty(),target)}})}
 (async()=>{
   browser=await chromium.launch({executablePath:process.env.WASTELAND_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
   for(const width of[360,390]){
@@ -55,7 +55,7 @@ async function enter(p){await p.evaluate(()=>{for(const target of['temple','forg
     await p.evaluate(()=>{allies().forEach(u=>{u.x=5;u.y=8});sel.clear();allies().forEach(u=>sel.add(u));travelArea()});
     await reload(p);
     allTrue(await p.evaluate(()=>{
-      const temple=!hasFog()&&fogVisible({x:30,y:30});const g=AREAS.temple.gate;allies().forEach(u=>{u.x=g.x;u.y=g.y});travelArea(travelParty(),'forge');
+      const temple=!hasFog()&&fogVisible({x:30,y:30});const g=exitTo('temple','forge');allies().forEach(u=>{u.x=g.x;u.y=g.y});travelArea(travelParty(),'forge');
       return{temple,returnMemory:fogKnown({x:15,y:14})&&!fogVisible({x:15,y:14}),portrait:document.documentElement.scrollWidth<=W};
     }));
     // Remove only the new field to represent an existing forge save from before fog.

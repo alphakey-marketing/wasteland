@@ -232,11 +232,12 @@ function render(){
   drawFog();
   if(activeArea==='temple'){const dl=scr(DEN.x,DEN.y,46);label('野犬出沒',dl.x,dl.y,'#f2e7d4')}
   const tl=activeArea==='village'?scr(TOWN.x-1.6,TOWN.y-1.6,78):scr(13,13,60);if(!hasFog())label(AREAS[activeArea].name,tl.x,tl.y,'#f2e7d4',12);
-  const gate=AREAS[activeArea].gate,gs=scr(gate.x,gate.y);
+  for(const gate of AREAS[activeArea].exits){const gs=scr(gate.x,gate.y);
   if(fogKnown(gate)){ctx.save();ctx.globalAlpha=fogVisible(gate)?1:.4;
-  ctx.strokeStyle='#e0b464';ctx.lineWidth=2*cam.z;ell(gs.x,gs.y,18*cam.z,9*cam.z);ctx.stroke();
-  inkRect(gs.x-1.5*cam.z,gs.y-27*cam.z,3*cam.z,25*cam.z,'#81603f');inkRect(gs.x-12*cam.z,gs.y-27*cam.z,24*cam.z,9*cam.z,'#7c6748');label(activeArea==='village'?'往荒寺':activeArea==='forge'?'返荒寺':'村落／鍛冶場',gs.x,gs.y-33*cam.z,'#f4d28d',9);
-  ctx.restore();}
+  ctx.strokeStyle='#e0b464';ctx.lineWidth=2*cam.z;ell(gs.x,gs.y,gate.r*22*cam.z,gate.r*11*cam.z);ctx.stroke();
+  ctx.setLineDash([5*cam.z,5*cam.z]);ell(gs.x,gs.y,gate.r*14*cam.z,gate.r*7*cam.z);ctx.stroke();ctx.setLineDash([]);
+  inkRect(gs.x-1.5*cam.z,gs.y-27*cam.z,3*cam.z,25*cam.z,'#81603f');inkRect(gs.x-12*cam.z,gs.y-27*cam.z,24*cam.z,9*cam.z,'#7c6748');label('往'+AREAS[gate.to].name+' ➜',gs.x,gs.y-33*cam.z,'#f4d28d',9);
+  ctx.restore();}}
   const now=performance.now();
   fx.pings=fx.pings.filter(p=>now-p.t<600);
   for(const p of fx.pings){const k=(now-p.t)/600,s=scr(p.x,p.y);ctx.strokeStyle=p.col;ctx.globalAlpha=1-k;ctx.lineWidth=2;ell(s.x,s.y,(6+k*14)*cam.z,(3+k*7)*cam.z);ctx.stroke();ctx.globalAlpha=1}

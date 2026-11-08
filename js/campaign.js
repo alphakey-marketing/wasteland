@@ -104,10 +104,10 @@ function recruitBorderRefugee(){
   if(!campaign.jobs.rescue||campaign.recruited||!u||!npc||npc.dead||!units.includes(npc)||dist(npc,u)>3||allSquad().length>=8)return false;
   campaign.recruited=true;npc.team='a';npc.rules={flee:true,rescue:true,fight:false};npc.role='機關師／急救';npc.food=70;sel.add(npc);buildSquadUI();borderLog('阿澄加入隊伍，擅長急救，重傷會撤退。');borderSave();return true;
 }
-function campaignTravelParty(party){const npc=borderFind('border_refugee');return campaign.escort&&npc&&!npc.down&&!npc.dead&&units.includes(npc)&&dist(npc,AREAS[activeArea].gate)<=2.4&&!party.includes(npc)?[...party,npc]:party}
-function campaignEscortReady(party){
+function campaignTravelParty(party,gate=AREAS[activeArea].gate){const npc=borderFind('border_refugee');return campaign.escort&&npc&&!npc.down&&!npc.dead&&units.includes(npc)&&dist(npc,gate)<=2.4&&!party.includes(npc)?[...party,npc]:party}
+function campaignEscortReady(party,gate=AREAS[activeArea].gate){
   if(!campaign.escort)return true;const npc=borderFind('border_refugee');if(!npc||npc.dead||!units.includes(npc)||!party.some(u=>u.id===campaign.leaderId))return true;
-  return npc.carriedBy?party.includes(npc.carriedBy):!npc.down&&dist(npc,AREAS[activeArea].gate)<=2.4;
+  return npc.carriedBy?party.includes(npc.carriedBy):!npc.down&&dist(npc,gate)<=2.4;
 }
 function tickCampaign(dt){
   if(campaign.escort){const npc=borderFind('border_refugee');

@@ -21,7 +21,7 @@ const unitVisible=u=>u.team==='a'||fogVisible(u);
 function knownLandmarks(){
   if(!hasFog())return [];
   updateFog();
-  return [{...AREAS[activeArea].gate,name:'返荒寺路牌',gate:true},
+  return [...AREAS[activeArea].exits.map(e=>({x:e.x,y:e.y,name:`往${AREAS[e.to].name}出口`,gate:true})),
     ...props.filter(p=>p.landmark).map(p=>({x:p.x,y:p.y,h:p.h+(p.furnace?36:25),name:p.landmark,ore:!!p.isOre}))].filter(fogKnown);
 }
 function resetFogMemory(){
