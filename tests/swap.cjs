@@ -14,5 +14,8 @@ const errors=[];
   await p.click('#bSwap');
   assert.equal(await p.evaluate(()=>activeArea),'village');
   await p.waitForTimeout(300);assert.equal(await p.isVisible('#bSwap'),true);
+  // paused: a second order replaces the first (one command per unit)
+  const n=await p.evaluate(()=>{setPaused(true);sel.clear();const u=allies()[0];sel.add(u);issue(()=>({t:'move',x:5,y:5}));issue(()=>({t:'move',x:6,y:6}));return [u.cmd.length,u.cmd[0].x]});
+  assert.deepEqual(n,[1,6]);
   assert.deepEqual(errors,[]);await b.close();console.log('PASS swap: squad switch button across areas');
 })().catch(e=>{console.error(e);process.exit(1)});

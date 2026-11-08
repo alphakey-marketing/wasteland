@@ -56,12 +56,12 @@ function fleeCheck(list){
   list.forEach(u=>{u.retreating=false;u.forceT=0});
   return false;
 }
-function push(u,c){if(paused){if(u.cmd.length>=6)u.cmd.shift();u.cmd.push(c)}else u.cmd=[c]}
+function push(u,c){u.cmd=[c]}
 function issue(make){
   const list=[...sel].filter(u=>!u.down);if(!list.length){toast(sel.size?'揀咗嘅隊友全部倒地':'先揀隊友（點佢或者框選）');return false}
   const said=fleeCheck(list);
   list.forEach((u,i)=>push(u,make(u,i,list.length)));
-  if(!said&&paused){const n=Math.max(...list.map(u=>u.cmd.length));toast(`已排隊 · 第 ${n} 個指令`)}
+  if(!said&&paused)toast('已落指令 · 撳 ▶ 執行（再落會取代）')
   return true;
 }
 function issueOne(c,target,why,filter){ // send only the nearest suitable selected ally
