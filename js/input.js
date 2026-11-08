@@ -70,8 +70,6 @@ function issueOne(c,target,why,filter){ // send only the nearest suitable select
   const u=nearest(list,target);fleeCheck([u]);push(u,c);return u;
 }
 function tap(sx,sy){
-  for(const gate of AREAS[activeArea].exits){const gs=scr(gate.x,gate.y,20);
-    if(fogKnown(gate)&&Math.hypot(sx-gs.x,sy-gs.y)<24*Math.max(.8,cam.z)){travelMenu(sx,sy,gate);return}}
   for(const def of OUTPOSTS)if(def.area===activeArea&&fogKnown(def)){const s=scr(def.x,def.y,48);if(Math.hypot(sx-s.x,sy-s.y)<24*Math.max(.8,cam.z)){outpostMenu(sx,sy,def);return}}
   const hits=pickHits(sx,sy),bodies=hits.filter(u=>u.down&&!u.carriedBy);
   if(bodies.length&&hits.length>1){showMenu(sx,sy,'附近倒地角色 · 揀操作目標',bodies.map((b,i)=>({label:`${i+1}. ${b.name} · ${b.dead?'屍體':'倒地'}`,sub:hasLoot(b)?'身上仲有物品':'已被搜清 · 身上冇可取物品',fn:()=>bodyMenu(b,sx,sy)})));return}
