@@ -110,7 +110,7 @@ function step(u,tx,ty,dt,mul=1){
 function pickPart(){let r=Math.random()*HIT_TOTAL;for(const p of PARTS){r-=p[3];if(r<=0)return p}return PARTS[1]}
 function attack(u,t){
   const side=outpostSide(t);
-  if(u.team==='a'&&side&&!campaign.outpost.anger[side]){campaign.outpost.anger[side]=true;campaign.rep[side]=Math.max(-100,campaign.rep[side]-40);toast(`${BORDER_SIDES[side].name}關所部隊開始反擊`)}
+  if(u.team==='a'&&side&&!campaign.anger[side]){campaign.anger[side]=true;campaign.rep[side]=Math.max(-100,campaign.rep[side]-40);toast(`${FACTIONS[side].name}據點部隊開始反擊`)}
   if(u.team==='a'&&t.team==='g'&&!side&&repTown>-30){changeRep(-60,'攻擊足輕');repTown=Math.min(repTown,-40)}
   if(u.team==='a'&&t.team==='v'&&!caravanAngry){caravanAngry=true;changeRep(-25,'搶商隊');float(t,'商隊嬲咗','#ff7a5c',true)}
   if(u.team==='a'&&t.team==='s'&&!scavAngry.has(t.gid)){scavAngry.add(t.gid);float(t,'落武者嬲咗','#ff7a5c',true)}
