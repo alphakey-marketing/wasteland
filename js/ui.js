@@ -129,6 +129,7 @@ function updatePortraits(force){
     if(!up&&e.up){e.up.remove();e.up=null}
   });
   moneyTxt.textContent=money+' 文';updateCtx();
+  $('#bSwap').style.display=otherSquads().length?'':'none';
   $('#journey').textContent=(pendingTravel?`正集合去${AREAS[pendingTravel.target].name} · 點路牌可取消`:`${AREAS[activeArea].name}｜${AREAS[activeArea].hint}`)+` · 遊商：${caravanLocation()}`;
   if(!charSheet.hidden&&cardUnit)fillCard();
 }
@@ -224,6 +225,8 @@ function setPaused(v){paused=v;refreshStatus()}
 bPause.addEventListener('click',()=>{setPaused(!paused);if(!paused){const n=allies().filter(u=>u.cmd.length).length;if(n)toast(`繼續 · ${n} 個隊友開始執行指令`)}});
 $('#bSlow').addEventListener('click',e=>{speed=speed<1?1:.25;e.currentTarget.setAttribute('aria-pressed',speed<1);refreshStatus()});
 $('#bSel').addEventListener('click',e=>{selectMode=!selectMode;e.currentTarget.setAttribute('aria-pressed',selectMode);toast(selectMode?'框選模式：單指拖 = 拉框':'返回普通模式：單指拖 = 鏡頭')});
+const otherSquads=()=>Object.keys(AREAS).filter(id=>id!==activeArea&&areaStates[id]?.units.some(u=>u.team==='a'&&!u.dead));
+$('#bSwap').addEventListener('click',()=>{const o=otherSquads();if(o.length)switchReserve(o[0])});
 $('#bAll').addEventListener('click',()=>{sel.clear();allies().filter(u=>!u.dead).forEach(u=>sel.add(u));updatePortraits(true);toast('全隊已選')});
 addEventListener('keydown',e=>{if(e.code==='Space'&&!(e.target instanceof HTMLInputElement)){e.preventDefault();bPause.click()}});
 
