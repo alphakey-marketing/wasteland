@@ -35,7 +35,7 @@ areaStates.forge={units:[[13,10],[15,13],[16,14]].map(([x,y],i)=>mk({team:'e',na
   props:forgeProps,ores:[forgeOre],beds:[],alerted:false,cleared:false};
 function captureArea(){Object.assign(areaStates[activeArea],{units:[...units],piles:[...piles],alerted,cleared,pausedAt:simT})}
 function activateArea(id){
-  activeArea=id;const a=areaStates[id];
+  activeArea=id;const a=areaStates[id];a.visited=true;
   for(const p of a.piles)if(!p.permanent)p.t+=Math.max(0,simT-(a.pausedAt??simT));a.pausedAt=simT;
   units.splice(0,units.length,...a.units);piles=[...a.piles];props.splice(0,props.length,...a.props);ORES.splice(0,ORES.length,...a.ores);BEDS.splice(0,BEDS.length,...a.beds);ground=grounds[id];alerted=a.alerted;cleared=a.cleared;
 }
@@ -109,7 +109,7 @@ function landmarkMenu(sx,sy){
 function packAreaUnit(u){
   return {id:u.id,team:u.team,kind:u.kind,name:u.name,role:u.role,color:u.color,base:u.base,x:u.x,y:u.y,p:u.p,sk:u.sk,eq:u.eq,pack:u.pack,bounty:u.bounty,down:u.down,dead:u.dead,bleed:u.bleed,rules:u.rules,home:u.home,aggroR:u.aggroR,leash:u.leash,food:u.food,starvation:u.starvation,kitUse:u.kitUse,spd:u.spd,face:u.face,gid:u.gid,idx:u.idx,dir:u.dir,waitT:u.waitT,retreating:u.retreating,pursuitId:u.pursuitId,carryId:u.carry?u.carry.id:null,leaderId:u.leader?u.leader.id:null};
 }
-function packAreas(){captureArea();return Object.fromEntries(Object.entries(areaStates).map(([id,a])=>[id,{units:a.units.map(packAreaUnit),piles:a.piles,alerted:a.alerted,cleared:a.cleared,pausedAt:a.pausedAt}]))}
+function packAreas(){captureArea();return Object.fromEntries(Object.entries(areaStates).map(([id,a])=>[id,{units:a.units.map(packAreaUnit),piles:a.piles,alerted:a.alerted,cleared:a.cleared,pausedAt:a.pausedAt,visited:!!a.visited}]))}
 function restoreAreas(saved,id){
   for(const key of Object.keys(AREAS)){
     const a=saved[key];if(!a&&key==='forge')continue; // Pre-forge saves keep their existing regions and receive the new region once.
@@ -120,7 +120,7 @@ function restoreAreas(saved,id){
       if(u.team==='a'&&!u.rules)u.rules={flee:true,rescue:false,fight:true};byId.set(u.id,u);return u;
     });
     a.units.forEach((o,i)=>{const u=restored[i];if(o.carryId&&byId.has(o.carryId)){u.carry=byId.get(o.carryId);u.carry.carriedBy=u}if(o.leaderId)u.leader=byId.get(o.leaderId)});
-    Object.assign(areaStates[key],{units:restored,piles:a.piles,alerted:!!a.alerted,cleared:!!a.cleared,pausedAt:a.pausedAt});
+    Object.assign(areaStates[key],{units:restored,piles:a.piles,alerted:!!a.alerted,cleared:!!a.cleared,pausedAt:a.pausedAt,visited:a.visited??key!=='forge'});
   }
   activateArea(AREAS[id]?id:'village');
 }
@@ -130,4 +130,21 @@ function migrateLegacyArea(){
   const carried=new Set(allies().filter(u=>u.carry).map(u=>u.carry));areaStates.temple.units=areaStates.temple.units.filter(u=>!carried.has(u));
   units.splice(0,units.length,...units.filter(u=>!enemies.includes(u)||carried.has(u)));
   allies().forEach((u,i)=>{u.x=7.2+(i%2)*.9;u.y=8.4+Math.floor(i/2)*.9;if(u.carry){u.carry.x=u.x;u.carry.y=u.y}});captureArea();
+}
+
+// World map (read-only): areas as nodes, links as roads, stronghold control, '？' for unvisited.
+function drawWorldMap(){
+  const cv=$('#worldMap');if(!cv)return;const w=cv.width=cv.clientWidth||300,h=cv.height=170,c=cv.getContext('2d');
+  const pos={village:[.16,.55],temple:[.5,.35],forge:[.84,.6]};
+  c.clearRect(0,0,w,h);c.lineWidth=2;c.strokeStyle='#8a7a5c';
+  for(const [id,a] of Object.entries(AREAS))for(const l of a.links)if(id<l){c.beginPath();c.moveTo(pos[id][0]*w,pos[id][1]*h);c.lineTo(pos[l][0]*w,pos[l][1]*h);c.stroke()}
+  c.textAlign='center';c.font='11px sans-serif';
+  for(const [id,a] of Object.entries(AREAS)){
+    const x=pos[id][0]*w,y=pos[id][1]*h,seen=areaStates[id].visited,here=id===activeArea;
+    c.fillStyle=seen?'#3b3226':'#2a2620';c.strokeStyle=here?'#f4d28d':'#8a7a5c';c.lineWidth=here?3:1.5;
+    c.beginPath();c.arc(x,y,22,0,7);c.fill();c.stroke();
+    c.fillStyle=seen?'#e5d5a7':'#8a7a5c';c.font='bold 16px sans-serif';c.fillText(seen?(here?'●':'◆'):'？',x,y+6);
+    c.font='11px sans-serif';c.fillText(seen?a.name:'未知之地',x,y+38);
+    if(seen)OUTPOSTS.filter(d=>d.area===id).forEach((d,i)=>{const o=campaign.outposts[d.id];c.fillStyle=o.owner?FACTIONS[o.owner].color:'#888';c.fillText(`${d.name} · ${o.owner?FACTIONS[o.owner].name:'無主'}`,x,y-30-i*13)});
+  }
 }
