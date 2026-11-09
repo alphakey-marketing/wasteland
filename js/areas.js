@@ -1,10 +1,25 @@
 'use strict';
 // Inactive areas retain their objects and pause simulation.
 const AREAS={
-  village:{name:'青葉村',map:{x:.16,y:.55},exits:[{to:'temple',x:12,y:12,r:1.7}],center:{x:5,y:5},links:['temple'],hint:'貧村補給／工匠；西面銅礦'},
-  temple:{name:'荒寺山道',map:{x:.5,y:.35},exits:[{to:'village',x:7,y:8,r:1.7},{to:'forge',x:24,y:14,r:1.7}],center:{x:14,y:12},links:['village','forge'],hint:'北面鐵礦；尋圖錄，東南出口可往鍛冶場'},
-  forge:{name:'廢棄鍛冶場',map:{x:.84,y:.6},exits:[{to:'temple',x:5,y:8,r:1.7}],center:{x:14,y:12},links:['temple'],hint:'外圍補給；深處有機關圖樣／零件，毋須清場'}
+  village:{name:'青葉村',map:{x:.13,y:.4},exits:[{to:'temple',x:12,y:12,r:1.7},{to:'saijo',x:2,y:18,r:1.7}],center:{x:5,y:5},links:['temple','saijo'],hint:'貧村補給／工匠；西面銅礦'},
+  temple:{name:'荒寺山道',map:{x:.45,y:.22},exits:[{to:'village',x:7,y:8,r:1.7},{to:'forge',x:24,y:14,r:1.7},{to:'amemiya',x:14,y:26,r:1.7}],center:{x:14,y:12},links:['village','forge','amemiya'],hint:'北面鐵礦；尋圖錄，東南出口可往鍛冶場'},
+  forge:{name:'廢棄鍛冶場',map:{x:.8,y:.4},exits:[{to:'temple',x:5,y:8,r:1.7},{to:'jizo',x:26,y:24,r:1.7}],center:{x:14,y:12},links:['temple','jizo'],hint:'外圍補給；深處有機關圖樣／零件，毋須清場'}
 };
+// 生成區域：用種子砌地形，唔使存地形。地名用川中島一帶，地理唔求準。
+const REGIONS={
+  saijo:{name:'妻女山',tpl:'forest',lv:1,seed:101,map:{x:.12,y:.76},links:['village','hachiman'],hint:'杉林密，野犬出沒；好多樹可砍',mark:'上杉陣跡'},
+  hachiman:{name:'八幡原',tpl:'ruin',lv:2,seed:202,map:{x:.34,y:.6},links:['saijo'],hint:'合戰後嘅荒村；廢屋有米同稻種',mark:'八幡社'},
+  amemiya:{name:'雨宮渡',tpl:'river',lv:2,seed:303,map:{x:.55,y:.5},links:['temple','zenkoji'],hint:'千曲川渡口；山賊守住淺灘',mark:'渡口小屋'},
+  zenkoji:{name:'善光寺',tpl:'ruin',lv:3,seed:404,map:{x:.55,y:.82},links:['amemiya'],hint:'信濃名寺，門前荒廢；寺中有藥',mark:'善光寺本堂'},
+  jizo:{name:'地藏峠',tpl:'pass',lv:3,seed:505,map:{x:.9,y:.64},links:['forge','shio'],hint:'山路崎嶇，銅鐵礦多；浪人好打',mark:'地藏堂'},
+  shio:{name:'鹽之道',tpl:'river',lv:4,seed:606,map:{x:.8,y:.88},links:['jizo'],hint:'運鹽古道；盡頭未通（之後開放）',mark:'鹽倉'}
+};
+for(const [id,R] of Object.entries(REGIONS)){
+  // exit sits on the side facing the linked area on the world map (screen dir -> iso world dir)
+  const exits=R.links.map(to=>{const L=REGIONS[to]?.map||AREAS[to].map,sx=L.x-R.map.x,sy=L.y-R.map.y,wx=sx+sy,wy=sy-sx,n=Math.hypot(wx,wy)||1;
+    return{to,x:Math.max(2,Math.min(30,16+wx/n*13.5)),y:Math.max(2,Math.min(30,16+wy/n*13.5)),r:1.7}});
+  AREAS[id]={name:R.name,map:R.map,exits,center:{x:16,y:16},links:R.links,hint:R.hint,gen:{tpl:R.tpl,lv:R.lv,seed:R.seed,mark:R.mark}};
+}
 // Edge exits: walking a commanded party into one travels. gate = first exit, kept for caravan/legacy code.
 for(const a of Object.values(AREAS))a.gate=a.exits[0];
 const exitTo=(area,to)=>AREAS[area].exits.find(e=>e.to===to);
@@ -33,14 +48,45 @@ areaStates.forge={units:[[13,10],[15,13],[16,14]].map(([x,y],i)=>mk({team:'e',na
     forgeCache('forge-parts','舊料箱',11,9,[{id:'steel',n:2},{id:'mechanism',n:1}]),
     forgeCache('forge-plans','工房秘藏',15,14,[{id:'steel',n:2},{id:'mechanism',n:1},{id:'forge_scroll',n:1}])],
   props:forgeProps,ores:[forgeOre],beds:[],alerted:false,cleared:false};
+const rng32=s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+const TPL={
+  forest:{tree:42,rock:6,house:0,ore:[],foe:'山賊',foes:1,dogs:3,cache:['獵人小屋','倒木下行囊'],extra:[{id:'hide',n:2},{id:'meat',n:2}]},
+  ruin:{tree:10,rock:6,house:6,ore:[],foe:'落武者',foes:3,dogs:0,cache:['廢屋米櫃','燒剩倉庫'],extra:[{id:'seed',n:3},{id:'rice',n:2}]},
+  river:{tree:16,rock:10,house:1,ore:[],foe:'渡口山賊',foes:3,dogs:0,cache:['渡船遺包','漁小屋'],extra:[{id:'rope',n:2},{id:'ration',n:1}]},
+  pass:{tree:8,rock:18,house:0,ore:['copper','copper','iron','iron'],foe:'山道浪人',foes:3,dogs:1,cache:['峠茶屋','崖下荷物'],extra:[{id:'iron',n:2},{id:'kit',n:1}]}
+};
+function genRegion(id){
+  const A=AREAS[id],G=A.gen,T=TPL[G.tpl],lv=G.lv,r=rng32(G.seed),R=(a,b)=>a+r()*(b-a);
+  const taken=[...A.exits.map(e=>[e.x,e.y,3.4]),[A.center.x,A.center.y,2.4]];
+  // road from each exit to centre stays clear
+  const onRoad=(x,y)=>A.exits.some(e=>{const dx=A.center.x-e.x,dy=A.center.y-e.y,l2=dx*dx+dy*dy,t=Math.max(0,Math.min(1,((x-e.x)*dx+(y-e.y)*dy)/l2));return Math.hypot(x-e.x-dx*t,y-e.y-dy*t)<1.3});
+  const put=(gap,fn)=>{for(let k=0;k<60;k++){const x=R(2,30),y=R(2,30);if(!onRoad(x,y)&&taken.every(([a,b,q])=>Math.hypot(x-a,y-b)>Math.max(q,gap))){taken.push([x,y,gap]);return fn(x,y)}}return null};
+  const props=[],ores=[],piles=[],units=[];
+  put(3.2,(x,y)=>props.push({x,y,s:1.6,h:34,c:[156,136,104],house:1,temple:1,landmark:G.mark}));
+  for(let i=0;i<T.house;i++)put(2.4,(x,y)=>props.push({x,y,s:R(1.05,1.35),h:R(18,28),c:[146+R(-10,10),126,98],house:1}));
+  for(const ore of T.ore)put(2,(x,y)=>{const o={x,y,ore,isOre:1,s:.9,h:15,c:ore==='copper'?[150,98,62]:[110,118,124],landmark:ore==='copper'?'銅礦脈':'鐵礦脈'};ores.push(o);props.push(o)});
+  const camp=put(3,(x,y)=>({x,y})),den=T.dogs?put(3,(x,y)=>({x,y})):null;
+  for(let k=0;k<2;k++)put(1.6,(x,y)=>piles.push({pile:true,permanent:true,id:`${id}-cache-${k}`,name:T.cache[k],x,y,t:0,eq:{weapon:null,armor:null},
+    pack:k?[...T.extra,...(lv>=3?[{id:'steel',n:1}]:[]),...(G.mark==='善光寺本堂'?[{id:'medkit',n:2}]:[])]:[{id:'ration',n:1},{id:'medkit',n:lv>=2?1:0},{id:'coin',n:8*lv}].filter(s=>s.n)}));
+  for(let i=0;i<T.tree;i++)put(1.2,(x,y)=>props.push({x,y,s:.5,h:R(26,34),c:[70+R(0,20),94+R(0,20),58],tree:1}));
+  for(let i=0;i<T.rock;i++)put(1.1,(x,y)=>props.push({x,y,s:R(.45,.8),h:R(7,13),c:[118+R(-8,8),116,106]}));
+  if(camp)for(let i=0;i<T.foes+(lv>=3?1:0);i++){const x=camp.x+R(-1.2,1.2),y=camp.y+R(-1.2,1.2);
+    units.push(mk({team:'e',name:T.foe,color:'#7d6a55',base:40+lv*7,x,y,home:{x:camp.x,y:camp.y},aggroR:3.2,leash:6,
+      eq:{weapon:lv>=2||i?'machete':'club',armor:lv>=3?'plate':'leather'},lv:{atk:10+lv*5,tough:8+lv*5,dod:8+lv*2},pack:[{id:'coin',n:6+lv*4}]}))}
+  if(den)for(let i=0;i<T.dogs;i++)units.push(mk({team:'w',kind:'dog',name:'野犬',color:'#8a6a48',base:22,natural:BITE,spd:2.7,aggroR:4,leash:8,pack:[{id:'hide',n:1},{id:'meat',n:1}],
+    lv:{tough:1,atk:2,dod:5},x:den.x+R(-1.2,1.2),y:den.y+R(-1.2,1.2),home:{x:den.x,y:den.y}}));
+  return{units,piles,props,ores,beds:[],alerted:false,cleared:false,visited:false};
+}
+for(const id of Object.keys(REGIONS))areaStates[id]=genRegion(id);
+ground=groundFor(activeArea);
 function captureArea(){Object.assign(areaStates[activeArea],{units:[...units],piles:[...piles],alerted,cleared,pausedAt:simT})}
 function activateArea(id){
   activeArea=id;const a=areaStates[id];a.visited=true;
   for(const p of a.piles)if(!p.permanent)p.t+=Math.max(0,simT-(a.pausedAt??simT));a.pausedAt=simT;
-  units.splice(0,units.length,...a.units);piles=[...a.piles];props.splice(0,props.length,...a.props);ORES.splice(0,ORES.length,...a.ores);BEDS.splice(0,BEDS.length,...a.beds);ground=grounds[id];alerted=a.alerted;cleared=a.cleared;
+  units.splice(0,units.length,...a.units);piles=[...a.piles];props.splice(0,props.length,...a.props);ORES.splice(0,ORES.length,...a.ores);BEDS.splice(0,BEDS.length,...a.beds);ground=groundFor(id);alerted=a.alerted;cleared=a.cleared;
 }
 // Light swap used by the background stepper: no visited flag, no pile-age shift.
-function swapIn(id){const a=areaStates[id];activeArea=id;units.splice(0,units.length,...a.units);piles=[...a.piles];props.splice(0,props.length,...a.props);ORES.splice(0,ORES.length,...a.ores);BEDS.splice(0,BEDS.length,...a.beds);ground=grounds[id];alerted=a.alerted;cleared=a.cleared}
+function swapIn(id){const a=areaStates[id];activeArea=id;units.splice(0,units.length,...a.units);piles=[...a.piles];props.splice(0,props.length,...a.props);ORES.splice(0,ORES.length,...a.ores);BEDS.splice(0,BEDS.length,...a.beds);alerted=a.alerted;cleared=a.cleared}
 activateArea('village');
 function allSquad(){return [...units,...Object.entries(areaStates).filter(([id])=>id!==activeArea).flatMap(([,a])=>a.units)].filter(u=>u.team==='a')}
 function travelParty(){const party=new Set([...sel].filter(u=>units.includes(u)&&u.team==='a'&&!u.dead&&!u.down));for(const u of party)if(u.carry)party.add(u.carry);return [...party]}
@@ -114,7 +160,7 @@ function packAreaUnit(u){
 function packAreas(){captureArea();return Object.fromEntries(Object.entries(areaStates).map(([id,a])=>[id,{units:a.units.map(packAreaUnit),piles:a.piles,alerted:a.alerted,cleared:a.cleared,pausedAt:a.pausedAt,visited:!!a.visited,trees:a.props.filter(p=>p.tree&&p.wood!=null&&p.wood<3).map(p=>({x:p.x,y:p.y,w:p.wood,left:p.wood===0?Math.max(0,240-(simT-p.cut)):0})),built:a.props.filter(p=>p.built).map(p=>({k:p.built,x:p.x,y:p.y,occ:p.occ?p.occ.id:null,...(p.sown!=null?{left:fieldLeft(p)}:{})}))}]))}
 function restoreAreas(saved,id){
   for(const key of Object.keys(AREAS)){
-    const a=saved[key];if(!a&&key==='forge')continue; // Pre-forge saves keep their existing regions and receive the new region once.
+    const a=saved[key];if(!a&&(key==='forge'||AREAS[key].gen))continue; // Pre-forge saves keep their existing regions and receive the new region once.
     if(!a||!Array.isArray(a.units)||!Array.isArray(a.piles))throw Error('區域存檔不完整');
     const byId=new Map(),restored=a.units.map(o=>{
       const npc=key==='village'?(o.role==='trader'?TRADER:o.role==='inn'?INNKEEPER:o.team==='g'&&!o.kind?GUARD:null):null;
@@ -122,7 +168,7 @@ function restoreAreas(saved,id){
       if(u.team==='a'&&!u.rules)u.rules={flee:true,rescue:false,fight:true};byId.set(u.id,u);return u;
     });
     a.units.forEach((o,i)=>{const u=restored[i];if(o.carryId&&byId.has(o.carryId)){u.carry=byId.get(o.carryId);u.carry.carriedBy=u}if(o.leaderId)u.leader=byId.get(o.leaderId)});
-    Object.assign(areaStates[key],{units:restored,piles:a.piles,alerted:!!a.alerted,cleared:!!a.cleared,pausedAt:a.pausedAt,visited:a.visited??key!=='forge'});
+    Object.assign(areaStates[key],{units:restored,piles:a.piles,alerted:!!a.alerted,cleared:!!a.cleared,pausedAt:a.pausedAt,visited:a.visited??(key!=='forge'&&!AREAS[key].gen)});
     areaStates[key].props=areaStates[key].props.filter(p=>!p.built);areaStates[key].beds=(areaStates[key].beds||[]).filter(b=>!b.built);
     for(const c of a.trees||[]){const t=areaStates[key].props.find(p=>p.tree&&Math.abs(p.x-c.x)<1e-6&&Math.abs(p.y-c.y)<1e-6);if(t){t.wood=c.w;if(c.w===0)t.cut=simT-(240-c.left)}}
     for(const b of a.built||[]){const p=addBuilt(key,b.k,b.x,b.y,true);if(p&&b.occ!=null&&byId.get(b.occ))p.occ=byId.get(b.occ);if(p&&b.k==='field'&&b.left!=null)p.sown=simT-(FIELD_SEC-b.left)}
@@ -138,7 +184,7 @@ function migrateLegacyArea(){
 }
 
 // World map (read-only): areas as nodes, links as roads, stronghold control, '？' for unvisited.
-function drawWorldMap(cv=$('#worldMap'),h=170){
+function drawWorldMap(cv=$('#worldMap'),h=240){
   if(!cv)return;const w=cv.width=cv.clientWidth||300;cv.height=h;const c=cv.getContext('2d'),P=id=>[AREAS[id].map.x*w,AREAS[id].map.y*h];
   c.clearRect(0,0,w,h);c.lineWidth=2;c.strokeStyle='#8a7a5c';
   for(const [id,a] of Object.entries(AREAS))for(const l of a.links)if(id<l){const [x1,y1]=P(id),[x2,y2]=P(l);c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke()}
@@ -165,10 +211,10 @@ function openWorldMap(){
 function closeWorldMap(){mapSheet.hidden=true;setModal(false)}
 function renderWorldMap(pick=null){
   const w=wantedOf();$('#mapTop').textContent=`${dayName()} · 通緝：武田 ${Math.round(w.takeda)}／上杉 ${Math.round(w.uesugi)}`;
-  drawWorldMap($('#mapCv'),260);
+  drawWorldMap($('#mapCv'),320);
   const box=$('#mapNodes');box.replaceChildren();
   for(const [id,a] of Object.entries(AREAS)){const b=document.createElement('button');b.className='mapNode'+(id===pick?' on':'');b.dataset.area=id;
-    b.style.left=a.map.x*100+'%';b.style.top=a.map.y*260+'px';b.setAttribute('aria-label',areaStates[id].visited?a.name:'未探索區域');
+    b.style.left=a.map.x*100+'%';b.style.top=a.map.y*320+'px';b.setAttribute('aria-label',areaStates[id].visited?a.name:'未探索區域');
     b.onclick=()=>renderWorldMap(id);box.appendChild(b)}
   const info=$('#mapInfo'),act=$('#mapActions');act.replaceChildren();
   const btn=(label,fn)=>{const b=document.createElement('button');b.className='wide';b.textContent=label;b.onclick=fn;act.appendChild(b)};

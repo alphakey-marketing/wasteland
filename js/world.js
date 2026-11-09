@@ -45,8 +45,36 @@ function paintGround(area){
   }
   return ground;
 }
-const grounds={village:paintGround('village'),temple:paintGround('temple'),forge:paintGround('forge')};
-let ground=grounds.village;
+const groundCache=new Map();
+function groundFor(id){let g=groundCache.get(id);if(g){groundCache.delete(id);groundCache.set(id,g);return g}
+  g=AREAS[id].gen?paintRegion(id):paintGround(id);groundCache.set(id,g);
+  while(groundCache.size>2)groundCache.delete(groundCache.keys().next().value);return g}
+function paintRegion(id){
+  const A=AREAS[id],T=A.gen.tpl,sd=A.gen.seed,ground=document.createElement('canvas');ground.width=gw;ground.height=gh;
+  const g=ground.getContext('2d'),ox=gw/2;
+  const hash=(i,j)=>{const n=Math.sin(i*127.1+j*311.7+sd*7.31)*43758.5453;return n-Math.floor(n)};
+  const mix=(a,b,t)=>a.map((v,k)=>Math.round(v+(b[k]-v)*t));
+  const [lo,hi]={forest:[[74,96,56],[100,120,72]],ruin:[[136,126,90],[166,152,112]],river:[[110,130,82],[148,154,102]],pass:[[122,114,98],[152,142,120]]}[T];
+  const pave=[184,168,126],water=[86,112,122],bank=[150,140,102];
+  const segD=(px,py,e)=>{const dx=A.center.x-e.x,dy=A.center.y-e.y,l2=dx*dx+dy*dy,t=Math.max(0,Math.min(1,((px-e.x)*dx+(py-e.y)*dy)/l2));return Math.hypot(px-e.x-dx*t,py-e.y-dy*t)};
+  for(let i=0;i<MAP;i++)for(let j=0;j<MAP;j++){
+    const n=(Math.sin(i*.31+sd)+Math.cos(j*.29-sd)+Math.sin((i+j)*.17))/6+.5;
+    let c=mix(lo,hi,Math.min(1,Math.max(0,n*.8+hash(i,j)*.25)));
+    if(T==='forest'&&hash(j,i)>.62)c=mix(c,[56,76,44],.45);
+    if(T==='pass'&&hash(j+3,i)>.7)c=mix(c,[98,94,88],.5);
+    if(T==='ruin'&&hash(j+7,i)>.85)c=mix(c,[70,58,46],.5);
+    if(T==='river'){const rv=Math.abs(j+.5-16-Math.sin((i+.5)*.3+sd)*3.2);if(rv<1.8)c=mix(c,water,.85-rv*.2);else if(rv<2.8)c=mix(c,bank,.5)}
+    const rd=Math.min(...A.exits.map(e=>segD(i+.5,j+.5,e)));if(rd<1)c=mix(c,pave,.55*(1-rd*.6));
+    const p=[[i,j],[i+1,j],[i+1,j+1],[i,j+1]].map(([a,b])=>[isoX(a,b)+ox,isoY(a,b)]);
+    g.beginPath();p.forEach(([x,y],k)=>k?g.lineTo(x,y):g.moveTo(x,y));g.closePath();
+    g.fillStyle=`rgb(${c})`;g.fill();g.strokeStyle='rgba(70,45,20,.035)';g.lineWidth=1;g.stroke();
+    if(hash(i+41,j+19)>.86){const cx=isoX(i+.5,j+.5)+ox,cy=isoY(i+.5,j+.5);
+      g.strokeStyle=T==='pass'?'#6d6656':'#5f6b3a';g.lineWidth=1.2;g.lineCap='round';g.beginPath();
+      g.moveTo(cx-4,cy);g.lineTo(cx-7,cy-5);g.moveTo(cx-2,cy);g.lineTo(cx-3,cy-8);g.moveTo(cx,cy);g.lineTo(cx+2,cy-6);g.stroke()}
+  }
+  return ground;
+}
+let ground=null;
 
 /* ---------- props (2.5D blocks) ---------- */
 const props=[];

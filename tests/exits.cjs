@@ -11,7 +11,7 @@ const errors=[];
     const run=(n=400)=>{for(let i=0;i<n;i++){simulate(.1);if(window.__area!==activeArea)return}};
     // data: every link has a matching exit, temple has two distinct exits
     out.exitsMatch=Object.entries(AREAS).every(([id,a])=>a.links.every(l=>exitTo(id,l))&&a.exits.every(e=>AREAS[e.to]));
-    out.templeTwo=AREAS.temple.exits.length===2&&AREAS.temple.exits[0].to!=='forge'&&exitTo('temple','forge').x!==AREAS.temple.gate.x;
+    out.templeTwo=AREAS.temple.exits.length===3&&AREAS.temple.exits[0].to!=='forge'&&exitTo('temple','forge').x!==AREAS.temple.gate.x;
     // arrival is inside the destination area but outside its own exit zone
     out.arrivalOff=['village>temple','temple>village','temple>forge','forge>temple'].every(k=>{const[a,b]=k.split('>');const pt=arrivalPoint(b,a),e=exitTo(b,a);return Math.hypot(pt.x-e.x,pt.y-e.y)>e.r&&pt.x>0&&pt.y>0&&pt.x<MAP&&pt.y<MAP});
     // 1) walking AI inside an exit zone never travels

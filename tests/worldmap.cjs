@@ -8,7 +8,7 @@ const errors=[];
   const r=await p.evaluate(()=>{
     setPaused(true);const o={};
     o.initial=areaStates.village.visited===true&&!areaStates.temple.visited&&!areaStates.forge.visited;
-    drawWorldMap();o.drawn=document.querySelector('#worldMap').height===170;
+    drawWorldMap();o.drawn=document.querySelector('#worldMap').height===240;
     activateArea('temple');o.templeSeen=areaStates.temple.visited===true;
     const packed=packAreas();o.packed=packed.temple.visited===true&&packed.forge.visited===false;
     return o;

@@ -46,9 +46,9 @@ async function enter(p){await p.evaluate(()=>{for(const target of['temple','forg
     }));
     // Walk into unknown terrain using an ordinary move command, then preserve discovery through reload and travel.
     allTrue(await p.evaluate(()=>{
-      const a=allies()[0],before=exploredForge.reduce((n,x)=>n+x,0);a.cmd=[{t:'move',x:8,y:4.5}];
+      const a=allies()[0],before=explored.forge.reduce((n,x)=>n+x,0);a.cmd=[{t:'move',x:8,y:4.5}];
       for(let i=0;i<300&&a.cmd.length;i++)simulate(.05);
-      save(false);return{walked:dist(a,{x:8,y:4.5})<.2,revealed:fogKnown({x:12,y:4}),grew:exploredForge.reduce((n,x)=>n+x,0)>before};
+      save(false);return{walked:dist(a,{x:8,y:4.5})<.2,revealed:fogKnown({x:12,y:4}),grew:explored.forge.reduce((n,x)=>n+x,0)>before};
     }));
     await reload(p);
     allTrue(await p.evaluate(()=>({memory:fogKnown({x:15,y:14})&&fogKnown({x:12,y:4}),hidden:!fogVisible({x:15,y:14}),size:JSON.parse(serialize()).exploration.forge.length===4096})));
