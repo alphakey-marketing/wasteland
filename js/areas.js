@@ -110,7 +110,7 @@ function landmarkMenu(sx,sy){
 function packAreaUnit(u){
   return {id:u.id,team:u.team,kind:u.kind,name:u.name,role:u.role,color:u.color,base:u.base,x:u.x,y:u.y,p:u.p,sk:u.sk,eq:u.eq,pack:u.pack,bounty:u.bounty,down:u.down,dead:u.dead,bleed:u.bleed,rules:u.rules,home:u.home,aggroR:u.aggroR,leash:u.leash,food:u.food,starvation:u.starvation,kitUse:u.kitUse,spd:u.spd,face:u.face,gid:u.gid,idx:u.idx,dir:u.dir,waitT:u.waitT,retreating:u.retreating,job:u.job,captive:u.captive,tries:u.tries,pursuitId:u.pursuitId,carryId:u.carry?u.carry.id:null,leaderId:u.leader?u.leader.id:null};
 }
-function packAreas(){captureArea();return Object.fromEntries(Object.entries(areaStates).map(([id,a])=>[id,{units:a.units.map(packAreaUnit),piles:a.piles,alerted:a.alerted,cleared:a.cleared,pausedAt:a.pausedAt,visited:!!a.visited,built:a.props.filter(p=>p.built).map(p=>({k:p.built,x:p.x,y:p.y,occ:p.occ?p.occ.id:null}))}]))}
+function packAreas(){captureArea();return Object.fromEntries(Object.entries(areaStates).map(([id,a])=>[id,{units:a.units.map(packAreaUnit),piles:a.piles,alerted:a.alerted,cleared:a.cleared,pausedAt:a.pausedAt,visited:!!a.visited,trees:a.props.filter(p=>p.tree&&p.wood!=null&&p.wood<3).map(p=>({x:p.x,y:p.y,w:p.wood,left:p.wood===0?Math.max(0,240-(simT-p.cut)):0})),built:a.props.filter(p=>p.built).map(p=>({k:p.built,x:p.x,y:p.y,occ:p.occ?p.occ.id:null}))}]))}
 function restoreAreas(saved,id){
   for(const key of Object.keys(AREAS)){
     const a=saved[key];if(!a&&key==='forge')continue; // Pre-forge saves keep their existing regions and receive the new region once.
@@ -123,6 +123,7 @@ function restoreAreas(saved,id){
     a.units.forEach((o,i)=>{const u=restored[i];if(o.carryId&&byId.has(o.carryId)){u.carry=byId.get(o.carryId);u.carry.carriedBy=u}if(o.leaderId)u.leader=byId.get(o.leaderId)});
     Object.assign(areaStates[key],{units:restored,piles:a.piles,alerted:!!a.alerted,cleared:!!a.cleared,pausedAt:a.pausedAt,visited:a.visited??key!=='forge'});
     areaStates[key].props=areaStates[key].props.filter(p=>!p.built);areaStates[key].beds=(areaStates[key].beds||[]).filter(b=>!b.built);
+    for(const c of a.trees||[]){const t=areaStates[key].props.find(p=>p.tree&&Math.abs(p.x-c.x)<1e-6&&Math.abs(p.y-c.y)<1e-6);if(t){t.wood=c.w;if(c.w===0)t.cut=simT-(240-c.left)}}
     for(const b of a.built||[]){const p=addBuilt(key,b.k,b.x,b.y,true);if(p&&b.occ!=null&&byId.get(b.occ))p.occ=byId.get(b.occ)}
   }
   activateArea(AREAS[id]?id:'village');
