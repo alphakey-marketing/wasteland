@@ -16,10 +16,10 @@ const errors=[];
   const r=await p.evaluate(()=>{const u=allies()[0];addItem(u,'wood',20);addItem(u,'rope',4);addItem(u,'hide',1);addItem(u,'iron',2);
     const bad={exit:placeProblem(AREAS.village.exits[0].x,AREAS.village.exits[0].y),prop:placeProblem(props.find(p=>!p.tree&&!p.built).x,props.find(p=>!p.tree&&!p.built).y)};
     sel.clear();sel.add(u);let spots=[];for(let x=2;x<10&&spots.length<3;x+=1.5)for(let y=2;y<10&&spots.length<3;y+=1.5)if(!placeProblem(x,y)&&spots.every(s=>Math.hypot(s[0]-x,s[1]-y)>2))spots.push([x,y]);
-    const ks=['bed','chest','cage'];globalThis.__s=spots;spots.forEach(([x,y],i)=>{u.cmd=[{t:'build',k:ks[i],x,y}];let j=0;for(;j<600&&u.cmd.length;j++)simulate(.1);(window.__d=window.__d||[]).push([ks[i],j,u.state,+u.x.toFixed(1),+u.y.toFixed(1),+encMul(u).toFixed(2),'T',+TRADER.x.toFixed(1),+TRADER.y.toFixed(1),TRADER.state,units.filter(o=>o!==u&&dist(o,u)<1.5).map(o=>o.name).join(),piles.filter(p=>p.chest).length,activeArea])});
-    return{s:JSON.stringify(globalThis.__s),probs:globalThis.__s.map(([x,y])=>placeProblem(x,y)),u:[u.x,u.y],bad,spots:spots.length,beds:BEDS.filter(b=>b.own).length,chest:piles.filter(p=>p.chest).length,cages:props.filter(p=>p.built==='cage').length,wood:teamCount('wood'),rope:teamCount('rope'),iron:teamCount('iron')}});
+    const ks=['bed','chest','cage'];spots.forEach(([x,y],i)=>{u.cmd=[{t:'build',k:ks[i],x,y}];for(let j=0;j<600&&u.cmd.length;j++)simulate(.1)});
+    return{bad,spots:spots.length,beds:BEDS.filter(b=>b.own).length,chest:piles.filter(p=>p.chest).length,cages:props.filter(p=>p.built==='cage').length,wood:teamCount('wood'),rope:teamCount('rope'),iron:teamCount('iron')}});
   assert.ok(r.bad.exit&&r.bad.prop,JSON.stringify(r));assert.equal(r.spots,3);
-  assert.equal(r.beds,1);assert.equal(r.chest,1);assert.equal(r.cages,1);
+  assert.ok(r.beds===1&&r.chest===1&&r.cages===1,JSON.stringify(r));
   assert.equal(r.wood,3+20-3-4-4);assert.equal(r.rope,1);assert.equal(r.iron,0);
   // own bed: free sleep, heals
   const s=await p.evaluate(()=>{const u=allies()[0],bd=BEDS.find(b=>b.own),m=money;u.p.torso.hp=Math.max(1,u.p.torso.max-5);u.cmd=[{t:'sleep',bed:bd}];for(let i=0;i<100;i++)simulate(.1);return{m:money===m,healed:u.p.torso.hp>u.p.torso.max-5}});

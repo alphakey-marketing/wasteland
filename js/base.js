@@ -3,7 +3,9 @@
 const BUILDS={
   bed:{name:'床',cost:{wood:3,hide:1},sec:4,s:.55,h:5,sub:'瞓覺回血，免租'},
   chest:{name:'儲物箱',cost:{wood:4,rope:1},sec:4,sub:'隊友可存取物品'},
-  cage:{name:'籠',cost:{wood:4,iron:2,rope:2},sec:4,s:.9,h:18,sub:'關一個人（階段 3 用）'}
+  cage:{name:'籠',cost:{wood:4,iron:2,rope:2},sec:4,s:.9,h:18,sub:'關一個人（階段 3 用）'},
+  field:{name:'田',cost:{wood:2},sec:4,s:.9,h:1,sub:'播稻種，約 4 分鐘收成'},
+  hearth:{name:'灶',cost:{wood:3},sec:4,s:.6,h:6,sub:'2 米煮 1 飯糰'}
 };
 let buildMode=null;
 const costText=c=>Object.entries(c).map(([id,n])=>`${ITEMS[id].name}${n}`).join(' + ');
@@ -34,6 +36,7 @@ function addBuilt(area,k,x,y,restoring=false){
     (live?piles:a.piles).push(p);return p;
   }
   const p={x,y,s:d.s,h:d.h,c:k==='bed'?[150,120,90]:[110,90,60],built:k,occ:null};
+  if(k==='field')p.sown=null;
   if(k==='bed'){p.bed=1;p.own=1;(a.beds||(a.beds=[])).push(p);if(live)BEDS.push(p)}
   a.props.push(p);if(live)props.push(p);return p;
 }
@@ -50,9 +53,41 @@ function tryPlace(sx,sy){
   const v=issueOne({t:'build',k,x:w.x,y:w.y},w,'揀咗嘅隊友做唔到');
   if(v){buildMode=null;toast(`${v.name} 去起${BUILDS[k].name}`)}
 }
+/* ---------- 田同灶：播種 → 4 分鐘 → 收米同種 → 灶煮飯糰 ---------- */
+const FIELD_SEC=240;
+function fieldStage(p){if(p.sown==null)return 0;const g=(simT-p.sown)/FIELD_SEC;return g>=1?3:g>=.4?2:1}
+const fieldLeft=p=>Math.max(0,Math.ceil(FIELD_SEC-(simT-p.sown)));
+// 先拎背包，再拎本區儲物箱
+const areaChests=()=>piles.filter(p=>p.chest);
+function availItem(u,id){return countItem(u,id)+areaChests().reduce((n,c)=>n+c.pack.filter(s=>s.id===id).reduce((a,s)=>a+s.n,0),0)}
+function takeItem(u,id,n){if(availItem(u,id)<n)return false;
+  for(const bag of [u.pack,...areaChests().map(c=>c.pack)])for(let i=bag.length-1;i>=0&&n>0;i--){const s=bag[i];if(s.id!==id)continue;const t=Math.min(s.n,n);s.n-=t;n-=t;if(!s.n)bag.splice(i,1)}
+  return true}
+function pickFarm(sx,sy){for(const p of props){if(p.built!=='field'&&p.built!=='hearth'||!fogVisible(p))continue;const s=scr(p.x,p.y,4);if(Math.hypot(s.x-sx,s.y-sy)<26*Math.max(.8,cam.z))return p}return null}
+function farmMenu(p,sx,sy){
+  const go=(c,msg)=>{const v=issueOne(c,p,'揀咗嘅隊友做唔到');if(v)toast(`${v.name} ${msg}`)},any=sel.size?[...sel][0]:allies()[0];
+  if(p.built==='hearth'){const r=any?availItem(any,'rice'):0;
+    showMenu(sx,sy,`灶 · 米 ${r}`,[{label:'煮飯糰',sub:'2 米 → 1 飯糰 · 8 秒 · 米由背包或儲物箱拎',fn:()=>{if(r<2){toast('米唔夠（要 2 粒）');return}go({t:'cook',node:p},'去煮飯')}}]);return}
+  const st=fieldStage(p);
+  if(st===3){go({t:'reap',node:p},'去收割');return}
+  if(st>0){toast(`禾苗生長中 · 仲有約 ${fieldLeft(p)} 秒`);return}
+  const n=any?availItem(any,'seed'):0;
+  showMenu(sx,sy,`田 · 空 · 稻種 ${n}`,[{label:'播種',sub:'用 1 粒稻種 · 稻種喺村店買，收割會再得',fn:()=>{if(!n){toast('冇稻種；村店有得買');return}go({t:'sow',node:p},'去播種')}}]);
+}
+function drawFarm(p,sc){
+  const z=cam.z;
+  if(p.built==='hearth'){inkRect(sc.x-9*z,sc.y-6*z,18*z,6*z,'#6b6258');inkRect(sc.x-5*z,sc.y-10*z,10*z,4*z,'#3a302a');
+    ctx.fillStyle='#e8803a';ctx.beginPath();ctx.arc(sc.x,sc.y-8*z,3*z,0,7);ctx.fill();return}
+  const st=fieldStage(p);ctx.fillStyle=st?'#5a4128':'#6e5236';ctx.beginPath();
+  ctx.moveTo(sc.x,sc.y-14*z);ctx.lineTo(sc.x+26*z,sc.y-1*z);ctx.lineTo(sc.x,sc.y+12*z);ctx.lineTo(sc.x-26*z,sc.y-1*z);ctx.closePath();ctx.fill();
+  if(!st)return;const col=['','#8fbf5a','#5f9a3a','#d9b443'][st],hh=[0,3,6,8][st]*z;ctx.strokeStyle=col;ctx.lineWidth=1.6*z;
+  for(let i=-2;i<=2;i++)for(let j=-1;j<=1;j++){const x=sc.x+i*8*z+j*4*z,y=sc.y-1*z+j*5*z-i*1.5*z;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y-hh);ctx.stroke()}
+  if(st===3)label('可收割',sc.x,sc.y-18*z,'#f0c45a',9);
+}
 function treeWood(t){if(t.wood===0&&simT-t.cut>240)t.wood=3;return t.wood??3}
 function drawBuilt(p,sc){
   const z=cam.z;
+  if(p.built==='field'||p.built==='hearth'){drawFarm(p,sc);return}
   if(p.built==='bed'){inkRect(sc.x-11*z,sc.y-7*z,22*z,8*z,'#8a6a46');inkRect(sc.x-10*z,sc.y-10*z,7*z,4*z,'#d9cfb4');return}
   inkRect(sc.x-13*z,sc.y-20*z,26*z,20*z,'rgba(70,50,30,.25)');
   ctx.strokeStyle='#2c2016';ctx.lineWidth=1.6*z;
@@ -128,6 +163,12 @@ function autoWork(u,dt){
     if(t){u.cmd=[{t:'chop',node:t,auto:true}];return true}u.state='冇樹可砍';return false}
   if(j==='mine'){const o=nearest(ORES.filter(fogKnown),u);
     if(o){u.cmd=[{t:'mine',node:o,auto:true}];return true}u.state='冇礦可採';return false}
+  if(j==='farm'){const fs=props.filter(p=>p.built==='field');
+    if(!fs.length){u.state='耕田 · 未有田';return false}
+    const ripe=nearest(fs.filter(p=>fieldStage(p)===3),u);if(ripe){u.cmd=[{t:'reap',node:ripe,auto:true}];return true}
+    const empty=nearest(fs.filter(p=>fieldStage(p)===0),u);if(empty&&availItem(u,'seed')){u.cmd=[{t:'sow',node:empty,auto:true}];return true}
+    const h=nearest(props.filter(p=>p.built==='hearth'),u);if(h&&availItem(u,'rice')>=2){u.cmd=[{t:'cook',node:h,auto:true}];return true}
+    u.state=empty?'耕田 · 冇稻種':'耕田 · 等禾熟';return false}
   return false;
 }
 

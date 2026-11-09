@@ -102,7 +102,12 @@ function nearest(list,u){let best=null,bd=1e9;for(const o of list){const d=dist(
 function legMul(u){const r=ratio(u,'legs');if(r<=0)return .25;const m=u.p.legs.pros?PROS[u.p.legs.pros].mul:1;return (.55+.45*r)*m}
 function step(u,tx,ty,dt,mul=1){
   const dx=tx-u.x,dy=ty-u.y,d=Math.hypot(dx,dy);if(d<.05)return true;
-  const s=Math.min(d,u.spd*mul*legMul(u)*encMul(u)*(u.team==='a'&&u.food<30?.9:1)*dt);u.x+=dx/d*s;u.y+=dy/d*s;
+  let mx=dx/d,my=dy/d;
+  // 前面有嘢擋住：沿物件邊行，唔好撞埋去企死
+  for(const p of props){if(p.bed)continue;const px=p.x-u.x,py=p.y-u.y,pd=Math.hypot(px,py),r=p.s*.62+.22;
+    if(pd>r+.3||pd>d||pd<1e-4||(px*mx+py*my)/pd<.3)continue;
+    let tx2=-py/pd,ty2=px/pd;if(tx2*mx+ty2*my<0){tx2=-tx2;ty2=-ty2}mx=tx2;my=ty2;break}
+  const s=Math.min(d,u.spd*mul*legMul(u)*encMul(u)*(u.team==='a'&&u.food<30?.9:1)*dt);u.x+=mx*s;u.y+=my*s;
   const sdx=dx-dy;if(Math.abs(sdx)>.01)u.face=sdx>0?1:-1;u.moving=true;
   if(u.team==='a'){const l=load(u),c=cap(u);if(l>c*.5)train(u,'str',dt*.35*l/c)}
   return d<.15;
@@ -194,6 +199,16 @@ function runCmd(u,dt,ne,nd){
       if(load(u)>cap(u)*1.6){u.cmd.shift();toast(`${u.name} 揹唔郁喇，停咗採礦`);break}
       u.state='採礦';u.mineT+=dt*(1+u.sk.str.lv*.03);train(u,'str',.3*dt);
       if(u.mineT>=4){u.mineT=0;addItem(u,c.node.ore,1);float(u,`+1 ${ITEMS[c.node.ore].name}`,'#e8c79a')}
+      break}
+    case 'sow':case 'reap':case 'cook':{const p=c.node,st=fieldStage(p);
+      if(c.t==='sow'&&st!==0||c.t==='reap'&&st!==3||!props.includes(p)){u.cmd.shift();break}
+      if(ne&&nd<3&&!u.carry){u.state='自衛';engage(u,ne,dt);break}
+      if(dist(u,p)>p.s*.62+.6){u.state=c.t==='cook'?'去灶頭':'去田';step(u,p.x,p.y,dt);break}
+      u.state={sow:'播種',reap:'收割',cook:'煮飯'}[c.t];c.prog=(c.prog||0)+dt;
+      if(c.prog<{sow:2,reap:3,cook:8}[c.t])break;u.cmd.shift();
+      if(c.t==='sow'){if(!takeItem(u,'seed',1)){toast('冇稻種；村店有得買');break}p.sown=simT;float(u,'播種','#a9e08a')}
+      else if(c.t==='reap'){p.sown=null;addItem(u,'rice',3);addItem(u,'seed',1);float(u,'+3 米 +1 稻種','#e8c79a')}
+      else{if(!takeItem(u,'rice',2)){toast('米唔夠（要 2 粒）');break}addItem(u,'ration',1);float(u,'+1 飯糰','#e8c79a')}
       break}
     case 'chop':{const t=c.node;
       if(treeWood(t)===0){u.cmd.shift();break}

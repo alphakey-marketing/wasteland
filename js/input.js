@@ -108,6 +108,7 @@ function tap(sx,sy){
     if(issue(()=>({t:'attack',u})))fx.pings.push({x:u.x,y:u.y,t:performance.now(),col:'#d65b41'});return}
   const bd=pickBed(sx,sy);if(bd){if(bd.own){const v=issueOne({t:'sleep',bed:bd},bd);if(v)toast(`${v.name} 去瞓覺`);return}innMenu(sx,sy);return}
   const cg=pickCage(sx,sy);if(cg){cageMenu(cg,sx,sy);return}
+  const fm=pickFarm(sx,sy);if(fm){farmMenu(fm,sx,sy);return}
   const pl=pickPile(sx,sy);
   if(pl){showMenu(sx,sy,pl.chest?`儲物箱 · ${pl.pack.length} 樣嘢`:pl.permanent?`${pl.name} · ${pl.pack.length?'物資只可取一次':'已搜清'}`:`地上布袋 · ${pl.pack.length} 樣嘢 · ${Math.max(0,Math.ceil((300-(simT-pl.t))/60))} 分鐘內會消失`,[{label:pl.permanent?'搜查':'執起',sub:'行過去揀要拎咩',fn:()=>{const v=issueOne({t:'loot',body:pl},pl);if(v)toast(`${v.name} 去搜查`)}}]);return}
   const o=pickOre(sx,sy);

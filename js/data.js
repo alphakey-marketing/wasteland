@@ -16,6 +16,8 @@ const ITEMS={
   iron:{name:'鐵礦',type:'ore',w:4,v:16,stack:1},
   wood:{name:'木材',type:'goods',w:2,v:4,stack:1},
   rope:{name:'麻繩',type:'goods',w:.5,v:8,stack:1},
+  seed:{name:'稻種',type:'goods',w:.1,v:3,stack:1},
+  rice:{name:'米',type:'goods',w:.5,v:4,stack:1},
   hide:{name:'犬皮',type:'goods',w:2,v:12,stack:1},
   kit:{name:'機關修具',type:'tool',w:1,v:40,stack:1},
   p_scrap:{name:'木鐵機關肢',type:'pros',w:6,v:150,pros:'scrap'},
@@ -61,4 +63,4 @@ const sellPrice=id=>{const it=ITEMS[id];return Math.max(1,Math.floor(it.v*(it.ty
 let money=100,hardcore=true,repTown=20;
 const repLabel=v=>v<=-30?'敵對':v>=30?'友好':'中立';
 const buyPrice=id=>Math.round(ITEMS[id].v*(repTown>=30?.9:1));
-const JOBS=[['idle','閒著'],['chop','砍樹'],['mine','採礦'],['guard','守家']];
+const JOBS=[['idle','閒著'],['chop','砍樹'],['mine','採礦'],['guard','守家'],['farm','耕田']];
