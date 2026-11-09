@@ -263,7 +263,7 @@ function updAlly(u,dt){
   if(u.dead){u.state='陣亡';return}
   if(u.down){u.state=u.carriedBy?'俾人揹緊':u.bleed>0?'倒地流血':'倒地';return}
   const hs=hostiles(u);const ne=nearest(hs,u);const nd=ne?dist(u,ne):99;
-  if(u.cmd[0]?.auto&&((ne&&nd<7)||(load(u)>cap(u)*.7&&piles.some(p=>p.chest))))u.cmd=[];
+  if(u.cmd[0]?.auto&&((ne&&nd<7)||(load(u)>cap(u)*.7&&depositable(u)&&piles.some(p=>p.chest))))u.cmd=[];
   if(u.cmd.length){runCmd(u,dt,ne,nd);if(u.cmd[0]?.auto)u.state='自動 · '+u.state;return}
   if(!u.rules.flee)u.retreating=false;
   if(u.rules.flee&&nd<6&&(pct(u)<.4||ratio(u,'torso')<.4||ratio(u,'head')<.4))u.retreating=true;
@@ -330,6 +330,7 @@ function spawnScavs(){const gid=Math.random(),side=Math.random()<.5,x=side?.8:MA
 let bgArea=false;
 // Every area that holds a living ally keeps running; others stay frozen.
 const liveAreas=()=>Object.keys(AREAS).filter(id=>id!==activeArea&&areaStates[id].units.some(u=>u.team==='a'&&!u.dead));
+const pinned=u=>u.team==='n'&&u!==TRADER&&u!==INNKEEPER; // wandering shopkeepers can be nudged aside
 function simulate(dt){
   simT+=dt;scavTimer+=dt;dogTimer+=dt;saveTimer+=dt;
   const live=liveAreas();
@@ -366,7 +367,7 @@ function simArea(dt){
   if(activeArea==='village'&&GUARD.dead){guardTimer+=dt;if(guardTimer>40){guardTimer=0;GUARD.p=mkParts(GUARD.base);GUARD.down=GUARD.dead=false;GUARD.bleed=0;GUARD.x=GUARD.home.x;GUARD.y=GUARD.home.y;float(GUARD,'新足輕上更','#cfd8de',true)}}
   for(let i=0;i<units.length;i++){const a=units[i];if(a.down)continue;
     for(let j=i+1;j<units.length;j++){const b=units[j];if(b.down)continue;const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);
-      if(d<.55&&d>1e-4){const p=(.55-d)/2,fa=a.team==='n'?0:b.team==='n'?2:1,fb=2-fa;a.x-=dx/d*p*fa;a.y-=dy/d*p*fa;b.x+=dx/d*p*fb;b.y+=dy/d*p*fb}}
+      if(d<.55&&d>1e-4){const p=(.55-d)/2,fa=pinned(a)?0:pinned(b)?2:1,fb=2-fa;a.x-=dx/d*p*fa;a.y-=dy/d*p*fa;b.x+=dx/d*p*fb;b.y+=dy/d*p*fb}}
     for(const p of props){if(p.bed)continue;const r=p.s*.62+.22,dx=a.x-p.x,dy=a.y-p.y,d=Math.hypot(dx,dy);if(d<r&&d>1e-4){a.x=p.x+dx/d*r;a.y=p.y+dy/d*r}}
     a.x=clamp(a.x,.5,MAP-.5);a.y=clamp(a.y,.5,MAP-.5);}
   fx.floats.forEach(f=>f.t+=dt);fx.floats=fx.floats.filter(f=>f.t<(f.big?1.8:1.1));

@@ -108,7 +108,7 @@ function ensureCampaignWorld(){
 function outpostText(def){const o=campaign.outposts[def.id];return o.owner?`${FACTIONS[o.owner].name}控制`:(o.phase==='vacant'?'守將失守・無主':'兩軍撤離・荒廢')}
 function tickOutpost(dt){for(const def of OUTPOSTS)tickOneOutpost(def,campaign.outposts[def.id],dt)}
 function tickOneOutpost(def,o,dt){
-  if(o.owner){const leader=borderFind(outpostKind(def,o.owner,'commander')),captured=leader?.down&&leader.carriedBy?.team==='a'&&(!units.includes(leader)||activeArea!==def.area||dist(leader,def)>7);
+  if(o.owner){const leader=borderFind(outpostKind(def,o.owner,'commander')),captured=leader?.captive||leader?.down&&leader.carriedBy?.team==='a'&&(!units.includes(leader)||activeArea!==def.area||dist(leader,def)>7);
     if(leader&&(leader.dead||captured)){const first=o.phase==='held',from=FACTIONS[def.owner].name,to=FACTIONS[def.successor].name;o.phase=first?'vacant':'ruined';o.owner=null;o.left=first?def.occupation:0;borderLog(first?`${def.name}守將失守，${from}控制瓦解。附近${to}部隊開始進駐。`:`${to}守將亦已失守。${def.name}荒廢，兩軍殘兵仍會留喺原地。`);save(false)}
   }else if(o.phase==='vacant'&&activeArea===def.area){
     o.left=Math.max(0,o.left-dt);if(o.left===0){o.phase='occupied';o.owner=def.successor;seedOutpost(def,def.successor);borderLog(`${FACTIONS[def.successor].name}部隊接管${def.name}，與殘留${FACTIONS[def.owner].name}兵交戰。`);save(false)}

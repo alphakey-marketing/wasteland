@@ -189,10 +189,10 @@ function tickLife(dt){
 }
 // Trader and innkeeper wander near their post by day; trader stands by the inn at night.
 function npcLife(u,dt){
-  if(!u.post)u.post={x:u.x,y:u.y};
+  u.post=u===TRADER?{x:4.9,y:4.4}:{x:3.6,y:6.4}; // fixed posts so a night save cannot move them
   if(allies().some(a=>a.cmd[0]?.npc===u))return;
   let goal=u.post,r=1.1;
-  if(u===TRADER&&isNight()){goal={x:INNKEEPER.post?INNKEEPER.post.x+1:INNKEEPER.x+1,y:(INNKEEPER.post?INNKEEPER.post.y:INNKEEPER.y)+.3};r=.3;u.state='收檔'}
+  if(u===TRADER&&isNight()){goal={x:4.6,y:6.7};r=.3;u.state='收檔'}
   else u.state=u===TRADER?'擺檔':'招呼客人';
   if(dist(u,goal)>r+.3){step(u,goal.x,goal.y,dt,.4);return}
   if(!u.wp||dist(u,u.wp)<.15){u.wp={x:goal.x+rand(-r,r),y:goal.y+rand(-r,r)}}

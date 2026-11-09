@@ -15,7 +15,7 @@ const errors=[];
     // trader walks to inn at night, wanders by day
     if(activeArea!=='village')return{skip:activeArea};
     simT=400;TRADER.cmd=[];for(let j=0;j<400;j++)simulate(.1);
-    out.traderInn=Math.hypot(TRADER.x-(INNKEEPER.post.x+1),TRADER.y-(INNKEEPER.post.y+.3))<1&&TRADER.state==='收檔';
+    out.traderInn=Math.hypot(TRADER.x-4.6,TRADER.y-6.7)<1&&TRADER.state==='收檔';
     simT=100;for(let j=0;j<400;j++)simulate(.1);
     out.traderDay=Math.hypot(TRADER.x-TRADER.post.x,TRADER.y-TRADER.post.y)<1.6&&TRADER.state==='擺檔';
     return out});
