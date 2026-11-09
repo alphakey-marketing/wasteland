@@ -212,6 +212,14 @@ function runCmd(u,dt,ne,nd){
       u.state='起緊'+d.name;c.prog+=dt;
       if(c.prog>=d.sec){u.cmd.shift();addBuilt(activeArea,c.k,c.x,c.y);float(u,`起好 ${d.name}`,'#a9e08a')}
       break}
+    case 'jail':{const b=c.body,cage=c.cage;
+      if(!props.includes(cage)||(cageOcc(cage)&&cage.occ!==b)||b.captive||b.dead||(u.carry&&u.carry!==b)){u.cmd.shift();break}
+      if(u.carry!==b){
+        if(!b.down||(b.carriedBy&&b.carriedBy!==u)){u.cmd.shift();break}
+        if(dist(u,b)>.9){u.state='去揹俘虜';step(u,b.x,b.y,dt);break}
+        pickUp(u,b);break}
+      if(dist(u,cage)>1.1){u.state='押去籠';step(u,cage.x,cage.y,dt);break}
+      drop(u);b.x=cage.x;b.y=cage.y;b.captive=true;b.bleed=0;b.cmd=[];b.aggro=false;b.lastHit=null;b.victim=null;cage.occ=b;u.cmd.shift();toast(`${b.name} 已關入籠`);break}
     case 'talk':if(c.npc.down||c.npc.dead||!units.includes(c.npc)){u.cmd.shift();break}if(dist(u,c.npc)>1.35){u.state='行去'+c.npc.name;step(u,c.npc.x,c.npc.y,dt)}else{u.cmd.shift();arriveTalk(u,c.npc,c.act)}break;
     case 'sleep':{const b=c.bed;
       if(!c.paid){if(dist(u,b)>.7){u.state='去瞓覺';step(u,b.x,b.y,dt);break}
@@ -339,7 +347,7 @@ function simArea(dt){
   for(const u of units){if(u.dead||!(u.bleed>0))continue;
     u.p.torso.hp-=u.bleed*(u.down?1.4:1)*dt;u.bleed=Math.max(0,u.bleed-(u.down?.03:.1)*dt);
     if(!hardcore)u.p.torso.hp=Math.max(-u.p.torso.max*.5,u.p.torso.hp);checkWounds(u,'torso','身')}
-  for(const u of units){if(!u.down||u.dead||u.bleed>0||u.starvation?.phase==='dying')continue;const r=.6+u.sk.tough.lv*.03;
+  for(const u of units){if(!u.down||u.dead||u.captive||u.bleed>0||u.starvation?.phase==='dying')continue;const r=.6+u.sk.tough.lv*.03;
     ['head','torso'].forEach(k=>{u.p[k].hp=Math.min(u.p[k].max,u.p[k].hp+r*dt)});
     if(tryStarvationRise(u))continue;
     if(recov(u)>=1&&!u.carriedBy&&!hungerBlocksRecovery(u)){getUp(u,0);float(u,u.team==='a'?'自己爬起身':'醒返','#a9e08a');u.victim=null;if(u.team!=='a'){u.aggro=false;u.lastHit=null}}}

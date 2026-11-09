@@ -108,9 +108,9 @@ function landmarkMenu(sx,sy){
   ]);
 }
 function packAreaUnit(u){
-  return {id:u.id,team:u.team,kind:u.kind,name:u.name,role:u.role,color:u.color,base:u.base,x:u.x,y:u.y,p:u.p,sk:u.sk,eq:u.eq,pack:u.pack,bounty:u.bounty,down:u.down,dead:u.dead,bleed:u.bleed,rules:u.rules,home:u.home,aggroR:u.aggroR,leash:u.leash,food:u.food,starvation:u.starvation,kitUse:u.kitUse,spd:u.spd,face:u.face,gid:u.gid,idx:u.idx,dir:u.dir,waitT:u.waitT,retreating:u.retreating,pursuitId:u.pursuitId,carryId:u.carry?u.carry.id:null,leaderId:u.leader?u.leader.id:null};
+  return {id:u.id,team:u.team,kind:u.kind,name:u.name,role:u.role,color:u.color,base:u.base,x:u.x,y:u.y,p:u.p,sk:u.sk,eq:u.eq,pack:u.pack,bounty:u.bounty,down:u.down,dead:u.dead,bleed:u.bleed,rules:u.rules,home:u.home,aggroR:u.aggroR,leash:u.leash,food:u.food,starvation:u.starvation,kitUse:u.kitUse,spd:u.spd,face:u.face,gid:u.gid,idx:u.idx,dir:u.dir,waitT:u.waitT,retreating:u.retreating,captive:u.captive,tries:u.tries,pursuitId:u.pursuitId,carryId:u.carry?u.carry.id:null,leaderId:u.leader?u.leader.id:null};
 }
-function packAreas(){captureArea();return Object.fromEntries(Object.entries(areaStates).map(([id,a])=>[id,{units:a.units.map(packAreaUnit),piles:a.piles,alerted:a.alerted,cleared:a.cleared,pausedAt:a.pausedAt,visited:!!a.visited,built:a.props.filter(p=>p.built).map(p=>({k:p.built,x:p.x,y:p.y}))}]))}
+function packAreas(){captureArea();return Object.fromEntries(Object.entries(areaStates).map(([id,a])=>[id,{units:a.units.map(packAreaUnit),piles:a.piles,alerted:a.alerted,cleared:a.cleared,pausedAt:a.pausedAt,visited:!!a.visited,built:a.props.filter(p=>p.built).map(p=>({k:p.built,x:p.x,y:p.y,occ:p.occ?p.occ.id:null}))}]))}
 function restoreAreas(saved,id){
   for(const key of Object.keys(AREAS)){
     const a=saved[key];if(!a&&key==='forge')continue; // Pre-forge saves keep their existing regions and receive the new region once.
@@ -123,7 +123,7 @@ function restoreAreas(saved,id){
     a.units.forEach((o,i)=>{const u=restored[i];if(o.carryId&&byId.has(o.carryId)){u.carry=byId.get(o.carryId);u.carry.carriedBy=u}if(o.leaderId)u.leader=byId.get(o.leaderId)});
     Object.assign(areaStates[key],{units:restored,piles:a.piles,alerted:!!a.alerted,cleared:!!a.cleared,pausedAt:a.pausedAt,visited:a.visited??key!=='forge'});
     areaStates[key].props=areaStates[key].props.filter(p=>!p.built);areaStates[key].beds=(areaStates[key].beds||[]).filter(b=>!b.built);
-    for(const b of a.built||[])addBuilt(key,b.k,b.x,b.y,true);
+    for(const b of a.built||[]){const p=addBuilt(key,b.k,b.x,b.y,true);if(p&&b.occ!=null&&byId.get(b.occ))p.occ=byId.get(b.occ)}
   }
   activateArea(AREAS[id]?id:'village');
 }

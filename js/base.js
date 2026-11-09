@@ -60,3 +60,39 @@ function drawBuilt(p,sc){
   inkRect(sc.x-14*z,sc.y-23*z,28*z,4*z,'#70513a');
   if(p.occ)label('囚',sc.x,sc.y-28*z,'#f0c45a',10);
 }
+
+/* ---------- 俘虜：揹落籠，喺籠入面先可以招降／贖金／釋放／處決 ---------- */
+const cageOf=b=>props.find(p=>p.built==='cage'&&p.occ===b);
+function cageOcc(c){if(c.occ&&(c.occ.gone||!units.includes(c.occ)||c.occ.dead||!c.occ.captive))c.occ=null;return c.occ}
+function canJail(b){return !b.dead&&b.down&&!b.captive&&b.team!=='a'&&!b.pile&&b.kind!=='dog'&&b!==TRADER&&b!==INNKEEPER&&b.kind!=='border_refugee'&&!(b.team==='g'&&!b.kind)}
+function jailOption(b){
+  if(!canJail(b))return null;
+  const free=props.filter(p=>p.built==='cage'&&!cageOcc(p));
+  if(!free.length)return {label:'押入籠',sub:'要先起一個空籠（建造 → 籠）',fn:()=>toast('冇空籠；撳「建造」起一個')};
+  const cage=nearest(free,b);
+  return {label:'押入籠',sub:'揹去最近嘅空籠，喺籠入面先可招降／贖金／釋放／處決',fn:()=>{const v=issueOne({t:'jail',body:b,cage},b,'揀咗嘅隊友已經揹緊人',a=>!a.carry);if(v)toast(`${v.name} 去押 ${b.name} 入籠`)}};
+}
+function pickCage(sx,sy){for(const p of props){if(p.built!=='cage'||!fogVisible(p))continue;const s=scr(p.x,p.y,10);if(Math.hypot(s.x-sx,s.y-sy)<26*Math.max(.8,cam.z))return p}return null}
+const unitLevel=b=>{const v=Object.values(b.sk);return v.reduce((n,s)=>n+s.lv,0)/Math.max(1,v.length)};
+function sideRep(b){const s=outpostSide(b);return s?campaign.rep[s]:repTown}
+function persuadeChance(b){return clamp(.55-(unitLevel(b)-1)*.04+(1-pct(b))*.3+sideRep(b)/250-(b.tries||0)*.1,.05,.9)}
+function ransomValue(b){return Math.round((40+unitLevel(b)*12)*(outpostInfo(b)?.role==='commander'?3:1))}
+function factionRep(b,d){const s=outpostSide(b);if(s)campaign.rep[s]=clamp(Math.round(campaign.rep[s]+d),-100,100)}
+function freeCage(b){const c=cageOf(b);if(c)c.occ=null;b.captive=false}
+function prisonerMenu(b,sx,sy){
+  const side=outpostSide(b),pc=Math.round(persuadeChance(b)*100);
+  const opts=[
+    {label:`招降 · 成功率約 ${pc}%`,sub:'受等級、傷勢、關係影響；失敗後再試更難',fn:()=>{
+      if(allSquad().length>=SQUAD_MAX){toast(`隊伍已滿（最多 ${SQUAD_MAX} 人）`);return}
+      if(Math.random()<persuadeChance(b)){
+        freeCage(b);b.team='a';b.kind='recruit';b.down=false;for(const k of ['head','torso'])b.p[k].hp=Math.max(b.p[k].hp,b.p[k].max*.5);
+        b.rules={flee:true,rescue:false,fight:true};b.role=b.role||'降兵';b.cmd=[];b.aggro=false;b.lastHit=null;b.food=Math.max(b.food||0,60);
+        factionRep(b,-15);sel.add(b);buildSquadUI();toast(`${b.name} 願意加入隊伍`)}
+      else{b.tries=(b.tries||0)+1;toast(`${b.name} 唔肯降`)}}},
+  ];
+  if(side)opts.push({label:`贖金 · 收 ${ransomValue(b)} 文`,sub:`賣返畀${FACTIONS[side].name}；佢哋對你嘅關係 −5`,fn:()=>{money+=ransomValue(b);factionRep(b,-5);freeCage(b);b.gone=true;toast(`收到贖金 ${ransomValue(b)} 文`)}});
+  opts.push({label:'釋放',sub:side?`放佢走；${FACTIONS[side].name}關係 +5`:'放佢走',fn:()=>{factionRep(b,5);freeCage(b);b.gone=true;toast(`${b.name} 走咗`)}});
+  opts.push({label:'處決',sub:side?`${FACTIONS[side].name}關係 −20，唔可撤回`:'唔可撤回',fn:()=>{factionRep(b,-20);freeCage(b);kill(b);toast(`${b.name} 被處決`)}});
+  showMenu(sx,sy,`俘虜 · ${b.name}`,opts);
+}
+function cageMenu(c,sx,sy){const b=cageOcc(c);if(b)prisonerMenu(b,sx,sy);else toast('空籠；揹倒地嘅敵人過嚟（撳佢 → 押入籠）')}

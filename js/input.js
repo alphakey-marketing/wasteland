@@ -107,6 +107,7 @@ function tap(sx,sy){
         {label:`叫${others.map(a=>a.name).join('、')}跟住${u.name}`,sub:'一直跟住佢行，見敵照打。落新指令就會取消',fn:()=>{fleeCheck(others);others.forEach(a=>{a.cmd=[{t:'follow',u}]});toast(`${others.map(a=>a.name).join('、')} 跟住 ${u.name}`)}}]);return}
     if(issue(()=>({t:'attack',u})))fx.pings.push({x:u.x,y:u.y,t:performance.now(),col:'#d65b41'});return}
   const bd=pickBed(sx,sy);if(bd){if(bd.own){const v=issueOne({t:'sleep',bed:bd},bd);if(v)toast(`${v.name} 去瞓覺`);return}innMenu(sx,sy);return}
+  const cg=pickCage(sx,sy);if(cg){cageMenu(cg,sx,sy);return}
   const pl=pickPile(sx,sy);
   if(pl){showMenu(sx,sy,pl.chest?`儲物箱 · ${pl.pack.length} 樣嘢`:pl.permanent?`${pl.name} · ${pl.pack.length?'物資只可取一次':'已搜清'}`:`地上布袋 · ${pl.pack.length} 樣嘢 · ${Math.max(0,Math.ceil((300-(simT-pl.t))/60))} 分鐘內會消失`,[{label:pl.permanent?'搜查':'執起',sub:'行過去揀要拎咩',fn:()=>{const v=issueOne({t:'loot',body:pl},pl);if(v)toast(`${v.name} 去搜查`)}}]);return}
   const o=pickOre(sx,sy);
@@ -144,6 +145,7 @@ function feedOption(p){
 }
 function hasLoot(b){return b.pack.length>0||!!b.eq.weapon||!!b.eq.armor}
 function bodyMenu(b,sx,sy){
+  if(b.captive){prisonerMenu(b,sx,sy);return}
   const opts=[];
   const feed=feedOption(b);if(feed)opts.push(feed);
   if(b.team!=='a'||b.dead)opts.push({label:hasLoot(b)?'搜身／取裝備':'搜身 · 已被搜清',sub:hasLoot(b)?'行過去搜查背包同身上裝備':'身上冇可取物品；可能已被其他人搜走',fn:()=>{const v=issueOne({t:'loot',body:b},b);if(v)toast(`${v.name} 去搜身`)}});
@@ -153,6 +155,7 @@ function bodyMenu(b,sx,sy){
   if(!b.dead&&b.team!=='a'&&b.bleed>0)opts.push({label:'幫佢止血',sub:b.bounty?`保住條命先攞到懸賞 ${b.bounty} 文 · 會練急救`:'唔會醫好佢，淨係止血 · 會練急救',fn:()=>{const v=issueOne({t:'aid',body:b},b);if(v)toast(`${v.name} 去幫 ${b.name} 止血`)}});
   opts.push({label:b.bounty&&!b.dead?`揹起佢（懸賞 ${b.bounty} 文）`:'揹起佢',sub:b.bounty&&!b.dead?'揹去青葉村足輕度領賞':b.team==='a'&&!b.dead?'揹佢離開險地，等人救':'好重，會行得好慢',
     fn:()=>{const v=issueOne({t:'carry',body:b},b,'揀咗嘅隊友已經揹緊人',a=>!a.carry);if(v)toast(`${v.name} 去揹 ${b.name}`)}});
+  const jo=jailOption(b);if(jo)opts.push(jo);
   const title=`${b.name} · ${b.dead?'屍體':starvationText(b)||`倒地（${b.bleed>0?'流緊血':'回復 '+Math.round(recov(b)*100)+'%'}）`}`;
   showMenu(sx,sy,title,opts);
 }
