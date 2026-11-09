@@ -145,10 +145,12 @@ function buildSquadUI(){sq.innerHTML='';tabs.innerHTML='';pEls.clear();allies().
   if(cardUnit&&!allies().includes(cardUnit))cardUnit=null;updatePortraits(true)}
 partList.innerHTML=PARTS.map(([k,l])=>`<li><span>${l}</span><span class="bar"><i id="pb_${k}"></i></span><span class="v" id="pv_${k}"></span></li>`).join('');
 skillList.innerHTML=SKILLS.map(([k,l,how])=>`<li class="sk" id="sk_${k}"><div class="hd"><b>${l}</b><span class="lvl" id="sl_${k}"></span></div><div class="how">${how}</div><div class="xp"><i id="sx_${k}"></i></div><div class="eff" id="se_${k}"></div></li>`).join('');
+$('#chJob').innerHTML=JOBS.map(([k,n])=>`<button data-job="${k}" aria-selected="false">${n}</button>`).join('');
+$('#chJob').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!cardUnit)return;cardUnit.job=b.dataset.job;if(b.dataset.job==='idle'&&cardUnit.cmd[0]?.auto)cardUnit.cmd=[];fillCard();toast(`${cardUnit.name}：${b.textContent}`)});
 function openCard(u){cardUnit=u||[...sel][0]||allies()[0];buildCard();charSheet.hidden=false}
 function buildCard(){allies().forEach(a=>a.tab.setAttribute('aria-selected',a===cardUnit));wsSig=eqSig=packSig='';fillCard()}
 function fillCard(){
-  const u=cardUnit;$('#chName').textContent=`${u.name} · ${u.role}`;u.tab.lastChild.textContent=u.name;
+  const u=cardUnit;$('#chJob').querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',(u.job||'idle')===b.dataset.job));$('#chName').textContent=`${u.name} · ${u.role}`;u.tab.lastChild.textContent=u.name;
   const notes=[];if(u.dead)notes.push('已陣亡 · 可以將佢移離隊伍，去宿屋酒場請新人');else{const hungry=starvationText(u);if(hungry)notes.push(`${hungry} · 飽肚至少 ${HUNGER.sated} 先解除危機`);if(u.down)notes.push(u.carriedBy?`俾 ${u.carriedBy.name} 揹緊`:u.bleed>0?'倒地中 · 流緊血，冇人止血會死':hungerBlocksRecovery(u)?'需要食物救援':`倒地中 · 回復緊 ${Math.round(recov(u)*100)}%`)}
   if(u.bleed>.05&&!u.dead)notes.push(`流血中，每秒 −${u.bleed.toFixed(1)}`);
   PARTS.forEach(([k,l])=>{if(u.p[k].lost)notes.push(`${l}斷咗`)});

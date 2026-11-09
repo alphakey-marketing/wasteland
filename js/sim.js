@@ -262,7 +262,8 @@ function updAlly(u,dt){
   if(u.dead){u.state='陣亡';return}
   if(u.down){u.state=u.carriedBy?'俾人揹緊':u.bleed>0?'倒地流血':'倒地';return}
   const hs=hostiles(u);const ne=nearest(hs,u);const nd=ne?dist(u,ne):99;
-  if(u.cmd.length){runCmd(u,dt,ne,nd);return}
+  if(u.cmd[0]?.auto&&((ne&&nd<7)||(load(u)>cap(u)*.7&&piles.some(p=>p.chest))))u.cmd=[];
+  if(u.cmd.length){runCmd(u,dt,ne,nd);if(u.cmd[0]?.auto)u.state='自動 · '+u.state;return}
   if(!u.rules.flee)u.retreating=false;
   if(u.rules.flee&&nd<6&&(pct(u)<.4||ratio(u,'torso')<.4||ratio(u,'head')<.4))u.retreating=true;
   if(u.retreating&&retreat(u,dt,hs,ne,nd))return;
@@ -278,6 +279,7 @@ function updAlly(u,dt){
   if(nd>6&&shareFood(u,dt))return;
   if(u.rules.fight&&ne&&nd<6&&!u.carry){u.state='見敵就打';engage(u,ne,dt);return}
   if(hurt(u)&&nd>6&&!u.carry&&canTreat(u,u)){u.state='包紮緊';treat(u,u,dt);return}
+  if(nd>6&&!u.carry&&autoWork(u,dt)){if(u.cmd[0]?.auto)u.state='自動 · '+u.state;else if(u.job==='guard'||u.state==='存貨入箱')u.state='自動 · '+u.state;return}
   u.state=u.carry?'揹緊'+u.carry.name:ratio(u,'legs')<=0?'爬行中':encMul(u)<1?'負重過重':'待命';
 }
 function updOther(u,dt){

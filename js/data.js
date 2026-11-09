@@ -61,4 +61,4 @@ const sellPrice=id=>{const it=ITEMS[id];return Math.max(1,Math.floor(it.v*(it.ty
 let money=100,hardcore=true,repTown=20;
 const repLabel=v=>v<=-30?'敵對':v>=30?'友好':'中立';
 const buyPrice=id=>Math.round(ITEMS[id].v*(repTown>=30?.9:1));
-
+const JOBS=[['idle','閒著'],['chop','砍樹'],['mine','採礦'],['guard','守家']];

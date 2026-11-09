@@ -96,3 +96,37 @@ function prisonerMenu(b,sx,sy){
   showMenu(sx,sy,`俘虜 · ${b.name}`,opts);
 }
 function cageMenu(c,sx,sy){const b=cageOcc(c);if(b)prisonerMenu(b,sx,sy);else toast('空籠；揹倒地嘅敵人過嚟（撳佢 → 押入籠）')}
+
+/* ---------- 自動工作：冇指令、冇敵人時，隊友按「工作」設定自己做嘢 ---------- */
+const STORE_TYPES=['ore','goods']; // food and medkits stay with the worker
+const depositable=u=>u.pack.some(s=>STORE_TYPES.includes(ITEMS[s.id].type));
+function autoDeposit(u,dt){
+  if(!depositable(u))return false;
+  const ch=nearest(piles.filter(p=>p.chest),u);if(!ch)return false;
+  if(dist(u,ch)>1){u.state='存貨入箱';step(u,ch.x,ch.y,dt);return true}
+  for(let i=u.pack.length-1;i>=0;i--){const s=u.pack[i];if(!STORE_TYPES.includes(ITEMS[s.id].type))continue;
+    const t=ch.pack.find(x=>x.id===s.id&&ITEMS[s.id].stack);if(t)t.n+=s.n;else ch.pack.push({id:s.id,n:s.n});u.pack.splice(i,1)}
+  float(u,'存貨入箱','#e8c79a');return true;
+}
+// Returns true when it handled this frame (moved, worked or issued a command).
+function autoWork(u,dt){
+  const j=u.job;if(!j||j==='idle')return false;
+  if(u.food<25&&!feedingSource(u,u)){u.state='餓 · 停工';return false}
+  if(load(u)>cap(u)*.7&&autoDeposit(u,dt))return true;
+  if(pct(u)<.6){const bed=nearest(BEDS.filter(b=>b.own),u);if(bed){u.cmd=[{t:'sleep',bed,auto:true}];return true}}
+  if(j==='guard'){
+    const pat=nearest(allies().filter(a=>a!==u&&!a.down&&hurt(a)&&canTreat(u,a)&&dist(u,a)<10),u);
+    if(pat){u.state='醫'+pat.name;if(dist(u,pat)>.8)step(u,pat.x,pat.y,dt);else treat(u,pat,dt);return true}
+    const home=nearest([...props.filter(p=>p.built),...piles.filter(p=>p.chest)],u);
+    if(!home){u.state='守家 · 未有基地';return false}
+    if(dist(u,home)>3){u.state='返基地';step(u,home.x,home.y,dt)}else u.state='守家';
+    return true;
+  }
+  u.autoT=(u.autoT||0)-dt;if(u.autoT>0)return false;u.autoT=1;
+  if(load(u)>cap(u)*1.6){u.state='揹唔郁 · 起個儲物箱';return false}
+  if(j==='chop'){const t=nearest(props.filter(p=>p.tree&&treeWood(p)>0&&fogKnown(p)),u);
+    if(t){u.cmd=[{t:'chop',node:t,auto:true}];return true}u.state='冇樹可砍';return false}
+  if(j==='mine'){const o=nearest(ORES.filter(fogKnown),u);
+    if(o){u.cmd=[{t:'mine',node:o,auto:true}];return true}u.state='冇礦可採';return false}
+  return false;
+}
