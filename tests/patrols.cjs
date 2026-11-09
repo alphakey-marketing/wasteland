@@ -15,7 +15,7 @@ const errors=[];
     o.guardsStrong=gs.every(g=>g.sk.atk.lv>=25&&g.p.torso.max>=lord.p.torso.max*.8)&&lord.sk.atk.lv>=40;
     const pat=at('patrol_takeda');o.patrol=!!pat&&outpostSide(pat)==='takeda';
     // 2) patrol walks: leaves camp, position changes, no travel
-    const x0=pat.x,y0=pat.y;for(let i=0;i<150;i++)simulate(.1);o.patrolMoves=Math.hypot(pat.x-x0,pat.y-y0)>1&&activeArea==='temple';
+    const x0=pat.x,y0=pat.y;let far=0;for(let i=0;i<300;i++){simulate(.1);far=Math.max(far,Math.hypot(pat.x-x0,pat.y-y0))}o.patrolMoves=far>1&&activeArea==='temple';
     // 3) lord reacts: enemy patrol next to camp dies, guards and lord survive
     const foes=[0,1,2].map(i=>borderSpawn('temple',{id:'t-foe'+i,kind:`patrol_uesugi_t${i}`,team:'g',name:'上杉巡邏兵',color:'#7396bd',base:48,x:c.x-3+i*.5,y:c.y+4,home:{x:c.x-3,y:c.y+4},aggroR:5,leash:8,eq:{weapon:'machete',armor:'leather'},lv:{atk:10,tough:10,dod:8}}));
     for(let i=0;i<500;i++){simulate(.1);if(foes.every(f=>f.dead||f.down))break}

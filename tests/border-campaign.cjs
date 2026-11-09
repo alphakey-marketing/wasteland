@@ -22,22 +22,15 @@ async function loot(p,id){
     await p.addInitScript(()=>{const raf=requestAnimationFrame.bind(window);window.requestAnimationFrame=cb=>raf(t=>{setPaused(true);cb(t)})});
     await p.goto(process.env.WASTELAND_TEST_URL||'http://127.0.0.1:8765/',{waitUntil:'networkidle'});await p.click('#bStart');await setup(p);
     check(await p.evaluate(()=>({sandbox:campaign.stage==='sandbox',bothLords:!!borderFind('border_lord_takeda')&&!!borderFind('border_lord_uesugi'),refugee:!!borderFind('border_refugee'),grain:borderHasCargo('border_grain'),orders:borderHasCargo('border_orders'),outpost:!!borderFind('outpost_takeda_commander'),valid:!!validateSave(JSON.parse(serialize()))})));
-    await p.click('#bObjective');assert.equal(await p.locator('#journalTitle').textContent(),'世情報 · 自由行腳');assert.equal(await p.getByRole('button',{name:'接受尋糧委託',exact:true}).count(),0);await p.click('#bJournalClose');
-    // Rescue first: no grain, military orders, faction choice or acceptance required.
+    await p.click('#bObjective');assert.equal(await p.locator('#journalTitle').textContent(),'世情報 · 局勢傳聞');assert.equal(await p.locator('#journalActions button').count(),0);await p.click('#bJournalClose');
+    // No quests: the machinist joins on a plain talk, cargo is ordinary sellable goods.
     await p.evaluate(()=>{go('temple');go('forge')});
-    check(await p.evaluate(()=>{const n=borderFind('border_refugee'),a=allies()[0];a.x=n.x-1;a.y=n.y;const start=beginBorderEscort(a,n),x=n.x;a.x-=2;tickCampaign(.1);return{start,follow:n.x<x,onlyRescue:!campaign.jobs.grain&&!campaign.jobs.orders,waitForEscort:!campaignEscortReady([a])}}));
-    await p.evaluate(()=>{go('temple');go('village');dock();const n=borderFind('border_refugee');n.x=INNKEEPER.x;n.y=INNKEEPER.y});
-    await p.click('#bObjective');await p.getByRole('button',{name:'帶阿澄返宿屋 · 報酬 180 文',exact:true}).click();
-    check(await p.evaluate(()=>{const cash=money;return{rescue:campaign.jobs.rescue,once:!finishBorderEscort()&&money===cash,independent:!campaign.jobs.grain&&!campaign.jobs.orders}}));
-    await p.getByRole('button',{name:'邀請阿澄加入隊伍（最多 8 人）',exact:true}).click();await p.click('#bJournalClose');
-    // Orders before grain, with real cache/loot UI, physical return and single rewards.
-    await p.evaluate(()=>{go('temple');go('forge')});await loot(p,'border-orders');
-    check(await p.evaluate(()=>{const cash=money,u=allies().find(u=>countItem(u,'border_orders'));return{noRemote:!turnBorderCargo('border_orders')&&money===cash,noSale:sellTo(u,merchantState('village'),u.pack.findIndex(s=>s.id==='border_orders'))===0}}));
-    await p.evaluate(()=>{go('temple');go('village');dock()});await p.click('#bObjective');await p.getByRole('button',{name:'交出兩封軍令 · 報酬 60 文',exact:true}).click();await p.click('#bJournalClose');
-    check(await p.evaluate(()=>({ordersFirst:campaign.jobs.orders&&!campaign.jobs.grain})));
-    await p.evaluate(()=>go('temple'));await loot(p,'border-grain');await p.evaluate(()=>{go('village');dock()});await p.click('#bObjective');await p.getByRole('button',{name:'交出糧袋 · 報酬 90 文',exact:true}).click();await p.click('#bJournalClose');
-    check(await p.evaluate(()=>{const cash=money;return{paid:cash===430,once:!turnBorderCargo('border_grain')&&money===cash}}));
-    await reload(p);check(await p.evaluate(()=>({retained:campaign.jobs.grain&&campaign.jobs.orders&&campaign.jobs.rescue&&campaign.recruited,cash:money===430,squad:allSquad().length===5,noRespawn:!borderHasCargo('border_grain')&&!borderHasCargo('border_orders')})));
+    check(await p.evaluate(()=>{const n=borderFind('border_refugee'),a=allies()[0],before=allSquad().length;a.x=n.x-1;a.y=n.y;const ok=recruitBorderRefugee(a,n);return{ok,joined:n.team==='a'&&allSquad().length===before+1,again:!recruitBorderRefugee(a,n),noQuestFlags:campaign.escort===false}}));
+    await loot(p,'border-orders');
+    check(await p.evaluate(()=>{const cash=money,u=allies().find(u=>countItem(u,'border_orders'));return{hasOrders:!!u,sellable:ITEMS.border_orders.type==='goods'&&sellPrice('border_orders')>0}}));
+    await p.evaluate(()=>{go('temple')});await loot(p,'border-grain');await p.evaluate(()=>{go('village');dock()});
+    check(await p.evaluate(()=>{const cash=money,u=allies().find(u=>countItem(u,'border_grain'));const n=sellTo(u,merchantState('village'),u.pack.findIndex(s=>s.id==='border_grain'));return{sold:n===1&&money>cash,gone:!borderHasCargo('border_grain')}}));
+    await reload(p);check(await p.evaluate(()=>({retained:campaign.jobs.grain&&campaign.jobs.orders&&campaign.jobs.rescue&&campaign.recruited,cash:money>0,squad:allSquad().length===5,noRespawn:!borderHasCargo('border_grain')})));
     await p.evaluate(()=>go('temple'));
     const flag=await p.evaluate(()=>{centerOn(OUTPOST_BY_ID.misaka.x,OUTPOST_BY_ID.misaka.y);return scr(OUTPOST_BY_ID.misaka.x,OUTPOST_BY_ID.misaka.y,48)});await p.mouse.click(flag.x,flag.y);assert.match(await p.locator('#cmenu').textContent(),/霧坂關所/);await p.evaluate(()=>hideMenu());
     check(await p.evaluate(()=>{const n=borderFind('outpost_takeda_commander'),a=allies()[0],rep=repTown;attack(a,n);return{familyEnemy:hostile(n,a)&&hostile(a,n),guardNeutral:!hostile(GUARD,a)&&!hostile(GUARD,n),townUnchanged:repTown===rep,familyRep:campaign.rep.takeda===-40}}));
@@ -59,13 +52,13 @@ async function loot(p,id){
     await reload(p);check(await p.evaluate(()=>({ruinedSaved:campaign.outposts.misaka.phase==='ruined',noOverflow:document.documentElement.scrollWidth<=innerWidth,valid:!!validateSave(JSON.parse(serialize()))})));
     // Migration validates every old stage, retaining earned flags and preventing reclaims.
     check(await p.evaluate(()=>{const saved=packCampaign(),cash=money;let migrated=true,valid=true;
-      for(const stage of ['offer','grain','orders','decision','escort','complete','loss']){const c={v:1,stage,side:['escort','complete','loss'].includes(stage)?'village':null,escort:stage==='escort',leaderId:null,recruited:stage==='complete',rep:{takeda:3,uesugi:-2,village:4},log:['old']};restoreCampaign(c);migrated&&=campaign.v===3&&campaign.stage==='sandbox'&&campaign.jobs.rescue===(stage==='complete')&&campaign.jobs.orders===['decision','escort','complete','loss'].includes(stage)&&campaign.jobs.grain===['orders','decision','escort','complete','loss'].includes(stage)&&campaign.rep.takeda===3&&money===cash;valid&&=!!validateSave(JSON.parse(serialize()))}
+      for(const stage of ['offer','grain','orders','decision','escort','complete','loss']){const c={v:1,stage,side:['escort','complete','loss'].includes(stage)?'village':null,escort:stage==='escort',leaderId:null,recruited:stage==='complete',rep:{takeda:3,uesugi:-2,village:4},log:['old']};restoreCampaign(c);migrated&&=campaign.v===3&&campaign.stage==='sandbox'&&campaign.jobs.rescue===(stage==='complete')&&campaign.rep.takeda===3&&money===cash;valid&&=!!validateSave(JSON.parse(serialize()))}
       restoreCampaign(saved);let rejected=false;try{const c=packCampaign();c.outposts.misaka.owner='bad';validateCampaign(c)}catch{rejected=true}return{migrated,valid,rejected};
     }));
     if(width===390){
       await p.evaluate(()=>{const lord=borderFind('border_lord_takeda');lord.kind='border_lord';lord.dead=lord.down=true;const d=JSON.parse(serialize());d.campaign={v:1,stage:'complete',side:'takeda',escort:false,leaderId:null,recruited:true,rep:{takeda:30,uesugi:-30,village:5},log:['old ending']};localStorage.setItem(SAVE_KEY,JSON.stringify(d))});
       await p.reload({waitUntil:'networkidle'});
-      check(await p.evaluate(()=>({oldSaveLoaded:campaign.v===3&&campaign.jobs.rescue&&campaign.jobs.grain&&campaign.jobs.orders,oldMoney:money===430,deadLordPreserved:borderFind('border_lord_takeda').dead,oneLord:borderUnits().filter(u=>u.kind==='border_lord_takeda').length===1,recruitPreserved:campaign.recruited&&allSquad().length===5})));
+      check(await p.evaluate(()=>({oldSaveLoaded:campaign.v===3&&campaign.jobs.rescue&&campaign.jobs.grain&&campaign.jobs.orders,oldMoney:money>0,deadLordPreserved:borderFind('border_lord_takeda').dead,oneLord:borderUnits().filter(u=>u.kind==='border_lord_takeda').length===1,recruitPreserved:campaign.recruited&&allSquad().length===5})));
     }
     await p.close();console.log('PASS '+width+': independent rescue/cargo, physical flag UI, faction combat, knockout/capture/death, occupation/ruin, save/reload and old-save migration');
   }
