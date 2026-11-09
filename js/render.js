@@ -124,7 +124,7 @@ function drawBodyLying(u,s,z,lift){
   limb('legs',-5,-6,-14,-6);limb('legs',-5,-2,-13,0);
   limb('larm',2,-8,-3,-11);
   box(-6,-9,12,9,u.color);
-  box(-6,-9,4,9,u.eq.armor==='mechanism_armor'?'#9b895d':u.eq.armor==='forged_armor'?'#789c9e':u.eq.armor==='plate'?'#a6afb1':['leather','worked_armor'].includes(u.eq.armor)?'#806044':u.color);
+  box(-6,-9,4,9,baseId(u.eq.armor)==='mechanism_armor'?'#9b895d':baseId(u.eq.armor)==='forged_armor'?'#789c9e':u.eq.armor==='plate'?'#a6afb1':['leather','worked_armor'].includes(u.eq.armor)?'#806044':u.color);
   box(-5,-9,2,9,'#66503a');
   if(u.team==='a'||u.team==='e')box(3,-9,3,9,u.team==='e'?'#8e392d':'#b97942');
   limb('rarm',2,-2,-2,1);
@@ -168,7 +168,7 @@ function drawUnit(u){
   if(!crawl){const legColor=u.p.legs.pros?'#8d9aa3':'#514332';inkRect(x-4*k,y-9*k,3*k,9*k,legColor);inkRect(x+1*k,y-9*k,3*k,9*k,legColor)}
   ctx.save();rr(x-6.5*k,y-23*k,13*k,15*k,2*k);ctx.fillStyle=u.color;inkFill();ctx.clip();
   ctx.fillStyle='rgba(42,28,19,.32)';ctx.fillRect(x-6.5*k,y-23*k,5*k,15*k);
-  const ar=u.eq.armor;if(['leather','plate','worked_armor','forged_armor','mechanism_armor'].includes(ar)){ctx.fillStyle=ar==='mechanism_armor'?'#9b895d':ar==='forged_armor'?'rgba(120,170,175,.85)':ar==='plate'?'rgba(190,200,210,.7)':'rgba(110,70,40,.65)';ctx.fillRect(x-6.5*k,y-23*k,13*k,7*k);if(['forged_armor','mechanism_armor'].includes(ar)){ctx.fillStyle='#d4ac61';ctx.fillRect(x-6.5*k,y-18*k,13*k,1.5*k)}}
+  const ar=baseId(u.eq.armor);if(['leather','plate','worked_armor','forged_armor','mechanism_armor'].includes(ar)){ctx.fillStyle=ar==='mechanism_armor'?'#9b895d':ar==='forged_armor'?'rgba(120,170,175,.85)':ar==='plate'?'rgba(190,200,210,.7)':'rgba(110,70,40,.65)';ctx.fillRect(x-6.5*k,y-23*k,13*k,7*k);if(['forged_armor','mechanism_armor'].includes(ar)){ctx.fillStyle='#d4ac61';ctx.fillRect(x-6.5*k,y-18*k,13*k,1.5*k)}}
   ctx.restore();
   inkRect(x-6*k,y-11*k,12*k,2.2*k,'#66503a');
   inkRect(x-1.5*k,y-11*k,3*k,2.2*k,'#d4ac61');

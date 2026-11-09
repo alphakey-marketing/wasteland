@@ -4,6 +4,7 @@
 const PARTS=[['head','頭',.45,12],['torso','身',1,35],['larm','左手',.5,15],['rarm','右手',.5,15],['legs','腳',.7,23]];
 const HIT_TOTAL=PARTS.reduce((s,p)=>s+p[3],0);
 const SKILLS=[['tough','耐打','被打中就會升'],['atk','攻擊','出手就升，打中升得快啲'],['dod','閃避','俾人攻擊就升，閃到升得快啲'],['aid','急救','包紮自己或者醫隊友就升'],['str','力量','揹重嘢行路、揹人、採礦就會升']];
+SKILLS.push(['smith','鍛冶','喺工坊做嘢就升；越高越易出良品、名品，做得越快']);
 const need=lv=>5+lv*1.5;
 function effText(k,lv){
   if(k==='tough')return `受到傷害 −${Math.round((1-1/(1+lv*.025))*100)}%`;
@@ -199,6 +200,13 @@ function runCmd(u,dt,ne,nd){
       if(load(u)>cap(u)*1.6){u.cmd.shift();toast(`${u.name} 揹唔郁喇，停咗採礦`);break}
       u.state='採礦';u.mineT+=dt*(1+u.sk.str.lv*.03);train(u,'str',.3*dt);
       if(u.mineT>=4){u.mineT=0;addItem(u,c.node.ore,1);float(u,`+1 ${ITEMS[c.node.ore].name}`,'#e8c79a')}
+      break}
+    case 'craft':{const p=c.node;
+      if(!props.includes(p)||!workReady(u,p)){if(!c.auto&&props.includes(p)&&p.q.length)toast(`${u.name}：${workLock(workRecipe(p.q[0]))||'材料唔夠（欠 '+workMissing(u,workRecipe(p.q[0])).join(' ')+'）'}`);u.cmd.shift();break}
+      if(ne&&nd<3&&!u.carry){u.state='自衛';engage(u,ne,dt);break}
+      if(dist(u,p)>p.s*.62+.6){u.state='去工坊';step(u,p.x,p.y,dt);break}
+      u.state=`做 ${ITEMS[p.q[0]].name}`;if(!workTick(u,p,dt)){u.cmd.shift();break}
+      if(!p.q.length||!p.paid&&!workReady(u,p))u.cmd.shift();
       break}
     case 'sow':case 'reap':case 'cook':{const p=c.node,st=fieldStage(p);
       if(c.t==='sow'&&st!==0||c.t==='reap'&&st!==3||!props.includes(p)){u.cmd.shift();break}

@@ -38,6 +38,12 @@ const ITEMS={
   forge_scroll:{name:'鍛冶場機關圖樣',type:'goods',w:1,v:120},
   mechanism_armor:{name:'機關護胴',type:'armor',w:6,v:540,red:.43,dod:-2},
 };
+// 工坊品質：~1 良（+10%），~2 名（+20%）。另開物品 id，唔使改存檔格式
+const QUALITY_ITEMS=['machete','worked_armor','forged_blade','forged_armor','mechanism_armor'];
+for(const id of QUALITY_ITEMS)for(const [q,tag,f,vf] of [[1,'良',1.1,1.5],[2,'名',1.2,2]]){const b=ITEMS[id];
+  ITEMS[`${id}~${q}`]={...b,name:`${b.name}·${tag}`,v:Math.round(b.v*vf),
+    ...(b.dmg?{dmg:b.dmg.map(d=>Math.round(d*f))}:{}),...(b.red?{red:Math.min(.6,+(b.red*f).toFixed(3))}:{})}}
+const baseId=id=>id&&id.split('~')[0];
 const FIST={name:'拳頭',dmg:[2,4],cd:.8};
 const BITE={name:'咬',dmg:[2,4],cd:.9,range:.8};
 const STOCK=['medkit','ration','kit','p_scrap','p_mil','machete','axe','bow','leather','plate'];
@@ -63,4 +69,4 @@ const sellPrice=id=>{const it=ITEMS[id];return Math.max(1,Math.floor(it.v*(it.ty
 let money=100,hardcore=true,repTown=20;
 const repLabel=v=>v<=-30?'敵對':v>=30?'友好':'中立';
 const buyPrice=id=>Math.round(ITEMS[id].v*(repTown>=30?.9:1));
-const JOBS=[['idle','閒著'],['chop','砍樹'],['mine','採礦'],['guard','守家'],['farm','耕田']];
+const JOBS=[['idle','閒著'],['chop','砍樹'],['mine','採礦'],['guard','守家'],['farm','耕田'],['craft','做工']];

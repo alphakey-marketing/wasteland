@@ -5,7 +5,10 @@ const BUILDS={
   chest:{name:'儲物箱',cost:{wood:4,rope:1},sec:4,sub:'隊友可存取物品'},
   cage:{name:'籠',cost:{wood:4,iron:2,rope:2},sec:4,s:.9,h:18,sub:'關一個人（階段 3 用）'},
   field:{name:'田',cost:{wood:2},sec:4,s:.9,h:1,sub:'播稻種，約 4 分鐘收成'},
-  hearth:{name:'灶',cost:{wood:3},sec:4,s:.6,h:6,sub:'2 米煮 1 飯糰'}
+  hearth:{name:'灶',cost:{wood:3},sec:4,s:.6,h:6,sub:'2 米煮 1 飯糰'},
+  smelter:{name:'煉爐',cost:{wood:3,iron:2},sec:5,s:.8,h:16,sub:'鐵 2 + 木 1 煉玉鋼'},
+  bench:{name:'作業台',cost:{wood:3,rope:1},sec:5,s:.8,h:9,sub:'自己整熟肉、藥包、修具、皮甲'},
+  anvil:{name:'鍛冶台',cost:{wood:4,iron:3},sec:5,s:.8,h:11,sub:'自己打刀甲、機關肢；有品質'}
 };
 let buildMode=null;
 const costText=c=>Object.entries(c).map(([id,n])=>`${ITEMS[id].name}${n}`).join(' + ');
@@ -37,6 +40,7 @@ function addBuilt(area,k,x,y,restoring=false){
   }
   const p={x,y,s:d.s,h:d.h,c:k==='bed'?[150,120,90]:[110,90,60],built:k,occ:null};
   if(k==='field')p.sown=null;
+  if(WORK_AT[k]){p.q=[];p.prog=0;p.paid=false}
   if(k==='bed'){p.bed=1;p.own=1;(a.beds||(a.beds=[])).push(p);if(live)BEDS.push(p)}
   a.props.push(p);if(live)props.push(p);return p;
 }
@@ -84,10 +88,65 @@ function drawFarm(p,sc){
   for(let i=-2;i<=2;i++)for(let j=-1;j<=1;j++){const x=sc.x+i*8*z+j*4*z,y=sc.y-1*z+j*5*z-i*1.5*z;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y-hh);ctx.stroke()}
   if(st===3)label('可收割',sc.x,sc.y-18*z,'#f0c45a',9);
 }
+/* ---------- 工坊：煉爐、作業台、鍛冶台。排隊做，唔收工錢 ---------- */
+const WORK_RECIPES=[
+  {id:'steel',at:'smelter',needs:{iron:2,wood:1},sec:60},
+  {id:'cooked_meat',at:'bench',needs:{meat:1},sec:6},
+  {id:'medkit',at:'bench',needs:{cloth:1},sec:12},
+  {id:'kit',at:'bench',needs:{iron:1,copper:1},sec:20},
+  {id:'worked_armor',at:'bench',needs:{hide:3,iron:1},sec:40},
+  {id:'machete',at:'anvil',needs:{iron:3,wood:1},sec:45},
+  {id:'forged_blade',at:'anvil',needs:{steel:2,iron:2},sec:90,advanced:true},
+  {id:'forged_armor',at:'anvil',needs:{steel:2,hide:3,iron:2},sec:90,advanced:true},
+  {id:'p_forged',at:'anvil',needs:{steel:2,copper:3,p_scrap:1},sec:120,advanced:true},
+  {id:'mechanism_armor',at:'anvil',needs:{mechanism:2,steel:2,iron:2},sec:120,forge:true}
+];
+const WORK_AT={smelter:1,bench:1,anvil:1},WORK_Q=5;
+const workRecipe=id=>WORK_RECIPES.find(r=>r.id===id);
+function workLock(r){return r.advanced&&!economy.smithing?'未解鎖（村工匠交鍛冶圖錄）':r.forge&&!economy.forging?'未解鎖（村工匠交機關圖樣）':''}
+const workMissing=(u,r)=>Object.entries(r.needs).filter(([id,n])=>availItem(u,id)<n).map(([id,n])=>`${ITEMS[id].name}${n}`);
+const workSpeed=u=>1+(u.sk.smith?.lv||1)*.04;
+// 品質：鍛冶越高越易出良、名
+function rollQuality(u,id){if(!QUALITY_ITEMS.includes(id))return id;const lv=u.sk.smith?.lv||1,r=Math.random();
+  if(r<Math.max(0,(lv-8)*.02))return `${id}~2`;if(r<Math.min(.7,lv*.035))return `${id}~1`;return id}
+// 隊列頭件可唔可以開工（已付料或者夠料）
+const workReady=(u,p)=>p.q.length&&(p.paid||!workLock(workRecipe(p.q[0]))&&!workMissing(u,workRecipe(p.q[0])).length);
+function pickWork(sx,sy){for(const p of props){if(!WORK_AT[p.built]||!fogVisible(p))continue;const s=scr(p.x,p.y,6);if(Math.hypot(s.x-sx,s.y-sy)<26*Math.max(.8,cam.z))return p}return null}
+function workMenu(p,sx,sy){
+  const any=sel.size?[...sel][0]:allies()[0],name=BUILDS[p.built].name;
+  const opts=WORK_RECIPES.filter(r=>r.at===p.built).map(r=>{const lock=workLock(r),miss=any?workMissing(any,r):[];
+    return{label:`${ITEMS[r.id].name} · ${r.sec} 秒`,sub:lock||`${costText(r.needs)}${miss.length?` · 欠 ${miss.join(' ')}`:' · 料夠'}${QUALITY_ITEMS.includes(r.id)?' · 有機會出良品':''}`,fn:()=>{
+      if(lock){toast(lock);return}if(p.q.length>=WORK_Q){toast(`隊列滿咗（最多 ${WORK_Q} 件）`);return}
+      p.q.push(r.id);toast(`${name}排咗：${ITEMS[r.id].name}（${p.q.length}/${WORK_Q}）`);
+      if(any&&!any.down&&!any.dead&&!(any.job==='craft'))go()}}});
+  const go=()=>{const v=issueOne({t:'craft',node:p},p,'揀咗嘅隊友做唔到');if(v)toast(`${v.name} 去${name}做工`)};
+  if(p.q.length){opts.push({label:'叫隊友開工',sub:`隊列：${p.q.map(id=>ITEMS[id].name).join('、')}`,fn:go});
+    opts.push({label:'清空隊列',sub:p.paid?'已入爐嘅料會退返落地':'',fn:()=>{if(p.paid)for(const [id,n] of Object.entries(workRecipe(p.q[0]).needs))dropAt(p,id,n);p.q=[];p.prog=0;p.paid=false;toast('隊列清空')}})}
+  showMenu(sx,sy,`${name}${p.q.length?` · ${p.q.length}/${WORK_Q} · ${Math.floor(p.prog)}秒`:' · 空'}`,opts);
+}
+function dropAt(p,id,n){piles.push({pile:true,x:p.x+.5,y:p.y+.5,t:0,eq:{weapon:null,armor:null},pack:[{id,n}]})}
+// 一格時間嘅工作；做完返 true
+function workTick(u,p,dt){
+  const r=workRecipe(p.q[0]);if(!r){p.q.shift();return false}
+  if(!p.paid){if(workLock(r)||workMissing(u,r).length)return false;for(const [id,n] of Object.entries(r.needs))takeItem(u,id,n);p.paid=true;p.prog=0}
+  p.prog+=dt*workSpeed(u);train(u,'smith',dt*.06);
+  if(p.prog<r.sec)return true;
+  const out=rollQuality(u,r.id);addItem(u,out,1);train(u,'smith',r.sec*.02);p.q.shift();p.prog=0;p.paid=false;
+  float(u,`+1 ${ITEMS[out].name}`,out.includes('~')?'#f0c45a':'#e8c79a');return true;
+}
+function drawWork(p,sc){
+  const z=cam.z,k=p.built,busy=p.paid;
+  if(k==='smelter'){inkRect(sc.x-8*z,sc.y-16*z,16*z,16*z,'#6b5a4a');inkRect(sc.x-4*z,sc.y-22*z,8*z,6*z,'#4a3e34');
+    ctx.fillStyle=busy?'#f08a3a':'#3a2e26';ctx.beginPath();ctx.arc(sc.x,sc.y-6*z,3.5*z,0,7);ctx.fill()}
+  else if(k==='bench'){inkRect(sc.x-12*z,sc.y-9*z,24*z,4*z,'#8a6a46');inkRect(sc.x-10*z,sc.y-5*z,3*z,5*z,'#5f4630');inkRect(sc.x+7*z,sc.y-5*z,3*z,5*z,'#5f4630')}
+  else{inkRect(sc.x-6*z,sc.y-6*z,12*z,6*z,'#5a4a3a');inkRect(sc.x-10*z,sc.y-11*z,20*z,5*z,'#7d8488');inkRect(sc.x+8*z,sc.y-11*z,4*z,3*z,'#7d8488')}
+  if(p.q.length){const r=workRecipe(p.q[0]);label(busy?`${ITEMS[p.q[0]].name} ${Math.floor(p.prog/r.sec*100)}%`:`排隊 ${p.q.length}`,sc.x,sc.y-(k==='smelter'?28:18)*z,busy?'#f0c45a':'#d8d0b8',9)}
+}
 function treeWood(t){if(t.wood===0&&simT-t.cut>240)t.wood=3;return t.wood??3}
 function drawBuilt(p,sc){
   const z=cam.z;
   if(p.built==='field'||p.built==='hearth'){drawFarm(p,sc);return}
+  if(WORK_AT[p.built]){drawWork(p,sc);return}
   if(p.built==='bed'){inkRect(sc.x-11*z,sc.y-7*z,22*z,8*z,'#8a6a46');inkRect(sc.x-10*z,sc.y-10*z,7*z,4*z,'#d9cfb4');return}
   inkRect(sc.x-13*z,sc.y-20*z,26*z,20*z,'rgba(70,50,30,.25)');
   ctx.strokeStyle='#2c2016';ctx.lineWidth=1.6*z;
@@ -169,6 +228,10 @@ function autoWork(u,dt){
     const empty=nearest(fs.filter(p=>fieldStage(p)===0),u);if(empty&&availItem(u,'seed')){u.cmd=[{t:'sow',node:empty,auto:true}];return true}
     const h=nearest(props.filter(p=>p.built==='hearth'),u);if(h&&availItem(u,'rice')>=2){u.cmd=[{t:'cook',node:h,auto:true}];return true}
     u.state=empty?'耕田 · 冇稻種':'耕田 · 等禾熟';return false}
+  if(j==='craft'){const ws=props.filter(p=>WORK_AT[p.built]);
+    if(!ws.length){u.state='做工 · 未有工坊';return false}
+    const p=nearest(ws.filter(p=>workReady(u,p)),u);if(p){u.cmd=[{t:'craft',node:p,auto:true}];return true}
+    u.state=ws.some(p=>p.q.length)?'做工 · 冇料':'做工 · 隊列空';return false}
   return false;
 }
 

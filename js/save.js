@@ -12,6 +12,7 @@ function validateSave(d){
     for(const[k,x]of Object.entries(v)){if(['__proto__','prototype','constructor'].includes(k))fail();walk(x,depth+1)}}
   function pack(a){if(!Array.isArray(a)||a.length>2000)fail();for(const s of a)if(!obj(s)||!Object.hasOwn(ITEMS,s.id)||!Number.isInteger(s.n)||s.n<1||s.n>1000000)fail()}
   function unit(u){
+    if(obj(u)&&obj(u.sk))for(const[k]of SKILLS)if(u.sk[k]===undefined)u.sk[k]={lv:1,xp:0};
     if(!obj(u)||!id(u.id)||!['a','e','c','g','n','w','v','s'].includes(u.team)||!text(u.name)||!num(u.base,1,100000)||!num(u.x,-1000,1000)||!num(u.y,-1000,1000))fail();
     for(const key of ['role','kind'])if(u[key]!=null&&!text(u[key]))fail();
     if(u.color!=null&&(typeof u.color!=='string'||!/^#[0-9a-f]{3,8}$/i.test(u.color)))fail();
@@ -41,7 +42,7 @@ function validateSave(d){
     for(const key of Object.keys(d.areas))if(!Object.hasOwn(AREAS,key))fail();
     const seen=new Set();for(const key of Object.keys(AREAS)){const a=d.areas[key];if(!a&&(key==='forge'||AREAS[key].gen))continue;if(!obj(a))fail();group(a.units);piles(a.piles,true);
       if(a.trees!=null){if(!Array.isArray(a.trees)||a.trees.length>2000)fail();for(const t of a.trees)if(!obj(t)||!num(t.x,-1000,1000)||!num(t.y,-1000,1000)||!num(t.w,0,3)||!num(t.left,0,240))fail()}
-      if(a.built!=null){if(!Array.isArray(a.built)||a.built.length>200)fail();for(const b of a.built)if(!obj(b)||!['bed','cage','field','hearth'].includes(b.k)||b.left!=null&&!num(b.left,0,240)||!num(b.x,-1000,1000)||!num(b.y,-1000,1000))fail()}
+      if(a.built!=null){if(!Array.isArray(a.built)||a.built.length>200)fail();for(const b of a.built)if(!obj(b)||!['bed','cage','field','hearth','smelter','bench','anvil'].includes(b.k)||b.q!=null&&(!Array.isArray(b.q)||b.q.length>5||b.q.some(id=>!WORK_RECIPES.some(r=>r.id===id&&r.at===b.k))||!num(b.prog,0,1000)||typeof b.paid!=='boolean')||b.left!=null&&!num(b.left,0,240)||!num(b.x,-1000,1000)||!num(b.y,-1000,1000))fail()}
       for(const u of a.units){if(seen.has(u.id))fail();seen.add(u.id)}}
     if(!d.areas[d.activeArea])fail();
   }else{group(d.units);piles(d.piles||[])}
