@@ -1,9 +1,9 @@
 'use strict';
 // Inactive areas retain their objects and pause simulation.
 const AREAS={
-  village:{name:'青葉村',exits:[{to:'temple',x:12,y:12,r:1.7}],center:{x:5,y:5},links:['temple'],hint:'貧村補給／工匠；西面銅礦'},
-  temple:{name:'荒寺山道',exits:[{to:'village',x:7,y:8,r:1.7},{to:'forge',x:24,y:14,r:1.7}],center:{x:14,y:12},links:['village','forge'],hint:'北面鐵礦；尋圖錄，東南出口可往鍛冶場'},
-  forge:{name:'廢棄鍛冶場',exits:[{to:'temple',x:5,y:8,r:1.7}],center:{x:14,y:12},links:['temple'],hint:'外圍補給；深處有機關圖樣／零件，毋須清場'}
+  village:{name:'青葉村',map:{x:.16,y:.55},exits:[{to:'temple',x:12,y:12,r:1.7}],center:{x:5,y:5},links:['temple'],hint:'貧村補給／工匠；西面銅礦'},
+  temple:{name:'荒寺山道',map:{x:.5,y:.35},exits:[{to:'village',x:7,y:8,r:1.7},{to:'forge',x:24,y:14,r:1.7}],center:{x:14,y:12},links:['village','forge'],hint:'北面鐵礦；尋圖錄，東南出口可往鍛冶場'},
+  forge:{name:'廢棄鍛冶場',map:{x:.84,y:.6},exits:[{to:'temple',x:5,y:8,r:1.7}],center:{x:14,y:12},links:['temple'],hint:'外圍補給；深處有機關圖樣／零件，毋須清場'}
 };
 // Edge exits: walking a commanded party into one travels. gate = first exit, kept for caravan/legacy code.
 for(const a of Object.values(AREAS))a.gate=a.exits[0];
@@ -95,6 +95,7 @@ function travelMenu(sx=W-60,sy=H-220,ex=AREAS[activeArea].exits[0]){
   const a=AREAS[activeArea],n=travelParty().filter(u=>!u.carriedBy).length;
   showMenu(sx,sy,`${a.name} · 出口：${AREAS[ex.to].name}`,[
     ...[ex.to].map(id=>({label:`${id==='village'?'返回':'出發'}：${AREAS[id].name}`,sub:`已選 ${n} 人 · 自動集合；追兵會跟隨 · ${id==='forge'?'危險較高，可先搜外圍再撤退':'傷者要先揹起'}`,fn:()=>startTravel(id)})),
+    {label:'打開地圖',sub:'睇所有區域、路線同隊伍位置',fn:openWorldMap},
     {label:'世情報／傳聞',sub:'人物由開局已經存在，冇章節先後限制',fn:openJournal},
     ...(pendingTravel?[{label:'取消出發',fn:cancelTravel}]:[]),
     ...Object.keys(AREAS).filter(id=>id!==activeArea&&areaStates[id].units.some(u=>u.team==='a'&&!u.dead)).map(id=>({label:`切換留守隊 · ${AREAS[id].name}`,sub:'只切換控制地區；出征隊留喺原位',fn:()=>switchReserve(id)})),
@@ -137,18 +138,47 @@ function migrateLegacyArea(){
 }
 
 // World map (read-only): areas as nodes, links as roads, stronghold control, '？' for unvisited.
-function drawWorldMap(){
-  const cv=$('#worldMap');if(!cv)return;const w=cv.width=cv.clientWidth||300,h=cv.height=170,c=cv.getContext('2d');
-  const pos={village:[.16,.55],temple:[.5,.35],forge:[.84,.6]};
+function drawWorldMap(cv=$('#worldMap'),h=170){
+  if(!cv)return;const w=cv.width=cv.clientWidth||300;cv.height=h;const c=cv.getContext('2d'),P=id=>[AREAS[id].map.x*w,AREAS[id].map.y*h];
   c.clearRect(0,0,w,h);c.lineWidth=2;c.strokeStyle='#8a7a5c';
-  for(const [id,a] of Object.entries(AREAS))for(const l of a.links)if(id<l){c.beginPath();c.moveTo(pos[id][0]*w,pos[id][1]*h);c.lineTo(pos[l][0]*w,pos[l][1]*h);c.stroke()}
-  c.textAlign='center';c.font='11px sans-serif';
+  for(const [id,a] of Object.entries(AREAS))for(const l of a.links)if(id<l){const [x1,y1]=P(id),[x2,y2]=P(l);c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke()}
+  c.textAlign='center';
   for(const [id,a] of Object.entries(AREAS)){
-    const x=pos[id][0]*w,y=pos[id][1]*h,seen=areaStates[id].visited,here=id===activeArea;
+    const [x,y]=P(id),seen=areaStates[id].visited,here=id===activeArea,squad=areaUnits(id).filter(u=>u.team==='a'&&!u.dead).length;
     c.fillStyle=seen?'#3b3226':'#2a2620';c.strokeStyle=here?'#f4d28d':'#8a7a5c';c.lineWidth=here?3:1.5;
     c.beginPath();c.arc(x,y,22,0,7);c.fill();c.stroke();
-    c.fillStyle=seen?'#e5d5a7':'#8a7a5c';c.font='bold 16px sans-serif';c.fillText(seen?(here?'●':'◆'):'？',x,y+6);
-    c.font='11px sans-serif';c.fillText(seen?a.name:'未知之地',x,y+38);
+    c.fillStyle=seen?'#e5d5a7':'#8a7a5c';c.font='bold 16px sans-serif';c.fillText(seen?(here?'●':squad?'◆':'·'):'？',x,y+6);
+    c.font='11px sans-serif';c.fillText(seen?a.name:'未探索',x,y+38);
+    if(squad){c.fillStyle=here?'#f4d28d':'#a9c6e0';c.fillText(`${here?'主隊':'留守'} ${squad} 人`,x,y+52)}
+    if(caravanJourney.area===id&&seen){c.fillStyle='#e8c79a';c.fillText('遊商',x+30,y-14)}
     if(seen)OUTPOSTS.filter(d=>d.area===id).forEach((d,i)=>{const o=campaign.outposts[d.id];c.fillStyle=o.owner?FACTIONS[o.owner].color:'#888';c.fillText(`${d.name} · ${o.owner?FACTIONS[o.owner].name:'無主'}${raidActive(d)?' ⚔交戰中':''}`,x,y-30-i*13)});
   }
 }
+// path hint: next area to walk through to reach target
+function mapRoute(to){const prev={[activeArea]:null},q=[activeArea];while(q.length){const a=q.shift();if(a===to)break;for(const l of AREAS[a].links)if(!(l in prev)){prev[l]=a;q.push(l)}}
+  if(!(to in prev))return null;const path=[];for(let a=to;a;a=prev[a])path.unshift(a);return path}
+const mapSheet=$('#mapSheet');
+function openWorldMap(){
+  if(anyModal()&&mapSheet.hidden){toast('先關閉其他視窗');return}
+  sheet.hidden=charSheet.hidden=true;hideMenu();mapSheet.hidden=false;setModal(true);renderWorldMap();
+}
+function closeWorldMap(){mapSheet.hidden=true;setModal(false)}
+function renderWorldMap(pick=null){
+  const w=wantedOf();$('#mapTop').textContent=`${dayName()} · 通緝：武田 ${Math.round(w.takeda)}／上杉 ${Math.round(w.uesugi)}`;
+  drawWorldMap($('#mapCv'),260);
+  const box=$('#mapNodes');box.replaceChildren();
+  for(const [id,a] of Object.entries(AREAS)){const b=document.createElement('button');b.className='mapNode'+(id===pick?' on':'');b.dataset.area=id;
+    b.style.left=a.map.x*100+'%';b.style.top=a.map.y*260+'px';b.setAttribute('aria-label',areaStates[id].visited?a.name:'未探索區域');
+    b.onclick=()=>renderWorldMap(id);box.appendChild(b)}
+  const info=$('#mapInfo'),act=$('#mapActions');act.replaceChildren();
+  const btn=(label,fn)=>{const b=document.createElement('button');b.className='wide';b.textContent=label;b.onclick=fn;act.appendChild(b)};
+  if(!pick){info.textContent='點區域睇詳情。只可以直接去隔籬區域。';return}
+  const a=AREAS[pick],seen=areaStates[pick].visited,name=seen?a.name:'未探索之地';
+  if(pick===activeArea){info.textContent=`${a.name} · 主隊喺度。${a.hint||''}`;return}
+  info.textContent=seen?`${a.name} · ${a.hint||''}`:'未探索 · 去到先知有咩。';
+  if(AREAS[activeArea].links.includes(pick))btn(`出發：${name}（已選 ${travelParty().filter(u=>!u.carriedBy).length} 人）`,()=>{closeWorldMap();startTravel(pick)});
+  else{const r=mapRoute(pick);info.textContent+=r?` 要經${r.slice(1,-1).map(x=>areaStates[x].visited?AREAS[x].name:'未探索之地').join('、')}先到。`:' 暫時冇路去。'}
+  if(areaUnits(pick).some(u=>u.team==='a'&&!u.dead))btn(`切換留守隊 · ${name}`,()=>{closeWorldMap();switchReserve(pick)});
+}
+$('#bMap').onclick=openWorldMap;$('#bMapClose').onclick=closeWorldMap;
+addEventListener('keydown',e=>{if(e.code==='Escape'&&!mapSheet.hidden){e.preventDefault();closeWorldMap()}});

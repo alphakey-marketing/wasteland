@@ -23,7 +23,7 @@ function arriveTalk(u,npc,act){
     if(c&&c.team==='e'){toast('足輕：呢個人冇懸賞');return}
     toast('足輕：有懸賞犯就揹過嚟，生擒先有錢')}
 }
-function anyModal(){return !shopSheet.hidden||!lootSheet.hidden||!barSheet.hidden||!$('#journalSheet').hidden}
+function anyModal(){return !shopSheet.hidden||!lootSheet.hidden||!barSheet.hidden||!$('#journalSheet').hidden||!$('#mapSheet').hidden}
 function setModal(on){modal=on}
 
 const shopSheet=$('#shopSheet'),shopList=$('#shopList');let shopUnit=null,shopTab='buy',shopVendor=null;
