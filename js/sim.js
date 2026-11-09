@@ -284,6 +284,7 @@ function updAlly(u,dt){
   u.state=u.carry?'揹緊'+u.carry.name:ratio(u,'legs')<=0?'爬行中':encMul(u)<1?'負重過重':'待命';
 }
 function updOther(u,dt){
+  if((u===TRADER||u===INNKEEPER)&&!u.down){npcLife(u,dt);return}
   if((u.team==='n'&&!outpostSide(u))||u.kind==='border_refugee'||u.down)return;
   const pursued=units.find(a=>a.id===u.pursuitId&&!a.down&&hostile(u,a));
   if(pursued&&dist(u,pursued)<10){u.home={x:pursued.x,y:pursued.y};u.aggro=true}else u.pursuitId=null;
@@ -300,7 +301,7 @@ function updOther(u,dt){
   if(u.victim){u.state=u.team==='w'?'咬緊':'補刀';engage(u,u.victim,dt);return}
   u.aggro=false;u.lastHit=null;u.state='巡邏';
   if(u.team==='g'&&!outpostSide(u)){for(const [k] of PARTS){const p=u.p[k];if(!p.lost&&p.hp<p.max)p.hp=Math.min(p.max,p.hp+3*dt)}u.bleed=0}
-  if(u.kind?.startsWith('patrol_')){const r=patrolRoute(u),w=r[(u.ri||0)%r.length];if(step(u,w.x,w.y,dt,.32)||dist(u,w)<.5)u.ri=(u.ri||0)+1;return}
+  if(u.kind?.startsWith('patrol_')){if(u.restT>0){u.restT-=dt;u.state='食飯休息';return}const r=patrolRoute(u),w=r[(u.ri||0)%r.length];if(step(u,w.x,w.y,dt,.32)||dist(u,w)<.5){u.ri=(u.ri||0)+1;if(u.ri%4===0)u.restT=10}return}
   if(dist(u,u.home)>2.2)step(u,u.home.x,u.home.y,dt,.55);
   else{if(!u.wp||dist(u,u.wp)<.2)u.wp={x:u.home.x+rand(-1.6,1.6),y:u.home.y+rand(-1.6,1.6)};step(u,u.wp.x,u.wp.y,dt,.22)}
 }

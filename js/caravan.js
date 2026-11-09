@@ -28,7 +28,7 @@ function moveCaravan(target){
   const source=caravanJourney.area,l=caravanLeader(),members=areaUnits(source).filter(u=>u===l||(u.leader===l&&!u.down&&!u.carriedBy));
   for(const u of areaUnits(source))if(u.leader===l&&!members.includes(u)){u.leader=null;u.home={x:u.x,y:u.y}}
   putAreaUnits(source,areaUnits(source).filter(u=>!members.includes(u)));
-  if(!target){awayCaravan=members;caravanJourney.area=null;caravanJourney.phase='away';caravanJourney.nextAt=simT+120;toast('遊商已離開山道，去外地行商');return}
+  if(!target){awayCaravan=members;caravanJourney.area=null;caravanJourney.phase='away';caravanJourney.nextAt=simT+120+safetyDelay();toast('遊商已離開山道，去外地行商');return}
   const gate=AREAS[target].gate;
   members.forEach((u,i)=>{u.x=gate.x+(i%2)*.7;u.y=gate.y+Math.floor(i/2)*.7;u.home={x:u.x,y:u.y};u.wp=null});
   putAreaUnits(target,[...areaUnits(target),...members]);caravanJourney.area=target;caravanJourney.phase='arrive';caravanJourney.nextAt=0;

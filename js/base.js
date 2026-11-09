@@ -138,6 +138,7 @@ function addWanted(side,n,why){const w=wantedOf(),before=w[side];w[side]=Math.mi
   if(Math.floor(w[side]/100)>Math.floor(before/100))toast(`${FACTIONS[side].name}懸賞你 ${Math.round(w[side])} 文！`);
   campaign.anger[side]=true;}
 function onDowned(t){
+  if(!t.bountied&&(t.team==='s'||t.team==='e')&&(t.hitBy==='s'||t.hitBy==='e')&&t.hitBy!==t.team){t.bountied=true;logClash(t);return}
   if(t.bountied||t.hitBy!=='a')return;const side=outpostSide(t);if(!side)return;t.bountied=true;
   if(/^hunter_/.test(t.kind||'')){const w=wantedOf();w[side]=Math.floor(w[side]/2);return}
   addWanted(side,outpostInfo(t)?.role==='commander'?40:15,outpostInfo(t)?.role==='commander'?'打倒守將':'打倒士兵');
@@ -173,3 +174,32 @@ function washOptions(){
       fn:()=>{const n=Math.min(k,Math.ceil(w[side]));if(money<n*100){toast(`錢唔夠（要 ${n*100} 文）`);return}money-=n*100;w[side]=Math.max(0,w[side]-n);toast(`${nm}懸賞減咗 ${n}，剩 ${Math.round(w[side])}`)}})}}
   return opts;
 }
+
+/* ---------- NPC 生活：晝夜、商人日程、巡邏休息、爭地盤紀錄 ---------- */
+const DAY_LEN=480; // one day = 8 minutes of sim time
+const dayFrac=()=>(simT%DAY_LEN)/DAY_LEN;
+const isNight=()=>dayFrac()>=.7;
+const dayName=()=>{const f=dayFrac();return f<.55?'白天':f<.7?'黃昏':'夜晚'};
+let lifeClock=0,clashAt=-99;
+function tickLife(dt){
+  lifeClock+=dt;if(lifeClock<1)return;lifeClock=0;
+  const f=dayFrac(),el=$('#tint');if(!el)return;
+  const a=f<.55?0:f<.7?(f-.55)/.15*.15:.32;
+  el.style.opacity=a.toFixed(2);
+}
+// Trader and innkeeper wander near their post by day; trader stands by the inn at night.
+function npcLife(u,dt){
+  if(!u.post)u.post={x:u.x,y:u.y};
+  if(allies().some(a=>a.cmd[0]?.npc===u))return;
+  let goal=u.post,r=1.1;
+  if(u===TRADER&&isNight()){goal={x:INNKEEPER.post?INNKEEPER.post.x+1:INNKEEPER.x+1,y:(INNKEEPER.post?INNKEEPER.post.y:INNKEEPER.y)+.3};r=.3;u.state='收檔'}
+  else u.state=u===TRADER?'擺檔':'招呼客人';
+  if(dist(u,goal)>r+.3){step(u,goal.x,goal.y,dt,.4);return}
+  if(!u.wp||dist(u,u.wp)<.15){u.wp={x:goal.x+rand(-r,r),y:goal.y+rand(-r,r)}}
+  step(u,u.wp.x,u.wp.y,dt,.18);
+}
+function logClash(t){
+  if(simT-clashAt<60)return;clashAt=simT;
+  borderLog(`${t.team==='s'?'山賊':'落武者'}同${t.team==='s'?'落武者':'山賊'}喺${AREAS[activeArea].name}交戰`);
+}
+function safetyDelay(){return Math.min(120,15*borderUnits().filter(u=>u.team==='e'&&!u.down&&!u.dead).length)}

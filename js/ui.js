@@ -15,7 +15,7 @@ function arriveTalk(u,npc,act){
   if(act==='campaign'){if(npc===INNKEEPER)openJournal();else borderTalk(u,npc);return}
   if(npc===INNKEEPER){if(act==='bar')openBar(u);else openShop(u,'inn');return}
   if(npc.kind==='caravan'){if(caravanAngry){toast('遊商：強盜！我唔同你做生意');return}openShop(u,'caravan','caravan:'+npc.id);return}
-  if(npc===TRADER){if(repTown<=-30){toast('商人：你哋係青葉村嘅敵人，我唔做你生意');return}openShop(u,'village');return}
+  if(npc===TRADER){if(isNight()){toast('商人已收檔，天光先開（宿屋照常）');return}if(repTown<=-30){toast('商人：你哋係青葉村嘅敵人，我唔做你生意');return}openShop(u,'village');return}
   if(npc===GUARD){if(repTown<=-30){toast('足輕：滾！');return}const c=u.carry;
     if(c&&c.team==='e'&&c.bounty&&!c.dead){money+=c.bounty;float(u,`+${c.bounty} 文 賞金`,'#f0c45a',true);toast(`足輕收咗 ${c.name}，賞金 ${c.bounty} 文`);
       u.carry=null;c.carriedBy=null;units.splice(units.indexOf(c),1);changeRep(10,'交懸賞犯');return}
