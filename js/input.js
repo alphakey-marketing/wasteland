@@ -69,7 +69,9 @@ function issueOne(c,target,why,filter){ // send only the nearest suitable select
   if(!list.length){toast(sel.size?(why||'揀咗嘅隊友做唔到'):'先揀隊友（點佢或者框選）');return null}
   const u=nearest(list,target);fleeCheck([u]);push(u,c);return u;
 }
+function pickTree(sx,sy){for(const t of props){if(!t.tree||treeWood(t)===0||!fogVisible(t))continue;const s=scr(t.x,t.y,t.h*.5);if(Math.hypot(s.x-sx,s.y-sy)<24*Math.max(.8,cam.z))return t}return null}
 function tap(sx,sy){
+  if(buildMode){tryPlace(sx,sy);return}
   for(const gate of AREAS[activeArea].exits){const gs=scr(gate.x,gate.y,20);
     if(fogKnown(gate)&&knownLandmarks().length&&Math.hypot(sx-gs.x,sy-gs.y)<24*Math.max(.8,cam.z)){landmarkMenu(sx,sy);return}}
   for(const def of OUTPOSTS)if(def.area===activeArea&&fogKnown(def)){const s=scr(def.x,def.y,48);if(Math.hypot(sx-s.x,sy-s.y)<24*Math.max(.8,cam.z)){outpostMenu(sx,sy,def);return}}
@@ -104,12 +106,15 @@ function tap(sx,sy){
       showMenu(sx,sy,u.name,[...opts,
         {label:`叫${others.map(a=>a.name).join('、')}跟住${u.name}`,sub:'一直跟住佢行，見敵照打。落新指令就會取消',fn:()=>{fleeCheck(others);others.forEach(a=>{a.cmd=[{t:'follow',u}]});toast(`${others.map(a=>a.name).join('、')} 跟住 ${u.name}`)}}]);return}
     if(issue(()=>({t:'attack',u})))fx.pings.push({x:u.x,y:u.y,t:performance.now(),col:'#d65b41'});return}
-  const bd=pickBed(sx,sy);if(bd){innMenu(sx,sy);return}
+  const bd=pickBed(sx,sy);if(bd){if(bd.own){const v=issueOne({t:'sleep',bed:bd},bd);if(v)toast(`${v.name} 去瞓覺`);return}innMenu(sx,sy);return}
   const pl=pickPile(sx,sy);
-  if(pl){showMenu(sx,sy,pl.permanent?`${pl.name} · ${pl.pack.length?'物資只可取一次':'已搜清'}`:`地上布袋 · ${pl.pack.length} 樣嘢 · ${Math.max(0,Math.ceil((300-(simT-pl.t))/60))} 分鐘內會消失`,[{label:pl.permanent?'搜查':'執起',sub:'行過去揀要拎咩',fn:()=>{const v=issueOne({t:'loot',body:pl},pl);if(v)toast(`${v.name} 去搜查`)}}]);return}
+  if(pl){showMenu(sx,sy,pl.chest?`儲物箱 · ${pl.pack.length} 樣嘢`:pl.permanent?`${pl.name} · ${pl.pack.length?'物資只可取一次':'已搜清'}`:`地上布袋 · ${pl.pack.length} 樣嘢 · ${Math.max(0,Math.ceil((300-(simT-pl.t))/60))} 分鐘內會消失`,[{label:pl.permanent?'搜查':'執起',sub:'行過去揀要拎咩',fn:()=>{const v=issueOne({t:'loot',body:pl},pl);if(v)toast(`${v.name} 去搜查`)}}]);return}
   const o=pickOre(sx,sy);
   if(o){const list=[...sel].filter(a=>!a.down&&!a.carry);if(!list.length){toast('先揀冇揹人嘅隊友');return}
     fleeCheck(list);list.forEach(a=>push(a,{t:'mine',node:o}));toast(`${list.map(a=>a.name).join('、')} 去採${ITEMS[o.ore].name}`);return}
+  const tr=pickTree(sx,sy);
+  if(tr){const list=[...sel].filter(a=>!a.down&&!a.carry);if(!list.length){toast('先揀冇揹人嘅隊友');return}
+    fleeCheck(list);list.forEach(a=>push(a,{t:'chop',node:tr}));toast(`${list.map(a=>a.name).join('、')} 去砍樹`);return}
   const w=world(sx,sy);if(w.x<0||w.y<0||w.x>MAP||w.y>MAP)return;
   const ex=exitAt(w.x,w.y);if(ex){startTravel(ex.to);return}
   const grp=groupSync&&!paused?[...sel].filter(u=>!u.down):null;

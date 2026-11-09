@@ -19,7 +19,9 @@ function drawProp(p){
   const panel=(a,b,c,d,fill)=>poly([a,b,c,d],fill);
   const seam=(a,b,color='#66503a')=>{ctx.strokeStyle=color;ctx.lineWidth=.8*cam.z;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()};
   const sc=scr(p.x,p.y);ctx.fillStyle='rgba(40,24,10,.28)';ell(sc.x+6*cam.z,sc.y+3*cam.z,p.s*40*cam.z,p.s*18*cam.z);ctx.fill();
+  if(p.built){drawBuilt(p,sc);return}
   if(p.tree){
+    if(treeWood(p)===0){inkRect(sc.x-3*cam.z,sc.y-5*cam.z,6*cam.z,5*cam.z,'#70513a');return}
     inkRect(sc.x-2*cam.z,sc.y-p.h*.7*cam.z,4*cam.z,p.h*.7*cam.z,'#70513a');
     for(const [hh,w] of [[.45,12],[.7,10],[.93,7]])poly([{x:sc.x-w*cam.z,y:sc.y-p.h*hh*cam.z},{x:sc.x,y:sc.y-(p.h*hh+14)*cam.z},{x:sc.x+w*cam.z,y:sc.y-p.h*hh*cam.z}],rgb(p.c,hh===.45?.8:1));
     return;
@@ -78,7 +80,7 @@ function drawProp(p){
 }
 function drawPile(p){const s=scr(p.x,p.y),z=cam.z;
   if(!fogVisible(p))return;
-  if(p.permanent){drawProp({x:p.x,y:p.y,s:.65,h:10,c:p.pack.length?[155,116,64]:[106,97,74],crate:1});label(p.pack.length?p.name:'已搜清',s.x,s.y-20*z,'#e8d9ae',9);return}
+  if(p.permanent){drawProp({x:p.x,y:p.y,s:.65,h:10,c:p.pack.length?[155,116,64]:[106,97,74],crate:1});label(p.pack.length||p.chest?p.name:'已搜清',s.x,s.y-20*z,'#e8d9ae',9);return}
   const fade=simT-p.t>240?.5+.5*Math.sin(simT*6):1;ctx.globalAlpha=fade;
   ctx.fillStyle='rgba(35,20,8,.35)';ell(s.x,s.y+1*z,9*z,3.5*z);ctx.fill();
   ctx.fillStyle='#9b7a4f';ell(s.x,s.y-4*z,7.5*z,6*z);ctx.fill();ctx.fillStyle='#7d5f3b';ell(s.x+2*z,s.y-3*z,4.5*z,4.5*z);ctx.fill();
@@ -211,7 +213,7 @@ function drawPaths(){
   for(const u of allies()){if(u.down||!u.cmd.length)continue;
     const strong=paused||sel.has(u);ctx.globalAlpha=strong?1:.35;
     let prev=scr(u.x,u.y);
-    u.cmd.forEach((c,i)=>{const tgt=c.t==='move'?c:(c.t==='bandage'||c.t==='feed')?c.pat:c.t==='sleep'?c.bed:c.t==='mine'?c.node:c.t==='talk'?c.npc:(c.t==='attack'||c.t==='follow')?c.u:c.body;if(c.t!=='move'&&tgt.team!=='a'&&!fogVisible(tgt))return;const p=scr(tgt.x,tgt.y);
+    u.cmd.forEach((c,i)=>{const tgt=c.t==='move'?c:(c.t==='bandage'||c.t==='feed')?c.pat:c.t==='sleep'?c.bed:c.t==='mine'||c.t==='chop'?c.node:c.t==='build'?c:c.t==='talk'?c.npc:(c.t==='attack'||c.t==='follow')?c.u:c.body;if(c.t!=='move'&&tgt.team!=='a'&&!fogVisible(tgt))return;const p=scr(tgt.x,tgt.y);
       ctx.strokeStyle=c.t==='attack'?'#d65b41':c.t==='move'?'#eaa93a':'#f0c45a';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(prev.x,prev.y);ctx.lineTo(p.x,p.y);ctx.stroke();
       if(c.t==='move'){ctx.setLineDash([]);ctx.fillStyle='rgba(234,169,58,.9)';ell(p.x,p.y,7*cam.z,3.5*cam.z);ctx.fill();
         if(paused&&u.cmd.length>1){ctx.fillStyle='#24180a';ctx.font=`700 ${9*cam.z}px "Chakra Petch",sans-serif`;ctx.textAlign='center';ctx.fillText(i+1,p.x,p.y+3*cam.z)}

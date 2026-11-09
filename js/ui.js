@@ -76,6 +76,7 @@ function renderLoot(){
   const rows=lootRows(b);
   lootList.innerHTML=rows.length?rows.map((r,i)=>{const it=ITEMS[r.id];return `<li><div class="nm"><b>${it.name}${r.n>1?' ×'+r.n:''}${r.slot?' · 身上著緊':''}</b><span>${r.id==='coin'?'全隊錢包':it.type==='quest'?desc(r.id):desc(r.id)+` · 賣 ${sellPrice(r.id)} 文`}</span></div><div class="btns"><button data-i="${i}">拎</button></div></li>`}).join('')
     :`<li><span class="empty">${b.pile?'已經搜清光':'已被搜清 · 身上冇可取物品，可能已被其他人搜走'}</span></li>`;
+  if(b.chest){lootList.insertAdjacentHTML('beforeend',`<li><div class="nm"><b>${u.name} 身上嘅嘢 · 點擊存入</b></div></li>`+u.pack.map((s,i)=>`<li><div class="nm"><b>${ITEMS[s.id].name}${s.n>1?' ×'+s.n:''}</b></div><div class="btns"><button data-dep="${i}">存入</button></div></li>`).join(''))}
   lootList.querySelectorAll('button[data-i]').forEach(bt=>{if(fatalHarvest(rows[+bt.dataset.i]))bt.textContent=harvestArmed?'確認宰割':'宰割取材（會死亡）'});
   $('#bLootAll').textContent=rows.some(fatalHarvest)?harvestArmed?'確認宰割並全拎':'宰割並全拎（會死亡）':'全部拎走';
   $('#bLootAll').disabled=!rows.length;
@@ -85,7 +86,8 @@ function renderLoot(){
 function takeRow(r){const b=lootBody,u=lootUnit;
   if(fatalHarvest(r))kill(b);
   if(r.slot){addItem(u,r.id,1);b.eq[r.slot]=null}else{const s=b.pack[r.idx];addItem(u,s.id,s.n);b.pack.splice(r.idx,1)}}
-lootList.addEventListener('click',e=>{const bt=e.target.closest('button');if(!bt)return;const rows=lootRows(lootBody);const r=rows[+bt.dataset.i];if(r&&confirmHarvest([r]))takeRow(r);renderLoot();updatePortraits(true)});
+lootList.addEventListener('click',e=>{const dp=e.target.closest('button[data-dep]');if(dp&&lootBody.chest){const s=lootUnit.pack[+dp.dataset.dep];if(s){const t=lootBody.pack.find(x=>x.id===s.id&&ITEMS[s.id].stack);if(t)t.n+=s.n;else lootBody.pack.push({id:s.id,n:s.n});lootUnit.pack.splice(+dp.dataset.dep,1)}renderLoot();updatePortraits(true);return}
+  const bt=e.target.closest('button');if(!bt)return;const rows=lootRows(lootBody);const r=rows[+bt.dataset.i];if(r&&confirmHarvest([r]))takeRow(r);renderLoot();updatePortraits(true)});
 $('#bLootAll').addEventListener('click',()=>{if(!confirmHarvest(lootRows(lootBody)))return;let rows;while((rows=lootRows(lootBody)).length)takeRow(rows[rows.length-1]);toast(`${lootUnit.name} 執晒`);renderLoot();updatePortraits(true)});
 $('#bLootCarry').addEventListener('click',()=>{pickUp(lootUnit,lootBody);lootSheet.hidden=true;setModal(false);updatePortraits(true)});
 $('#bLootClose').addEventListener('click',()=>{lootSheet.hidden=true;setModal(false)});
@@ -226,6 +228,7 @@ bPause.addEventListener('click',()=>{setPaused(!paused);if(!paused){const n=alli
 $('#bSlow').addEventListener('click',e=>{speed=speed<1?1:.25;e.currentTarget.setAttribute('aria-pressed',speed<1);refreshStatus()});
 $('#bSel').addEventListener('click',e=>{selectMode=!selectMode;e.currentTarget.setAttribute('aria-pressed',selectMode);toast(selectMode?'框選模式：單指拖 = 拉框':'返回普通模式：單指拖 = 鏡頭')});
 const otherSquads=()=>Object.keys(AREAS).filter(id=>id!==activeArea&&areaStates[id]?.units.some(u=>u.team==='a'&&!u.dead));
+$('#bBuild').addEventListener('click',()=>buildMenu(W-60,H-220));
 $('#bSwap').addEventListener('click',()=>{const o=otherSquads();if(o.length)switchReserve(o[0])});
 $('#bAll').addEventListener('click',()=>{sel.clear();allies().filter(u=>!u.dead).forEach(u=>sel.add(u));updatePortraits(true);toast('全隊已選')});
 addEventListener('keydown',e=>{if(e.code==='Space'&&!(e.target instanceof HTMLInputElement)){e.preventDefault();bPause.click()}});

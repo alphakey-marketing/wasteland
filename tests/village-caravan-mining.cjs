@@ -15,7 +15,7 @@ async function reload(p){await p.reload({waitUntil:'networkidle'});await p.evalu
     const p=await open();
     allTrue(await p.evaluate(()=>{
       const m=merchantState('village'),inn=merchantState('inn'),v=merchantState('caravan','test');
-      return {poor:Object.values(m.stock).reduce((a,b)=>a+b,0)===7&&m.cash===180&&inn.cash===50,
+      return {poor:Object.values(m.stock).reduce((a,b)=>a+b,0)===11&&m.cash===180&&inn.cash===50,
         basics:m.stock.ration===2&&m.stock.medkit===1&&m.stock.kit===1,
         noRichGear:!m.stock.plate&&!m.stock.axe&&!m.stock.p_mil,
         betterCaravan:v.stock.plate===1&&v.stock.axe===1&&v.stock.p_mil===1&&!v.stock.p_forged};

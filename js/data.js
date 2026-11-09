@@ -14,6 +14,8 @@ const ITEMS={
   plate:{name:'鐵札甲',type:'armor',w:10,v:220,red:.3,dod:-8},
   copper:{name:'銅礦',type:'ore',w:3,v:10,stack:1},
   iron:{name:'鐵礦',type:'ore',w:4,v:16,stack:1},
+  wood:{name:'木材',type:'goods',w:2,v:4,stack:1},
+  rope:{name:'麻繩',type:'goods',w:.5,v:8,stack:1},
   hide:{name:'犬皮',type:'goods',w:2,v:12,stack:1},
   kit:{name:'機關修具',type:'tool',w:1,v:40,stack:1},
   p_scrap:{name:'木鐵機關肢',type:'pros',w:6,v:150,pros:'scrap'},

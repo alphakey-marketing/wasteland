@@ -194,10 +194,28 @@ function runCmd(u,dt,ne,nd){
       u.state='採礦';u.mineT+=dt*(1+u.sk.str.lv*.03);train(u,'str',.3*dt);
       if(u.mineT>=4){u.mineT=0;addItem(u,c.node.ore,1);float(u,`+1 ${ITEMS[c.node.ore].name}`,'#e8c79a')}
       break}
+    case 'chop':{const t=c.node;
+      if(treeWood(t)===0){u.cmd.shift();break}
+      if(ne&&nd<3&&!u.carry){u.state='自衛';engage(u,ne,dt);break}
+      if(dist(u,t)>t.s*.62+.6){u.state='去砍樹';step(u,t.x,t.y,dt);break}
+      if(load(u)>cap(u)*1.6){u.cmd.shift();toast(`${u.name} 揹唔郁喇，停咗砍樹`);break}
+      u.state='砍樹';u.chopT=(u.chopT||0)+dt*(1+u.sk.str.lv*.03);train(u,'str',.25*dt);
+      if(u.chopT>=5){u.chopT=0;t.wood=treeWood(t)-1;addItem(u,'wood',1);float(u,'+1 木材','#e8c79a');if(t.wood===0){t.cut=simT;u.cmd.shift()}}
+      break}
+    case 'build':{const d=BUILDS[c.k];
+      if(ne&&nd<3&&!u.carry){u.state='自衛';engage(u,ne,dt);break}
+      if(!c.started){
+        if(dist(u,c)>1.3){u.state='去起'+d.name;step(u,c.x,c.y,dt);break}
+        const why=placeProblem(c.x,c.y);if(why){u.cmd.shift();toast(why);break}
+        if(!buildPay(c.k)){u.cmd.shift();toast('材料唔夠，建造取消');break}
+        c.started=true;c.prog=0}
+      u.state='起緊'+d.name;c.prog+=dt;
+      if(c.prog>=d.sec){u.cmd.shift();addBuilt(activeArea,c.k,c.x,c.y);float(u,`起好 ${d.name}`,'#a9e08a')}
+      break}
     case 'talk':if(c.npc.down||c.npc.dead||!units.includes(c.npc)){u.cmd.shift();break}if(dist(u,c.npc)>1.35){u.state='行去'+c.npc.name;step(u,c.npc.x,c.npc.y,dt)}else{u.cmd.shift();arriveTalk(u,c.npc,c.act)}break;
     case 'sleep':{const b=c.bed;
       if(!c.paid){if(dist(u,b)>.7){u.state='去瞓覺';step(u,b.x,b.y,dt);break}
-        if(money<10){u.cmd.shift();toast(`唔夠錢租床（每人 10 文）`);break}money-=10;merchantState('inn').cash+=10;c.paid=true;float(u,'-10 文 租床','#f0c45a')}
+        if(b.own)c.paid=true;else{if(money<10){u.cmd.shift();toast(`唔夠錢租床（每人 10 文）`);break}money-=10;merchantState('inn').cash+=10;c.paid=true;float(u,'-10 文 租床','#f0c45a')}}
       u.x=b.x;u.y=b.y;u.state='瞓緊';u.bleed=Math.max(0,u.bleed-2*dt);
       for(const [k] of PARTS){const q=u.p[k];if(!q.lost&&!q.pros&&q.hp<q.max)q.hp=Math.min(q.max,q.hp+3*dt)}
       if(!hurt(u)){u.cmd.shift();float(u,'瞓醒，精神返晒','#a9e08a')}break}

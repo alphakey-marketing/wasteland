@@ -2,7 +2,7 @@
 // One game day is ten minutes of running simulation; menus/pause do not advance it.
 const ECONOMY_DAY=600;
 const MERCHANTS={
-  village:{title:'青葉村商人／工匠',stock:['ration','medkit','kit','knife','cloth','p_scrap'],supply:{ration:2,medkit:1,kit:1,knife:1,cloth:1,p_scrap:1},cash:180,craft:true},
+  village:{title:'青葉村商人／工匠',stock:['ration','medkit','kit','knife','cloth','p_scrap','rope'],supply:{ration:2,medkit:1,kit:1,knife:1,cloth:1,p_scrap:1,rope:4},cash:180,craft:true},
   inn:{title:'青葉宿屋',stock:INN_STOCK,supply:{ration:2,medkit:1},cash:50},
   caravan:{title:'遊商',stock:CARAVAN_STOCK,supply:{ration:6,medkit:4,kit:2},cash:600}
 };

@@ -69,3 +69,4 @@
 `node tests/save-portability.cjs` 驗證真正下載／選檔匯入、備份還原、損壞檔及儲存失敗保護、舊檔相容。
 
 `python scripts/package-release.py --version 0.2.0-rc1` 產生離線 ZIP 及校驗碼；`node tests/offline-release.cjs <解壓後的 index.html>` 驗證 `file://` 離線啟動、委託、匯出／匯入及無遠端請求。
+- 基地：點樹砍木材；撳「建造」揀床／儲物箱／籠，再點空地，隊友行過去起（4 秒）。床 = 木3+犬皮1，儲物箱 = 木4+麻繩1，籠 = 木4+鐵礦2+麻繩2；麻繩村店有售。

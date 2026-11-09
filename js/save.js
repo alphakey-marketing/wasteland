@@ -40,6 +40,7 @@ function validateSave(d){
   if(d.areas){if(!obj(d.areas)||!['village','temple','forge'].includes(d.activeArea))fail();
     for(const key of Object.keys(d.areas))if(!Object.hasOwn(AREAS,key))fail();
     const seen=new Set();for(const key of Object.keys(AREAS)){const a=d.areas[key];if(!a&&key==='forge')continue;if(!obj(a))fail();group(a.units);piles(a.piles,true);
+      if(a.built!=null){if(!Array.isArray(a.built)||a.built.length>200)fail();for(const b of a.built)if(!obj(b)||!['bed','cage'].includes(b.k)||!num(b.x,-1000,1000)||!num(b.y,-1000,1000))fail()}
       for(const u of a.units){if(seen.has(u.id))fail();seen.add(u.id)}}
     if(!d.areas[d.activeArea])fail();
   }else{group(d.units);piles(d.piles||[])}
