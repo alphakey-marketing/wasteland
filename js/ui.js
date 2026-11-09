@@ -9,7 +9,7 @@ function innMenu(sx,sy){showMenu(sx,sy,'青葉宿屋 · 酒場',[
     list.forEach(a=>{const b=BEDS.find(x=>!taken.has(x));if(!b)return;taken.add(b);a.cmd=[{t:'sleep',bed:b}];n++});
     toast(n<list.length?`得 ${BEDS.length} 張床，${n} 個人去瞓`:`${n} 個人去瞓覺`)}},
   {label:'睇下酒場有咩人請',fn:()=>{const v=issueOne({t:'talk',npc:INNKEEPER,act:'bar'},INNKEEPER);if(v)toast(`${v.name} 去酒場`)}},
-  {label:'買飯糰同藥包',fn:()=>{const v=issueOne({t:'talk',npc:INNKEEPER,act:'shop'},INNKEEPER);if(v)toast(`${v.name} 去宿屋`)}}])}
+  {label:'買飯糰同藥包',fn:()=>{const v=issueOne({t:'talk',npc:INNKEEPER,act:'shop'},INNKEEPER);if(v)toast(`${v.name} 去宿屋`)}},...washOptions()])}
 function arriveTalk(u,npc,act){
   if(anyModal()){toast(`${u.name} 到咗`);return}
   if(act==='campaign'){if(npc===INNKEEPER)openJournal();else borderTalk(u,npc);return}

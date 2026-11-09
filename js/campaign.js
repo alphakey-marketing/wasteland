@@ -9,6 +9,7 @@ function validateCampaign(c){
   if(c==null)return;
   const old=['offer','grain','orders','decision','escort','complete','loss'];
   if(![1,2,3].includes(c.v)||!(c.v===1?old.includes(c.stage):c.stage==='sandbox')||!(c.side===null||Object.hasOwn(FACTIONS,c.side))||typeof c.escort!=='boolean'||typeof c.recruited!=='boolean'||!c.rep||!Array.isArray(c.log)||c.log.length>30)throw Error('世情報格式不完整');
+  if(c.wanted!=null&&['takeda','uesugi'].some(k=>!Number.isFinite(c.wanted[k])||c.wanted[k]<0||c.wanted[k]>1e5))throw Error('懸賞格式不完整');
   for(const side of Object.keys(FACTIONS))if(!Number.isFinite(c.rep[side])||Math.abs(c.rep[side])>100)throw Error('勢力關係格式不完整');
   if(c.log.some(s=>typeof s!=='string'||s.length>500))throw Error('記錄格式不完整');
   if(c.leaderId!=null&&!(typeof c.leaderId==='number'&&Number.isFinite(c.leaderId)||typeof c.leaderId==='string'&&c.leaderId.length<=160))throw Error('護送隊長格式不完整');
@@ -135,7 +136,7 @@ function campaignEscortReady(party,gate=AREAS[activeArea].gate){
   return npc.carriedBy?party.includes(npc.carriedBy):!npc.down&&dist(npc,gate)<=2.4;
 }
 function tickCampaign(dt){
-  tickOutpost(dt);tickRaids(dt);campaignClockTotal+=dt;campaignClock+=dt;if(campaignClock>=1){campaignClock=0;ensureCampaignWorld()}
+  tickOutpost(dt);tickRaids(dt);tickWanted(dt);campaignClockTotal+=dt;campaignClock+=dt;if(campaignClock>=1){campaignClock=0;ensureCampaignWorld()}
 }
 function borderTalk(u,npc){
   if(npc.kind==='border_refugee'){if(recruitBorderRefugee(u,npc))return}
@@ -151,7 +152,7 @@ function journalButton(label,fn,disabled=false){const b=document.createElement('
 function renderJournal(){
   $('#journalTitle').textContent='世情報 · 局勢傳聞';$('#journalObjective').textContent=`${OUTPOSTS.map(d=>`${d.name}：${outpostText(d)}`).join('；')}。守將打暈後仍可能醒返；陣亡或被你揹離據點先會失守。失守後，繼承勢力約 45 秒後進駐（只計該區活動時間）。`;
   $('#journalLocation').textContent=`傳聞：武田信玄喺荒寺東北；上杉謙信喺鍛冶場東北；金屋寨喺鍛冶場深處，由上杉駐守；鍛冶場外圍有個受傷嘅機關師。冇任務，帶住貨物去邊度賣、幫邊個、打邊個，由你決定。青葉村聲望：${repTown>=30?'友好':repTown<=-30?'敵視':'普通'}（${Math.round(repTown)}）。`;
-  drawWorldMap();$('#journalFactions').replaceChildren();for(const [key,s]of Object.entries(FACTIONS)){const li=document.createElement('li'),held=OUTPOSTS.filter(d=>campaign.outposts[d.id].owner===key).length,foes=Object.keys(FACTIONS).filter(k=>factionRel(key,k)==='enemy').map(k=>FACTIONS[k].name);li.className='col';li.textContent=`${s.name}${s.lord?' · '+s.lord:''} · 關係 ${campaign.rep[key]}${OUTPOSTS.some(d=>d.owner===key||d.successor===key)?` · 據點 ${held}`:''}${foes.length?` · 敵對：${foes.join('、')}`:''}`;$('#journalFactions').appendChild(li)}
+  drawWorldMap();$('#journalFactions').replaceChildren();for(const [key,s]of Object.entries(FACTIONS)){const li=document.createElement('li'),held=OUTPOSTS.filter(d=>campaign.outposts[d.id].owner===key).length,foes=Object.keys(FACTIONS).filter(k=>factionRel(key,k)==='enemy').map(k=>FACTIONS[k].name);li.className='col';li.textContent=`${s.name}${s.lord?' · '+s.lord:''} · 關係 ${campaign.rep[key]}${SIDES.includes(key)?wantedText(key):''}${OUTPOSTS.some(d=>d.owner===key||d.successor===key)?` · 據點 ${held}`:''}${foes.length?` · 敵對：${foes.join('、')}`:''}`;$('#journalFactions').appendChild(li)}
   $('#journalLog').replaceChildren();for(const line of campaign.log){const p=document.createElement('p');p.className='note';p.textContent=line;$('#journalLog').appendChild(p)}
   $('#journalActions').replaceChildren();
   if(allSquad().every(u=>u.dead)){journalButton('全隊陣亡 · 返回戰術頁還原備份',()=>{journalSheet.hidden=true;setModal(false);sheet.hidden=false});return}

@@ -109,6 +109,7 @@ function step(u,tx,ty,dt,mul=1){
 }
 function pickPart(){let r=Math.random()*HIT_TOTAL;for(const p of PARTS){r-=p[3];if(r<=0)return p}return PARTS[1]}
 function attack(u,t){
+  t.hitBy=u.team;
   const side=outpostSide(t);
   if(u.team==='a'&&side&&!campaign.anger[side]){campaign.anger[side]=true;campaign.rep[side]=Math.max(-100,campaign.rep[side]-40);toast(`${FACTIONS[side].name}據點部隊開始反擊`)}
   if(u.team==='a'&&t.team==='g'&&!side&&repTown>-30){changeRep(-60,'攻擊足輕');repTown=Math.min(repTown,-40)}
@@ -135,14 +136,14 @@ function attack(u,t){
 }
 function drop(u){const b=u.carry;if(!b)return;b.carriedBy=null;u.carry=null;b.x=u.x+.35;b.y=u.y+.35}
 function pickUp(u,b){if(u.carry||b.carriedBy||!b.down)return false;u.carry=b;b.carriedBy=u;toast(`${u.name} 揹起咗 ${b.name}`);return true}
-function kill(t){if(t.carry)drop(t);t.dead=true;t.down=true;t.cmd=[];t.bleed=0;t.rescueT=0;float(t,'陣亡','#ff4a2e',true);sel.delete(t);if(cam.follow===t)cam.follow=null;
+function kill(t){onDowned(t);if(t.carry)drop(t);t.dead=true;t.down=true;t.cmd=[];t.bleed=0;t.rescueT=0;float(t,'陣亡','#ff4a2e',true);sel.delete(t);if(cam.follow===t)cam.follow=null;
   if(t.team==='a')toast(`${t.name} 陣亡咗`)}
 function checkWounds(t,pk,pl){
   if(t.dead)return;const part=t.p[pk];
   if(hardcore&&!part.pros&&!part.lost&&(pk==='larm'||pk==='rarm'||pk==='legs')&&part.hp<=-part.max){part.lost=true;part.hp=0;
     float(t,`${pl}斷咗`,'#ff4a2e',true);if(t.team==='a')toast(`${t.name} 嘅${pl}永久斷咗 · 去商人度買義肢`)}
   if(hardcore&&(t.p.head.hp<=-t.p.head.max||t.p.torso.hp<=-t.p.torso.max)){kill(t);return}
-  if(!t.down&&(t.p.head.hp<=0||t.p.torso.hp<=0)){if(t.carry)drop(t);t.down=true;t.downT=14;t.cmd=[];t.rescueT=0;float(t,'倒地','#f2c14e',true)}
+  if(!t.down&&(t.p.head.hp<=0||t.p.torso.hp<=0)){if(t.carry)drop(t);t.down=true;t.downT=14;t.cmd=[];t.rescueT=0;float(t,'倒地','#f2c14e',true);onDowned(t)}
 }
 function engage(u,t,dt){
   const d=dist(u,t);const sdx=(t.x-u.x)-(t.y-u.y);if(Math.abs(sdx)>.01)u.face=sdx>0?1:-1;

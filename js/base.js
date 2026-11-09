@@ -92,7 +92,7 @@ function prisonerMenu(b,sx,sy){
   ];
   if(side)opts.push({label:`贖金 · 收 ${ransomValue(b)} 文`,sub:`賣返畀${FACTIONS[side].name}；佢哋對你嘅關係 −5`,fn:()=>{money+=ransomValue(b);factionRep(b,-5);freeCage(b);b.gone=true;toast(`收到贖金 ${ransomValue(b)} 文`)}});
   opts.push({label:'釋放',sub:side?`放佢走；${FACTIONS[side].name}關係 +5`:'放佢走',fn:()=>{factionRep(b,5);freeCage(b);b.gone=true;toast(`${b.name} 走咗`)}});
-  opts.push({label:'處決',sub:side?`${FACTIONS[side].name}關係 −20，唔可撤回`:'唔可撤回',fn:()=>{factionRep(b,-20);freeCage(b);kill(b);toast(`${b.name} 被處決`)}});
+  opts.push({label:'處決',sub:side?`${FACTIONS[side].name}關係 −20，唔可撤回`:'唔可撤回',fn:()=>{factionRep(b,-20);if(side)addWanted(side,25,'處決俘虜');freeCage(b);kill(b);toast(`${b.name} 被處決`)}});
   showMenu(sx,sy,`俘虜 · ${b.name}`,opts);
 }
 function cageMenu(c,sx,sy){const b=cageOcc(c);if(b)prisonerMenu(b,sx,sy);else toast('空籠；揹倒地嘅敵人過嚟（撳佢 → 押入籠）')}
@@ -129,4 +129,47 @@ function autoWork(u,dt){
   if(j==='mine'){const o=nearest(ORES.filter(fogKnown),u);
     if(o){u.cmd=[{t:'mine',node:o,auto:true}];return true}u.state='冇礦可採';return false}
   return false;
+}
+
+/* ---------- 懸賞：打勢力嘅人會被通緝，過百有賞金獵人上門 ---------- */
+const SIDES=['takeda','uesugi'];
+function wantedOf(){const w=campaign.wanted||(campaign.wanted={takeda:0,uesugi:0,why:{}});if(!w.why)w.why={};return w}
+function addWanted(side,n,why){const w=wantedOf(),before=w[side];w[side]=Math.min(1000,before+n);w.why[side]=why;
+  if(Math.floor(w[side]/100)>Math.floor(before/100))toast(`${FACTIONS[side].name}懸賞你 ${Math.round(w[side])} 文！`);
+  campaign.anger[side]=true;}
+function onDowned(t){
+  if(t.bountied||t.hitBy!=='a')return;const side=outpostSide(t);if(!side)return;t.bountied=true;
+  if(/^hunter_/.test(t.kind||'')){const w=wantedOf();w[side]=Math.floor(w[side]/2);return}
+  addWanted(side,outpostInfo(t)?.role==='commander'?40:15,outpostInfo(t)?.role==='commander'?'打倒守將':'打倒士兵');
+}
+function wantedText(side){const w=wantedOf(),n=Math.round(w[side]);return n>0?` · 懸賞 ${n} 文（${w.why[side]||'通緝'}）`:''}
+function hunterWave(side){
+  const w=wantedOf(),n=Math.min(3,1+Math.floor(w[side]/150)),camp=CAMPS.find(c=>c.side===side);if(!camp)return;
+  const from=camp.area===activeArea?{x:camp.x,y:camp.y+2.6}:arrivalPoint(activeArea,camp.area),s=FACTIONS[side];
+  for(let i=0;i<n;i++){const kind=`hunter_${side}_${Math.floor(simT)}_${i}`;
+    borderSpawn(activeArea,{id:kind,kind,team:'g',name:`${s.name}賞金獵人`,color:s.color,base:50+i*4,x:from.x+i*.7,y:from.y+(i%2)*.7,home:{x:from.x,y:from.y},aggroR:12,leash:30,eq:{weapon:i?'knife':'machete',armor:'leather'},lv:{atk:12+i*2,tough:12,dod:9},pack:[{id:'ration',n:1}]})}
+  toast(`${s.name}派咗賞金獵人搵你！`);
+}
+let wantedClock=0,hunterTimer={};
+function tickWanted(dt){
+  const w=wantedOf();
+  for(const side of SIDES){
+    if(w[side]>0)w[side]=Math.max(0,w[side]-dt*.1);
+    if(campaign.rep[side]<=-40)campaign.anger[side]=true;
+    else if(campaign.rep[side]>=40&&w[side]<20)campaign.anger[side]=false;
+  }
+  wantedClock+=dt;if(wantedClock<1)return;wantedClock=0;
+  for(const side of SIDES){
+    if(w[side]<100){hunterTimer[side]=null;continue}
+    if(borderUnits().some(u=>u.kind?.startsWith(`hunter_${side}_`)&&!u.dead&&!u.down))continue;
+    hunterTimer[side]=(hunterTimer[side]??rand(60,120))-1;
+    if(hunterTimer[side]<=0){hunterTimer[side]=rand(150,240);hunterWave(side)}
+  }
+}
+function washOptions(){
+  const w=wantedOf(),opts=[];
+  for(const side of SIDES){if(w[side]<1)continue;const nm=FACTIONS[side].name;
+    for(const k of [1,5]){opts.push({label:`${nm}洗底：付 ${k*100} 文 · 懸賞 −${k}`,sub:`現時懸賞 ${Math.round(w[side])} 文`,
+      fn:()=>{const n=Math.min(k,Math.ceil(w[side]));if(money<n*100){toast(`錢唔夠（要 ${n*100} 文）`);return}money-=n*100;w[side]=Math.max(0,w[side]-n);toast(`${nm}懸賞減咗 ${n}，剩 ${Math.round(w[side])}`)}})}}
+  return opts;
 }

@@ -25,4 +25,4 @@ const CAMPS=[
   {side:'uesugi',area:'forge',x:24,y:2.8,name:'上杉本陣'}
 ];
 // Faction identity of any faction-bound unit: outpost garrison, lord, camp guard, patrol, raider.
-const outpostSide=u=>outpostInfo(u)?.side||/^(?:border_lord|camp_guard|patrol|raid)_(takeda|uesugi)/.exec(u?.kind||'')?.[1]||null;
+const outpostSide=u=>outpostInfo(u)?.side||/^(?:border_lord|camp_guard|patrol|raid|hunter)_(takeda|uesugi)/.exec(u?.kind||'')?.[1]||null;
