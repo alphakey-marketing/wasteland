@@ -3,10 +3,11 @@
 const FACTIONS={
   takeda:{name:'武田家',lord:'武田信玄',color:'#b95c48'},
   uesugi:{name:'上杉家',lord:'上杉謙信',color:'#7396bd'},
+  ikko:{name:'一向宗',lord:'坊官・下間賴照',color:'#c9a24a'},
   village:{name:'青葉村',color:'#8da66d'}
 };
 // 'enemy' fights on sight. Missing pair = neutral. Keep table symmetric.
-const FACTION_REL={takeda:{uesugi:'enemy'},uesugi:{takeda:'enemy'}};
+const FACTION_REL={takeda:{uesugi:'enemy'},uesugi:{takeda:'enemy',ikko:'enemy'},ikko:{uesugi:'enemy'}};
 const factionRel=(a,b)=>a===b?'self':FACTION_REL[a]?.[b]||'neutral';
 // Strongholds. owner holds it at start; successor moves in after it falls.
 // 'misaka' keeps the old unit kind names (outpost_<side>_<role>) so old saves still load.
@@ -24,5 +25,7 @@ const CAMPS=[
   {side:'takeda',area:'temple',x:24,y:2.8,name:'武田本陣'},
   {side:'uesugi',area:'forge',x:24,y:2.8,name:'上杉本陣'}
 ];
+// 善光寺本堂：一向宗大本營，位置跟種子生成嘅本堂
+{const h=areaStates.zenkoji.props.find(p=>p.landmark==='善光寺本堂');CAMPS.push({side:'ikko',area:'zenkoji',x:h.x,y:Math.min(h.y+1.8,25),name:'善光寺本堂',guard:'僧兵',patrol:'門徒'})}
 // Faction identity of any faction-bound unit: outpost garrison, lord, camp guard, patrol, raider.
-const outpostSide=u=>outpostInfo(u)?.side||/^(?:border_lord|camp_guard|patrol|raid|hunter)_(takeda|uesugi)/.exec(u?.kind||'')?.[1]||null;
+const outpostSide=u=>outpostInfo(u)?.side||/^(?:border_lord|camp_guard|patrol|raid|hunter)_(takeda|uesugi|ikko)/.exec(u?.kind||'')?.[1]||null;

@@ -25,7 +25,7 @@ function rollEncounter(from,to,walkers,arr){
 function spawnEncounter(type,to,arr){
   const c=AREAS[to].center,dx=c.x-arr.x,dy=c.y-arr.y,l=Math.hypot(dx,dy)||1,at={x:arr.x+dx/l*3.2,y:arr.y+dy/l*3.2},lv=Math.max(1,areaLv(to)),place=AREAS[to].name;
   const near=i=>({x:at.x+(i%3-1)*.8,y:at.y+Math.floor(i/3)*.8});
-  if(type==='ambush'){const n=2+Math.floor(lv/2),name=areaTpl(to)==='ruin'?'落武者':areaTpl(to)==='pass'?'山道浪人':'山賊';
+  if(type==='ambush'){const n=2+Math.floor(lv/2),name=(to==='zenkoji'||AREAS.zenkoji.links.includes(to))&&campaign.rep.ikko<=-20?'一揆眾':areaTpl(to)==='ruin'?'落武者':areaTpl(to)==='pass'?'山道浪人':'山賊';
     for(let i=0;i<n;i++){const p=near(i);borderSpawn(to,{kind:'enc_ambush',team:'e',name,color:'#7d5a45',base:38+lv*6,...p,home:{...p},aggroR:9,leash:14,aggro:true,
       eq:{weapon:lv>=3||i?'machete':'club',armor:lv>=3?'plate':'leather'},lv:{atk:8+lv*5,tough:8+lv*4,dod:8+lv*2},pack:[{id:'coin',n:5+lv*4}],encUntil:simT+ENC_LIFE})}
     toast(`${place}路上：${name}伏擊！即刻行返出口可以走`);return type}
@@ -35,7 +35,7 @@ function spawnEncounter(type,to,arr){
     toast(`${place}路上：一群野犬（${n} 隻）撲埋嚟！`);return type}
   if(type==='trader'){borderSpawn(to,{kind:'enc_trader',team:'n',name:'落難商人',color:'#b89a5a',base:30,...at,home:{...at},encUntil:simT+ENC_TRADER_LIFE});
     toast(`${place}路上：遇到落難商人，點佢交易；佢唔會等好耐`);return type}
-  if(type==='wounded'){const side=encRng()<.5?'takeda':'uesugi',u=borderSpawn(to,{kind:`enc_wounded_${side}`,team:'c',name:`${FACTIONS[side].name}傷兵`,color:FACTIONS[side].color,base:40,...at,home:{...at},
+  if(type==='wounded'){const side=['takeda','uesugi','ikko'][Math.min(2,Math.floor(encRng()*3))],u=borderSpawn(to,{kind:`enc_wounded_${side}`,team:'c',name:`${FACTIONS[side].name}傷兵`,color:FACTIONS[side].color,base:40,...at,home:{...at},
       eq:{weapon:'knife',armor:'leather'},pack:[{id:'ration',n:1},{id:'coin',n:12}],encUntil:simT+ENC_LIFE});
     u.down=true;u.p.torso.hp=Math.min(u.p.torso.hp,u.p.torso.max*.05);u.p.head.hp=Math.min(u.p.head.hp,u.p.head.max*.3);
     toast(`${place}路上：${u.name}倒喺路邊。救佢（藥包）加聲望；搶佢會被通緝`);return type}
@@ -44,7 +44,7 @@ function spawnEncounter(type,to,arr){
   if(to===activeArea)piles.push(pile);else areaStates[to].piles.push(pile);
   toast(`${place}路上：發現散落貨物`);return 'cargo';
 }
-const encSide=u=>/^enc_wounded_(takeda|uesugi)$/.exec(u.kind||'')?.[1]||null;
+const encSide=u=>/^enc_wounded_(takeda|uesugi|ikko)$/.exec(u.kind||'')?.[1]||null;
 function rescueWounded(h,b){
   if(!countItem(h,'medkit')){toast('要 1 個藥包先救到');return false}
   useItem(h,'medkit');const side=encSide(b);b.down=false;b.bleed=0;

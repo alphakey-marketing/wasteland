@@ -236,8 +236,8 @@ function autoWork(u,dt){
 }
 
 /* ---------- 懸賞：打勢力嘅人會被通緝，過百有賞金獵人上門 ---------- */
-const SIDES=['takeda','uesugi'];
-function wantedOf(){const w=campaign.wanted||(campaign.wanted={takeda:0,uesugi:0,why:{}});if(!w.why)w.why={};return w}
+const SIDES=['takeda','uesugi','ikko'];
+function wantedOf(){const w=campaign.wanted||(campaign.wanted={takeda:0,uesugi:0,ikko:0,why:{}});if(!w.why)w.why={};w.ikko??=0;return w}
 function addWanted(side,n,why){const w=wantedOf(),before=w[side];w[side]=Math.min(1000,before+n);w.why[side]=why;
   if(Math.floor(w[side]/100)>Math.floor(before/100))toast(`${FACTIONS[side].name}懸賞你 ${Math.round(w[side])} 文！`);
   campaign.anger[side]=true;}

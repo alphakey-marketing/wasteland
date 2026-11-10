@@ -2,7 +2,7 @@
 // Optional encounters and persistent world changes; no chapter prerequisites.
 const CAMPAIGN_VERSION=3;
 function freshOutposts(){return Object.fromEntries(OUTPOSTS.map(d=>[d.id,{phase:'held',owner:d.owner,left:0}]))}
-function freshCampaign(){return {v:3,stage:'sandbox',side:null,escort:false,leaderId:null,recruited:false,jobs:{grain:false,orders:false,rescue:false},rep:{takeda:0,uesugi:0,village:0},outposts:freshOutposts(),anger:{takeda:false,uesugi:false},log:[]}}
+function freshCampaign(){return {v:3,stage:'sandbox',side:null,escort:false,leaderId:null,recruited:false,jobs:{grain:false,orders:false,rescue:false},rep:{takeda:0,uesugi:0,ikko:0,village:0},outposts:freshOutposts(),anger:{takeda:false,uesugi:false,ikko:false},log:[]}}
 let campaign=freshCampaign(),campaignClock=0;
 const journalSheet=$('#journalSheet');
 function validateCampaign(c){
@@ -10,7 +10,8 @@ function validateCampaign(c){
   const old=['offer','grain','orders','decision','escort','complete','loss'];
   if(![1,2,3].includes(c.v)||!(c.v===1?old.includes(c.stage):c.stage==='sandbox')||!(c.side===null||Object.hasOwn(FACTIONS,c.side))||typeof c.escort!=='boolean'||typeof c.recruited!=='boolean'||!c.rep||!Array.isArray(c.log)||c.log.length>30)throw Error('世情報格式不完整');
   if(c.wanted!=null&&['takeda','uesugi'].some(k=>!Number.isFinite(c.wanted[k])||c.wanted[k]<0||c.wanted[k]>1e5))throw Error('懸賞格式不完整');
-  for(const side of Object.keys(FACTIONS))if(!Number.isFinite(c.rep[side])||Math.abs(c.rep[side])>100)throw Error('勢力關係格式不完整');
+  // 舊存檔冇一向宗聲望，讀檔時補 0
+  for(const side of Object.keys(FACTIONS))if(!(side==='ikko'&&c.rep[side]===undefined)&&!Number.isFinite(c.rep[side])||Math.abs(c.rep[side])>100)throw Error('勢力關係格式不完整');
   if(c.log.some(s=>typeof s!=='string'||s.length>500))throw Error('記錄格式不完整');
   if(c.leaderId!=null&&!(typeof c.leaderId==='number'&&Number.isFinite(c.leaderId)||typeof c.leaderId==='string'&&c.leaderId.length<=160))throw Error('護送隊長格式不完整');
   if(c.v===1){if((['escort','complete','loss'].includes(c.stage)&&!c.side)||(['offer','grain','orders','decision'].includes(c.stage)&&c.side!==null))throw Error('舊進度不一致');return}
@@ -30,6 +31,7 @@ function restoreCampaign(c){
   validateCampaign(c);campaign=c?JSON.parse(JSON.stringify(c)):freshCampaign();
   if(c?.v===1){campaign={...freshCampaign(),side:c.side,escort:c.stage==='escort'&&c.escort,leaderId:c.leaderId,recruited:c.recruited,rep:c.rep,log:c.log.slice(),jobs:{grain:['orders','decision','escort','complete','loss'].includes(c.stage),orders:['decision','escort','complete','loss'].includes(c.stage),rescue:c.stage==='complete'}};borderLog('章節限制已解除；原有物品、報酬同人物狀態保留。')}
   if(c?.v===2){const {outpost,...rest}=campaign;campaign={...rest,v:3,outposts:{...freshOutposts(),misaka:{phase:outpost.phase,owner:outpost.owner,left:outpost.left}},anger:{...outpost.anger}}}
+  campaign.rep.ikko??=0;campaign.anger.ikko??=false;if(campaign.wanted)campaign.wanted.ikko??=0;
   campaignClock=0;ensureCampaignWorld();updateCampaignHUD();
 }
 function borderUnits(){return [...units,...Object.entries(areaStates).filter(([id])=>id!==activeArea).flatMap(([,a])=>a.units)]}
@@ -55,21 +57,23 @@ function seedOutpost(def,side){
 }
 function patrolRoute(u){
   if(u.route)return u.route;
-  const c=CAMPS.find(c=>c.side===outpostSide(u)),d=OUTPOSTS.find(d=>d.area===c.area),mx=(c.x+d.x)/2,my=(c.y+d.y)/2;
+  const c=CAMPS.find(c=>c.side===outpostSide(u)),d=OUTPOSTS.find(d=>d.area===c.area);
+  if(!d)return u.route=[{x:c.x,y:c.y+2.6},{x:c.x+2.5,y:c.y+4},{x:c.x-2.5,y:c.y+4.5}];
+  const mx=(c.x+d.x)/2,my=(c.y+d.y)/2;
   return u.route=[{x:c.x,y:c.y+2.6},{x:mx+1,y:my+2},{x:d.x,y:d.y+2.4},{x:mx-1,y:my+4}];
 }
 // Picked guards and patrols are much weaker than the lord's own guard, so a patrol cannot wipe out a camp.
 function seedCamp(c){
   const s=FACTIONS[c.side],area=c.area;
   [[-1.6,1.6],[1.6,1.6]].forEach(([dx,dy],i)=>{const kind=`camp_guard_${c.side}_${i}`;if(borderFind(kind))return;
-    borderSpawn(area,{id:kind,kind,team:'g',name:`${s.name}親兵`,color:s.color,base:82,x:c.x+dx,y:c.y+dy,home:{x:c.x+dx,y:c.y+dy},aggroR:4,leash:5,eq:{weapon:'forged_blade',armor:'forged_armor'},lv:{atk:28,tough:28,dod:20},pack:[{id:'ration',n:1}]})});
+    borderSpawn(area,{id:kind,kind,team:'g',name:c.guard||`${s.name}親兵`,color:s.color,base:82,x:c.x+dx,y:c.y+dy,home:{x:c.x+dx,y:c.y+dy},aggroR:4,leash:5,eq:{weapon:'forged_blade',armor:'forged_armor'},lv:{atk:28,tough:28,dod:20},pack:[{id:'ration',n:1}]})});
 }
 let patrolWait={};
 function seedPatrols(c){
   const alive=borderUnits().filter(u=>u.kind?.startsWith(`patrol_${c.side}_`)&&!u.dead&&!u.down).length;
   if(alive>=2||(patrolWait[c.side]||0)>campaignClockTotal)return;
   const s=FACTIONS[c.side],kind=`patrol_${c.side}_${Math.floor(campaignClockTotal)}_${alive}`;
-  borderSpawn(c.area,{id:kind,kind,team:'g',name:`${s.name}巡邏兵`,color:s.color,base:48,x:c.x,y:c.y+2.6,home:{x:c.x,y:c.y+2.6},aggroR:4,leash:7,eq:{weapon:alive?'knife':'machete',armor:'leather'},lv:{atk:10,tough:10,dod:8},pack:[{id:'ration',n:1}]});
+  borderSpawn(c.area,{id:kind,kind,team:'g',name:c.patrol||`${s.name}巡邏兵`,color:s.color,base:48,x:c.x,y:c.y+2.6,home:{x:c.x,y:c.y+2.6},aggroR:4,leash:7,eq:{weapon:alive?'knife':'machete',armor:'leather'},lv:{atk:10,tough:10,dod:8},pack:[{id:'ration',n:1}]});
   patrolWait[c.side]=campaignClockTotal+(alive?0:90);
 }
 let campaignClockTotal=0,raidTimer={};
@@ -80,11 +84,11 @@ function tickRaids(dt){
     const o=campaign.outposts[def.id];if(activeArea!==def.area||!o.owner||raidActive(def))continue;
     raidTimer[def.id]=(raidTimer[def.id]??rand(100,160))-dt;if(raidTimer[def.id]>0)continue;
     raidTimer[def.id]=rand(200,300);
-    const rival=Object.keys(FACTIONS).find(k=>factionRel(o.owner,k)==='enemy'),camp=CAMPS.find(c=>c.side===rival);if(!rival||!camp)continue;
+    const foes=CAMPS.filter(c=>factionRel(o.owner,c.side)==='enemy').map(c=>c.side),rival=foes[Math.floor(Math.random()*foes.length)],camp=CAMPS.find(c=>c.side===rival);if(!rival||!camp)continue;
     const from=camp.area===def.area?{x:camp.x,y:camp.y+2.6}:arrivalPoint(def.area,camp.area),s=FACTIONS[rival];
     for(let i=0;i<4;i++){const kind=`raid_${rival}_${def.id}_${Math.floor(simT)}_${i}`;
-      borderSpawn(def.area,{id:kind,kind,team:'g',name:`${s.name}${i?'先鋒':'隊長'}`,color:s.color,base:i?55:68,x:from.x+i*.7,y:from.y+(i%2)*.7,home:{x:def.x,y:def.y+1.4},aggroR:5,leash:7,eq:{weapon:'machete',armor:i?'leather':'forged_armor'},lv:{atk:i?16:22,tough:i?16:22,dod:i?11:14},pack:[{id:'ration',n:1}]})}
-    borderLog(`${s.name}部隊攻向${def.name}，${FACTIONS[o.owner].name}守軍迎戰。`);toast(`${s.name}部隊進攻${def.name}！`);
+      borderSpawn(def.area,{id:kind,kind,team:'g',name:rival==='ikko'?(i?'一揆眾':'一揆頭目'):`${s.name}${i?'先鋒':'隊長'}`,color:s.color,base:i?55:68,x:from.x+i*.7,y:from.y+(i%2)*.7,home:{x:def.x,y:def.y+1.4},aggroR:5,leash:7,eq:{weapon:'machete',armor:i?'leather':'forged_armor'},lv:{atk:i?16:22,tough:i?16:22,dod:i?11:14},pack:[{id:'ration',n:1}]})}
+    borderLog(rival==='ikko'?`一向一揆起事！門徒攻向${def.name}，${FACTIONS[o.owner].name}守軍迎戰。`:`${s.name}部隊攻向${def.name}，${FACTIONS[o.owner].name}守軍迎戰。`);toast(rival==='ikko'?`一向一揆起事，攻向${def.name}！`:`${s.name}部隊進攻${def.name}！`);
   }
 }
 function ensureCampaignWorld(){
@@ -94,10 +98,10 @@ function ensureCampaignWorld(){
   if(!campaign.jobs.orders){borderCache('border-orders','破損運糧車',8.8,10,'border_orders','forge');campaign.jobs.orders=true}
   if(!borderFind('border_refugee')){const u=borderSpawn('forge',{id:'border-refugee',team:'c',kind:'border_refugee',role:'機關師',name:'阿澄',color:'#c0a67a',base:52,x:9,y:10.8,home:{x:9,y:10.8},lv:{aid:12,tough:5,str:4},pack:[{id:'medkit',n:2}],eq:{weapon:'knife',armor:'cloth'}});u.p.legs.hp=u.p.legs.max*.55}
   const old=borderFind('border_lord');if(old)old.kind=`border_lord_${campaign.side==='uesugi'?'uesugi':'takeda'}`;
-  for(const [side,area]of [['takeda','temple'],['uesugi','forge']])if(!borderFind(`border_lord_${side}`)){
-    const s=FACTIONS[side];borderSpawn(area,{id:`border-lord-${side}`,team:'n',kind:`border_lord_${side}`,role:'大名',name:s.lord,color:s.color,base:95,x:24,y:3.6,home:{x:24,y:3.6},aggroR:4,leash:5,eq:{weapon:'forged_blade',armor:'forged_armor'},lv:{atk:45,tough:45,dod:35}});
+  for(const {side,area,x,y}of CAMPS)if(!borderFind(`border_lord_${side}`)){
+    const s=FACTIONS[side];borderSpawn(area,{id:`border-lord-${side}`,team:'n',kind:`border_lord_${side}`,role:side==='ikko'?'坊官':'大名',name:s.lord,color:s.color,base:95,x,y:y+.8,home:{x,y:y+.8},aggroR:4,leash:5,eq:{weapon:'forged_blade',armor:'forged_armor'},lv:{atk:45,tough:45,dod:35}});
   }
-  for(const side of ['takeda','uesugi']){const l=borderFind(`border_lord_${side}`);if(l&&!l.aggroR)Object.assign(l,{aggroR:4,leash:5})}
+  for(const {side} of CAMPS){const l=borderFind(`border_lord_${side}`);if(l&&!l.aggroR)Object.assign(l,{aggroR:4,leash:5})}
   for(const c of CAMPS){seedCamp(c);seedPatrols(c)}
   for(const def of OUTPOSTS){
     const ps=activeArea===def.area?props:areaStates[def.area].props,o=campaign.outposts[def.id];
@@ -140,6 +144,7 @@ function tickCampaign(dt){
 }
 function borderTalk(u,npc){
   if(npc.kind==='border_refugee'){if(recruitBorderRefugee(u,npc))return}
+  else if(npc.kind==='border_lord_ikko'&&!campaign.anger.ikko)toast(`${npc.name}：南無阿彌陀佛。寄進結緣，門徒自會助你。`);
   else if(outpostSide(npc))toast(`${npc.name}：此處由${FACTIONS[outpostSide(npc)].name}駐守。`);
   else toast(`${npc.name}：亂世之中，去留由你；山道各處都有自己嘅局勢。`);
   openJournal();
@@ -155,6 +160,7 @@ function renderJournal(){
   drawWorldMap();$('#journalFactions').replaceChildren();for(const [key,s]of Object.entries(FACTIONS)){const li=document.createElement('li'),held=OUTPOSTS.filter(d=>campaign.outposts[d.id].owner===key).length,foes=Object.keys(FACTIONS).filter(k=>factionRel(key,k)==='enemy').map(k=>FACTIONS[k].name);li.className='col';li.textContent=`${s.name}${s.lord?' · '+s.lord:''} · 關係 ${campaign.rep[key]}${SIDES.includes(key)?wantedText(key):''}${OUTPOSTS.some(d=>d.owner===key||d.successor===key)?` · 據點 ${held}`:''}${foes.length?` · 敵對：${foes.join('、')}`:''}`;$('#journalFactions').appendChild(li)}
   $('#journalLog').replaceChildren();for(const line of campaign.log){const p=document.createElement('p');p.className='note';p.textContent=line;$('#journalLog').appendChild(p)}
   $('#journalActions').replaceChildren();
+  ikkoButtons();
   if(allSquad().every(u=>u.dead)){journalButton('全隊陣亡 · 返回戰術頁還原備份',()=>{journalSheet.hidden=true;setModal(false);sheet.hidden=false});return}
 }
 let objectiveSig='';
@@ -162,3 +168,17 @@ function updateCampaignHUD(){const t=allSquad().every(u=>u.dead)?'全隊陣亡 �
 $('#bObjective').onclick=openJournal;$('#bJournal').onclick=openJournal;
 $('#bJournalClose').onclick=()=>{journalSheet.hidden=true;setModal(false);$('#bObjective').focus()};
 addEventListener('keydown',e=>{if(e.code==='Escape'&&!journalSheet.hidden){e.preventDefault();$('#bJournalClose').click()}});
+
+/* ---------- 一向宗：寄進加聲望，聲望夠招門徒／僧兵 ---------- */
+const IKKO_GIFT=50,IKKO_HIRE={follower:{need:30,cost:80,name:'門徒',base:44,lv:{tough:6,str:6},eq:{weapon:'club',armor:'cloth'}},
+  monk:{need:60,cost:200,name:'僧兵',base:62,lv:{atk:18,tough:18,dod:12},eq:{weapon:'machete',armor:'leather'}}};
+function ikkoAbbot(){const l=borderFind('border_lord_ikko');return l&&!l.dead&&!l.down&&units.includes(l)&&allies().some(a=>!a.down&&dist(a,l)<3)?l:null}
+function ikkoDonate(){if(!ikkoAbbot()||money<IKKO_GIFT)return false;money-=IKKO_GIFT;campaign.rep.ikko=Math.min(100,campaign.rep.ikko+5);
+  if(campaign.rep.ikko>=40&&wantedOf().ikko<20)campaign.anger.ikko=false;toast(`寄進 ${IKKO_GIFT} 文 · 一向宗聲望 ${campaign.rep.ikko}`);return true}
+function ikkoRecruit(k){const h=IKKO_HIRE[k],l=ikkoAbbot();if(!l||campaign.anger.ikko||campaign.rep.ikko<h.need||money<h.cost||allSquad().length>=SQUAD_MAX)return null;
+  money-=h.cost;const u=mk({team:'a',name:`${h.name}・${RECRUITS[(recruitN++)%RECRUITS.length]}`,role:h.name,color:PALETTE[allies().length%PALETTE.length],base:h.base,x:l.x+.6,y:l.y+.6,
+    eq:{...h.eq},pack:[{id:'ration',n:1}],lv:{...h.lv},rules:{flee:true,rescue:false,fight:true}});
+  units.push(u);float(u,'加入隊伍','#a9e08a',true);toast(`${u.name} 加入咗你嘅隊伍`);buildSquadUI();return u}
+function ikkoButtons(){if(!ikkoAbbot())return;const r=campaign.rep.ikko,mad=campaign.anger.ikko;
+  journalButton(`寄進 ${IKKO_GIFT} 文 · 一向宗聲望 +5（而家 ${r}）`,()=>{ikkoDonate();renderJournal()},money<IKKO_GIFT||r>=100);
+  for(const [k,h] of Object.entries(IKKO_HIRE))journalButton(`招${h.name} ${h.cost} 文${r<h.need?`（要聲望 ${h.need}）`:''}`,()=>{ikkoRecruit(k);renderJournal()},mad||r<h.need||money<h.cost||allSquad().length>=SQUAD_MAX)}

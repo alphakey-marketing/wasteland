@@ -8,7 +8,7 @@ const errors=[];
   await p.evaluate(()=>{setPaused(true);autoPause=false});
   const r=await p.evaluate(()=>{
     const out={};
-    out.three=Object.keys(FACTIONS).join()==='takeda,uesugi,village';
+    out.three=Object.keys(FACTIONS).join()==='takeda,uesugi,ikko,village';
     out.rel=factionRel('takeda','uesugi')==='enemy'&&factionRel('takeda','village')==='neutral';
     out.twoOutposts=OUTPOSTS.length===2&&!!borderFind('outpost_takeda_commander')&&!!borderFind('outpost_kanaya_uesugi_commander');
     const k=borderFind('outpost_kanaya_uesugi_commander'),m=borderFind('outpost_takeda_commander');

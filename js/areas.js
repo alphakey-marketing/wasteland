@@ -23,7 +23,7 @@ for(const [id,R] of Object.entries(REGIONS)){
 // Edge exits: walking a commanded party into one travels. gate = first exit, kept for caravan/legacy code.
 for(const a of Object.values(AREAS))a.gate=a.exits[0];
 const exitTo=(area,to)=>AREAS[area].exits.find(e=>e.to===to);
-function arrivalPoint(area,from){const e=exitTo(area,from),c=AREAS[area].center,dx=c.x-e.x,dy=c.y-e.y,l=Math.hypot(dx,dy)||1;return{x:e.x+dx/l*2.4,y:e.y+dy/l*2.4}}
+function arrivalPoint(area,from){const e=exitTo(area,from)||AREAS[area].exits[0],c=AREAS[area].center,dx=c.x-e.x,dy=c.y-e.y,l=Math.hypot(dx,dy)||1;return{x:e.x+dx/l*2.4,y:e.y+dy/l*2.4}}
 function exitAt(x,y){return AREAS[activeArea].exits.find(e=>Math.hypot(x-e.x,y-e.y)<=e.r&&fogKnown(e))||null}
 let activeArea='village';
 const areaStates={};
@@ -70,7 +70,7 @@ function genRegion(id){
     pack:k?[...T.extra,...(lv>=3?[{id:'steel',n:1}]:[]),...(G.mark==='善光寺本堂'?[{id:'medkit',n:2}]:[])]:[{id:'ration',n:1},{id:'medkit',n:lv>=2?1:0},{id:'coin',n:8*lv}].filter(s=>s.n)}));
   for(let i=0;i<T.tree;i++)put(1.2,(x,y)=>props.push({x,y,s:.5,h:R(26,34),c:[70+R(0,20),94+R(0,20),58],tree:1}));
   for(let i=0;i<T.rock;i++)put(1.1,(x,y)=>props.push({x,y,s:R(.45,.8),h:R(7,13),c:[118+R(-8,8),116,106]}));
-  if(camp)for(let i=0;i<T.foes+(lv>=3?1:0);i++){const x=camp.x+R(-1.2,1.2),y=camp.y+R(-1.2,1.2);
+  if(camp&&G.mark!=='善光寺本堂')for(let i=0;i<T.foes+(lv>=3?1:0);i++){const x=camp.x+R(-1.2,1.2),y=camp.y+R(-1.2,1.2);
     units.push(mk({team:'e',name:T.foe,color:'#7d6a55',base:40+lv*7,x,y,home:{x:camp.x,y:camp.y},aggroR:3.2,leash:6,
       eq:{weapon:lv>=2||i?'machete':'club',armor:lv>=3?'plate':'leather'},lv:{atk:10+lv*5,tough:8+lv*5,dod:8+lv*2},pack:[{id:'coin',n:6+lv*4}]}))}
   if(den)for(let i=0;i<T.dogs;i++)units.push(mk({team:'w',kind:'dog',name:'野犬',color:'#8a6a48',base:22,natural:BITE,spd:2.7,aggroR:4,leash:8,pack:[{id:'hide',n:1},{id:'meat',n:1}],
