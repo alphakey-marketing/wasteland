@@ -122,7 +122,7 @@ function travelArea(party=travelParty(),target=AREAS[activeArea].links[0]){
   const arr=arrivalPoint(target,from);
   walkers.forEach((u,i)=>{u.x=arr.x+(i%2)*.7;u.y=arr.y+Math.floor(i/2)*.7;if(u.carry){u.carry.x=u.x;u.carry.y=u.y}});
   pursuers.forEach((u,i)=>{u.x=arr.x+1.6+(i%2)*.7;u.y=arr.y+.8+Math.floor(i/2)*.7;u.home={x:u.x,y:u.y};u.wp=null;u.cmd=[];u.aggro=true;u.pursuitId=nearest(walkers.filter(a=>hostile(u,a)),u).id});
-  sel.clear();walkers.filter(u=>u.team==='a').forEach(u=>sel.add(u));finishAreaChange(arr);toast(`到達${AREAS[target].name} · ${walkers.length} 人同行${pursuers.length?' · 有追兵！':''}`);return true;
+  sel.clear();walkers.filter(u=>u.team==='a').forEach(u=>sel.add(u));finishAreaChange(arr);toast(`到達${AREAS[target].name} · ${walkers.length} 人同行${pursuers.length?' · 有追兵！':''}`);rollEncounter(from,target,walkers,arr);return true;
 }
 function finishAreaChange(at){
   updateFog();

@@ -30,7 +30,7 @@ const errors=[];
     const out={times:[],canv:0,explored:true};
     const order=['saijo','hachiman','saijo','village','temple','amemiya','zenkoji','amemiya','temple','forge','jizo','shio'];
     for(const id of order){const g=exitTo(activeArea,id);
-      for(const u of units)if(allies()[0]&&hostile(u,allies()[0])&&dist(u,g)<7)u.dead=true;
+      for(const u of units)if(allies()[0]&&hostile(u,allies()[0])&&dist(u,g)<7){u.dead=true;u.down=true}
       allies().forEach((u,i)=>{u.x=g.x+(i%2)*.4;u.y=g.y+Math.floor(i/2)*.4});
       const t=performance.now();const ok=travelArea(allies(),id);out.times.push(performance.now()-t);
       if(!ok||activeArea!==id){out.fail=id;break}

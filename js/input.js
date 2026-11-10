@@ -84,6 +84,7 @@ function tap(sx,sy){
     if(!u.down&&(u.kind==='border_refugee'||u.kind?.startsWith('border_lord'))&&u.team!=='a'){const v=issueOne({t:'talk',npc:u,act:'campaign'},u);if(v)toast(`${v.name} 去同 ${u.name} 交談`);return}
     if(u===TRADER){const v=issueOne({t:'talk',npc:u},u);if(v)toast(`${v.name} 行去搵商人`);return}
     if(u===INNKEEPER){innMenu(sx,sy);return}
+    if(u.kind==='enc_trader'&&!u.down){const v=issueOne({t:'talk',npc:u},u);if(v)toast(`${v.name} 去搵落難商人`);return}
     if(u.team==='v'&&!u.down){const opts=[];
       if(u.kind==='caravan'&&!caravanAngry)opts.push({label:'同遊商交易',sub:'佢會行嚟行去，追住佢',fn:()=>{const v=issueOne({t:'talk',npc:u},u);if(v)toast(`${v.name} 去搵遊商`)}});
       opts.push({label:'攻擊商隊',sub:caravanAngry?'已經敵對':'護衛會反擊，青葉村關係 −25',fn:()=>{issue(()=>({t:'attack',u}))}});
@@ -150,6 +151,7 @@ function bodyMenu(b,sx,sy){
   if(b.captive){prisonerMenu(b,sx,sy);return}
   const opts=[];
   const feed=feedOption(b);if(feed)opts.push(feed);
+  if(!b.dead&&encSide(b))opts.push({label:'救治傷兵',sub:`用 1 個藥包 · ${FACTIONS[encSide(b)].name}聲望 +8`,fn:()=>{const v=issueOne({t:'rescue',body:b},b);if(v)toast(`${v.name} 去救${b.name}`)}});
   if(b.team!=='a'||b.dead)opts.push({label:hasLoot(b)?'搜身／取裝備':'搜身 · 已被搜清',sub:hasLoot(b)?'行過去搜查背包同身上裝備':'身上冇可取物品；可能已被其他人搜走',fn:()=>{const v=issueOne({t:'loot',body:b},b);if(v)toast(`${v.name} 去搜身`)}});
   if(!b.dead&&b.team!=='a')opts.push({label:'補刀',sub:'打到佢死為止，唔會再醒',fn:()=>{if(issue(()=>({t:'attack',u:b,finish:true})))fx.pings.push({x:b.x,y:b.y,t:performance.now(),col:'#d65b41'})}});
   if(!b.dead&&b.team==='a'&&!b.pile){const h=nearest([...sel].filter(a=>!a.down&&a!==b),b);

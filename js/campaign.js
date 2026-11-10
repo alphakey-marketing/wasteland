@@ -136,7 +136,7 @@ function campaignEscortReady(party,gate=AREAS[activeArea].gate){
   return npc.carriedBy?party.includes(npc.carriedBy):!npc.down&&dist(npc,gate)<=2.4;
 }
 function tickCampaign(dt){
-  tickOutpost(dt);tickRaids(dt);tickWanted(dt);tickLife(dt);campaignClockTotal+=dt;campaignClock+=dt;if(campaignClock>=1){campaignClock=0;ensureCampaignWorld()}
+  tickOutpost(dt);tickRaids(dt);tickWanted(dt);tickLife(dt);tickEncounters(dt);campaignClockTotal+=dt;campaignClock+=dt;if(campaignClock>=1){campaignClock=0;ensureCampaignWorld()}
 }
 function borderTalk(u,npc){
   if(npc.kind==='border_refugee'){if(recruitBorderRefugee(u,npc))return}
@@ -151,7 +151,7 @@ function openJournal(){
 function journalButton(label,fn,disabled=false){const b=document.createElement('button');b.className='wide';b.textContent=label;b.disabled=disabled;b.onclick=fn;$('#journalActions').appendChild(b)}
 function renderJournal(){
   $('#journalTitle').textContent='世情報 · 局勢傳聞';$('#journalObjective').textContent=`${dayName()} · ${OUTPOSTS.map(d=>`${d.name}：${outpostText(d)}`).join('；')}。守將打暈後仍可能醒返；陣亡或被你揹離據點先會失守。失守後，繼承勢力約 45 秒後進駐（只計該區活動時間）。`;
-  $('#journalLocation').textContent=`傳聞：武田信玄喺荒寺東北；上杉謙信喺鍛冶場東北；金屋寨喺鍛冶場深處，由上杉駐守；鍛冶場外圍有個受傷嘅機關師。冇任務，帶住貨物去邊度賣、幫邊個、打邊個，由你決定。青葉村聲望：${repTown>=30?'友好':repTown<=-30?'敵視':'普通'}（${Math.round(repTown)}）。`;
+  $('#journalLocation').textContent=`傳聞：武田信玄喺荒寺東北；上杉謙信喺鍛冶場東北；金屋寨喺鍛冶場深處，由上杉駐守；鍛冶場外圍有個受傷嘅機關師。冇任務，帶住貨物去邊度賣、幫邊個、打邊個，由你決定。青葉村聲望：${repTown>=30?'友好':repTown<=-30?'敵視':'普通'}（${Math.round(repTown)}）。${encJournal()}`;
   drawWorldMap();$('#journalFactions').replaceChildren();for(const [key,s]of Object.entries(FACTIONS)){const li=document.createElement('li'),held=OUTPOSTS.filter(d=>campaign.outposts[d.id].owner===key).length,foes=Object.keys(FACTIONS).filter(k=>factionRel(key,k)==='enemy').map(k=>FACTIONS[k].name);li.className='col';li.textContent=`${s.name}${s.lord?' · '+s.lord:''} · 關係 ${campaign.rep[key]}${SIDES.includes(key)?wantedText(key):''}${OUTPOSTS.some(d=>d.owner===key||d.successor===key)?` · 據點 ${held}`:''}${foes.length?` · 敵對：${foes.join('、')}`:''}`;$('#journalFactions').appendChild(li)}
   $('#journalLog').replaceChildren();for(const line of campaign.log){const p=document.createElement('p');p.className='note';p.textContent=line;$('#journalLog').appendChild(p)}
   $('#journalActions').replaceChildren();

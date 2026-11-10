@@ -14,6 +14,7 @@ function arriveTalk(u,npc,act){
   if(anyModal()){toast(`${u.name} 到咗`);return}
   if(act==='campaign'){if(npc===INNKEEPER)openJournal();else borderTalk(u,npc);return}
   if(npc===INNKEEPER){if(act==='bar')openBar(u);else openShop(u,'inn');return}
+  if(npc.kind==='enc_trader'){openShop(u,'wander','wander:'+npc.id);return}
   if(npc.kind==='caravan'){if(caravanAngry){toast('遊商：強盜！我唔同你做生意');return}openShop(u,'caravan','caravan:'+npc.id);return}
   if(npc===TRADER){if(isNight()){toast('商人已收檔，天光先開（宿屋照常）');return}if(repTown<=-30){toast('商人：你哋係青葉村嘅敵人，我唔做你生意');return}openShop(u,'village');return}
   if(npc===GUARD){if(repTown<=-30){toast('足輕：滾！');return}const c=u.carry;
@@ -63,7 +64,7 @@ $('#bShopClose').addEventListener('click',()=>{shopSheet.hidden=true;setModal(fa
 
 const lootSheet=$('#lootSheet'),lootList=$('#lootList');let lootUnit=null,lootBody=null;
 let harvestArmed=false;
-function openLoot(u,b){if(anyModal())return;lootUnit=u;lootBody=b;harvestArmed=false;renderLoot();lootSheet.hidden=false;setModal(true)}
+function openLoot(u,b){if(anyModal())return;robWounded(b);lootUnit=u;lootBody=b;harvestArmed=false;renderLoot();lootSheet.hidden=false;setModal(true)}
 function fatalHarvest(r){return lootBody.kind==='dog'&&!lootBody.dead&&(r.id==='hide'||r.id==='meat')}
 function confirmHarvest(rows){if(!rows.some(fatalHarvest)||harvestArmed)return true;harvestArmed=true;renderLoot();toast('動物仍然生存；再按一次確認宰割，動物會死亡');return false}
 function lootRows(b){const rows=[];if(b.eq.weapon)rows.push({slot:'weapon',id:b.eq.weapon});if(b.eq.armor)rows.push({slot:'armor',id:b.eq.armor});b.pack.forEach((s,i)=>rows.push({idx:i,id:s.id,n:s.n}));return rows}

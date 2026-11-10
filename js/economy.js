@@ -4,6 +4,7 @@ const ECONOMY_DAY=600;
 const MERCHANTS={
   village:{title:'青葉村商人／工匠',stock:['ration','medkit','kit','knife','cloth','p_scrap','rope','seed'],supply:{ration:2,medkit:1,kit:1,knife:1,cloth:1,p_scrap:1,rope:4,seed:6},cash:180,craft:true},
   inn:{title:'青葉宿屋',stock:INN_STOCK,supply:{ration:2,medkit:1},cash:50},
+  wander:{title:'落難商人',stock:['ration','medkit','rope','seed','hide','iron','knife'],supply:{ration:3,medkit:2,rope:2,seed:3,hide:2,iron:2,knife:1},cash:120},
   caravan:{title:'遊商',stock:CARAVAN_STOCK,supply:{ration:6,medkit:4,kit:2},cash:600}
 };
 const RECIPES=[

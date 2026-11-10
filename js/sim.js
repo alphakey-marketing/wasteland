@@ -252,6 +252,8 @@ function runCmd(u,dt,ne,nd){
       for(const [k] of PARTS){const q=u.p[k];if(!q.lost&&!q.pros&&q.hp<q.max)q.hp=Math.min(q.max,q.hp+3*dt)}
       if(!hurt(u)){u.cmd.shift();float(u,'瞓醒，精神返晒','#a9e08a')}break}
     case 'loot':if(c.body.carriedBy||(!c.body.pile&&(!c.body.down||!units.includes(c.body)))){u.cmd.shift();toast('目標已起身、離開或被揹起，搜身取消');break}if(dist(u,c.body)>.9){u.state=c.body.pile?'去搜查':'去搜身';step(u,c.body.x,c.body.y,dt)}else{u.cmd.shift();openLoot(u,c.body)}break;
+    case 'rescue':{const b=c.body;if(b.dead||!b.down||b.carriedBy||!units.includes(b)){u.cmd.shift();break}
+      if(dist(u,b)>.9){u.state='去救人';step(u,b.x,b.y,dt);break}u.cmd.shift();rescueWounded(u,b);break}
     case 'carry':if(c.body.carriedBy||!c.body.down||u.carry){u.cmd.shift();break}if(dist(u,c.body)>.9){u.state='去揹人';step(u,c.body.x,c.body.y,dt)}else{u.cmd.shift();pickUp(u,c.body)}break;
   }
 }

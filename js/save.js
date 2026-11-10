@@ -47,6 +47,7 @@ function validateSave(d){
     if(!d.areas[d.activeArea])fail();
   }else{group(d.units);piles(d.piles||[])}
   if(d.cam&&(!obj(d.cam)||!num(d.cam.x,-1e6,1e6)||!num(d.cam.y,-1e6,1e6)||!num(d.cam.z,.05,10)))fail();
+  if(d.encounters!=null&&(!obj(d.encounters)||!obj(d.encounters.cool)||Object.values(d.encounters.cool).some(t=>!num(t,0,1e9))))fail();
   if(d.economy!=null){if(!obj(d.economy)||!obj(d.economy.merchants))fail();for(const m of Object.values(d.economy.merchants)){
     if(!obj(m)||!Object.hasOwn(MERCHANTS,m.kind)||!num(m.cash,0,1e9)||!num(m.day,0,1e9)||!obj(m.stock))fail();for(const[k,n]of Object.entries(m.stock))if(!Object.hasOwn(ITEMS,k)||!Number.isInteger(n)||n<0||n>1e6)fail()}}
   if(d.caravan!=null){const c=d.caravan;if(!obj(c)||!['away','lost','arrive','stay','exit'].includes(c.phase)||c.area!=null&&!['village','temple'].includes(c.area)||!num(c.nextAt,0,1e9))fail();group(c.units||[])}
@@ -57,7 +58,7 @@ function validateSave(d){
 function parseSave(raw){if(typeof raw!=='string'||new Blob([raw]).size>SAVE_MAX_BYTES)throw Error('存檔檔案太大（上限 2 MB）');return validateSave(JSON.parse(raw))}
 function validSaveText(raw){try{parseSave(raw);return true}catch(_){return false}}
 function serialize(){const keep=units.filter(u=>u.team==='a'||u.team==='e'||u.team==='c');
-  return JSON.stringify({v:1,money,repTown,wave,hardcore,groupSync,autoPause,simT,recruitN,hired:[...hired],economy,caravan:packCaravan(),exploration:packExploration(),campaign:typeof packCampaign==='function'?packCampaign():undefined,activeArea,areas:packAreas(),caravanAngry,scavAngry:[...scavAngry],cam:{x:cam.x,y:cam.y,z:cam.z},
+  return JSON.stringify({v:1,money,repTown,wave,hardcore,groupSync,autoPause,simT,recruitN,hired:[...hired],economy,caravan:packCaravan(),exploration:packExploration(),campaign:typeof packCampaign==='function'?packCampaign():undefined,encounters:packEncounters(),activeArea,areas:packAreas(),caravanAngry,scavAngry:[...scavAngry],cam:{x:cam.x,y:cam.y,z:cam.z},
     units:keep.map(u=>({id:u.id,team:u.team,kind:u.kind,name:u.name,role:u.role,color:u.color,base:u.base,x:u.x,y:u.y,p:u.p,sk:u.sk,eq:u.eq,pack:u.pack,bounty:u.bounty,
       down:u.down,dead:u.dead,bleed:u.bleed,rules:u.rules,home:u.home,aggroR:u.aggroR,leash:u.leash,food:u.food,starvation:u.starvation,kitUse:u.kitUse,job:u.job,carryId:u.carry?u.carry.id:null})),
     piles:piles.map(p=>({x:p.x,y:p.y,pack:p.pack,t:p.t}))})}
@@ -79,7 +80,7 @@ function loadGame(){let d=null,warning='';try{const raw=localStorage.getItem(SAV
   piles=(d.piles||[]).map(p=>({pile:true,name:'地上布袋',x:p.x,y:p.y,pack:p.pack,eq:{weapon:null,armor:null},t:p.t,id:Math.random()}));
   migrateLegacyArea();
   }
-  economy=d.economy||{merchants:{},smithing:false};ensureSmithCache();restoreCaravan(d.caravan);restoreExploration(d.exploration);if(typeof restoreCampaign==='function')restoreCampaign(d.campaign);
+  economy=d.economy||{merchants:{},smithing:false};ensureSmithCache();restoreCaravan(d.caravan);restoreExploration(d.exploration);restoreEncounters(d.encounters);if(typeof restoreCampaign==='function')restoreCampaign(d.campaign);
   if(d.cam&&d.areas){cam.x=d.cam.x;cam.y=d.cam.y;cam.z=d.cam.z}
   sel.clear();allies().filter(u=>!u.dead).forEach(u=>sel.add(u));
   $('#optHard').checked=hardcore;$('#optSync').checked=groupSync;$('#optAuto').checked=autoPause;
