@@ -66,5 +66,5 @@ function tickEncounters(dt){encClock+=dt;if(encClock<2)return;encClock=0;
   for(const u of units.filter(isEnc)){u.encUntil??=simT+ENC_LIFE;
     if((u.kind==='enc_trader'||u.rescued)&&!u.down&&simT>u.encUntil){dropEnc(units,u);dropEnc(areaStates[activeArea].units,u);toast(`${u.name}已經離開`)}}
 }
-function packEncounters(){return{cool:Object.fromEntries(Object.entries(encCool).filter(([,t])=>t>simT))}}
-function restoreEncounters(d){encCool={};if(d&&typeof d.cool==='object'&&d.cool)for(const [k,t] of Object.entries(d.cool))if(typeof t==='number'&&isFinite(t))encCool[k]=t}
+function packEncounters(){return{cool:Object.fromEntries(Object.entries(encCool).filter(([,t])=>t>simT)),raidDay}}
+function restoreEncounters(d){encCool={};raidDay=typeof d?.raidDay==='number'&&isFinite(d.raidDay)?d.raidDay:-1;nightRaidAt=null;if(d&&typeof d.cool==='object'&&d.cool)for(const [k,t] of Object.entries(d.cool))if(typeof t==='number'&&isFinite(t))encCool[k]=t}

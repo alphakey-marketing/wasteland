@@ -42,12 +42,12 @@ function validateSave(d){
     for(const key of Object.keys(d.areas))if(!Object.hasOwn(AREAS,key))fail();
     const seen=new Set();for(const key of Object.keys(AREAS)){const a=d.areas[key];if(!a&&(key==='forge'||AREAS[key].gen))continue;if(!obj(a))fail();group(a.units);piles(a.piles,true);
       if(a.trees!=null){if(!Array.isArray(a.trees)||a.trees.length>2000)fail();for(const t of a.trees)if(!obj(t)||!num(t.x,-1000,1000)||!num(t.y,-1000,1000)||!num(t.w,0,3)||!num(t.left,0,240))fail()}
-      if(a.built!=null){if(!Array.isArray(a.built)||a.built.length>200)fail();for(const b of a.built)if(!obj(b)||!['bed','cage','field','hearth','smelter','bench','anvil'].includes(b.k)||b.q!=null&&(!Array.isArray(b.q)||b.q.length>5||b.q.some(id=>!WORK_RECIPES.some(r=>r.id===id&&r.at===b.k))||!num(b.prog,0,1000)||typeof b.paid!=='boolean')||b.left!=null&&!num(b.left,0,240)||!num(b.x,-1000,1000)||!num(b.y,-1000,1000))fail()}
+      if(a.built!=null){if(!Array.isArray(a.built)||a.built.length>200)fail();for(const b of a.built)if(!obj(b)||!['bed','cage','field','hearth','smelter','bench','anvil','fence','wall','gate'].includes(b.k)||b.hp!=null&&!num(b.hp,0,1000)||b.ang!=null&&!num(b.ang,-7,7)||b.q!=null&&(!Array.isArray(b.q)||b.q.length>5||b.q.some(id=>!WORK_RECIPES.some(r=>r.id===id&&r.at===b.k))||!num(b.prog,0,1000)||typeof b.paid!=='boolean')||b.left!=null&&!num(b.left,0,240)||!num(b.x,-1000,1000)||!num(b.y,-1000,1000))fail()}
       for(const u of a.units){if(seen.has(u.id))fail();seen.add(u.id)}}
     if(!d.areas[d.activeArea])fail();
   }else{group(d.units);piles(d.piles||[])}
   if(d.cam&&(!obj(d.cam)||!num(d.cam.x,-1e6,1e6)||!num(d.cam.y,-1e6,1e6)||!num(d.cam.z,.05,10)))fail();
-  if(d.encounters!=null&&(!obj(d.encounters)||!obj(d.encounters.cool)||Object.values(d.encounters.cool).some(t=>!num(t,0,1e9))))fail();
+  if(d.encounters!=null&&(!obj(d.encounters)||!obj(d.encounters.cool)||Object.values(d.encounters.cool).some(t=>!num(t,0,1e9))||d.encounters.raidDay!=null&&!num(d.encounters.raidDay,-1,1e9)))fail();
   if(d.economy!=null){if(!obj(d.economy)||!obj(d.economy.merchants))fail();for(const m of Object.values(d.economy.merchants)){
     if(!obj(m)||!Object.hasOwn(MERCHANTS,m.kind)||!num(m.cash,0,1e9)||!num(m.day,0,1e9)||!obj(m.stock))fail();for(const[k,n]of Object.entries(m.stock))if(!Object.hasOwn(ITEMS,k)||!Number.isInteger(n)||n<0||n>1e6)fail()}}
   if(d.caravan!=null){const c=d.caravan;if(!obj(c)||!['away','lost','arrive','stay','exit'].includes(c.phase)||c.area!=null&&!['village','temple'].includes(c.area)||!num(c.nextAt,0,1e9))fail();group(c.units||[])}

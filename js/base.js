@@ -21,13 +21,13 @@ function spendItem(id,n){
 }
 function buildPay(k){const c=BUILDS[k].cost;if(!canAfford(c))return false;for(const [id,n] of Object.entries(c))spendItem(id,n);return true}
 // Returns '' when the spot is fine, else the reason it is not.
-function placeProblem(x,y){
+function placeProblem(x,y,k){
   if(x<1||y<1||x>MAP-1||y>MAP-1)return '太近地圖邊';
   if(!fogKnown({x,y}))return '未探索嘅地方';
   if(AREAS[activeArea].exits.some(e=>Math.hypot(x-e.x,y-e.y)<e.r+1.2))return '唔可以起喺出口';
   if(CAMPS.some(c=>c.area===activeArea&&Math.hypot(x-c.x,y-c.y)<4.5))return '唔可以起喺營寨';
   if(OUTPOSTS.some(d=>d.area===activeArea&&Math.hypot(x-d.x,y-d.y)<3))return '唔可以起喺關所';
-  if(props.some(p=>Math.hypot(x-p.x,y-p.y)<(p.s||.5)*.62+.9))return '呢度有嘢阻住';
+  if(props.some(p=>Math.hypot(x-p.x,y-p.y)<(p.wall&&isWallKind(k)?.9:(p.s||.5)*.62+.9)))return '呢度有嘢阻住';
   if(piles.some(p=>Math.hypot(x-p.x,y-p.y)<1.1))return '呢度有嘢阻住';
   return '';
 }
@@ -41,19 +41,21 @@ function addBuilt(area,k,x,y,restoring=false){
   const p={x,y,s:d.s,h:d.h,c:k==='bed'?[150,120,90]:[110,90,60],built:k,occ:null};
   if(k==='field')p.sown=null;
   if(WORK_AT[k]){p.q=[];p.prog=0;p.paid=false}
+  if(isWallKind(k))initWall(p,k);
   if(k==='bed'){p.bed=1;p.own=1;(a.beds||(a.beds=[])).push(p);if(live)BEDS.push(p)}
   a.props.push(p);if(live)props.push(p);return p;
 }
 function buildMenu(sx,sy){
   const opts=Object.entries(BUILDS).map(([k,d])=>({label:`${d.name} · ${costText(d.cost)}`,sub:`${d.sub} · 全隊有：${Object.keys(d.cost).map(id=>`${ITEMS[id].name}${teamCount(id)}`).join(' ')}`,fn:()=>{
     if(!canAfford(d.cost)){toast('材料唔夠；砍樹得木材，麻繩喺村店買');return}
-    buildMode=k;toast(`點空地放置${d.name}（${d.sec} 秒）`)}}));
-  if(buildMode)opts.push({label:'取消建造',fn:()=>{buildMode=null;toast('已取消建造')}});
+    buildMode=k;buildStart=null;toast(d.line?`點起點，再點終點，起一條${d.name}`:`點空地放置${d.name}（${d.sec} 秒）`)}}));
+  if(buildMode)opts.push({label:'取消建造',fn:()=>{buildMode=null;buildStart=null;toast('已取消建造')}});
   showMenu(sx,sy,'建造 · 揀完再點空地',opts);
 }
 function tryPlace(sx,sy){
-  const k=buildMode,w=world(sx,sy),why=placeProblem(w.x,w.y);
-  if(why){toast(why);return}
+  const k=buildMode,w=world(sx,sy),why=placeProblem(w.x,w.y,k);
+  if(why&&!(BUILDS[k].line&&buildStart)){toast(why);return}
+  if(isWallKind(k)){tryPlaceWall(k,w);return}
   const v=issueOne({t:'build',k,x:w.x,y:w.y},w,'揀咗嘅隊友做唔到');
   if(v){buildMode=null;toast(`${v.name} 去起${BUILDS[k].name}`)}
 }
@@ -147,6 +149,7 @@ function drawBuilt(p,sc){
   const z=cam.z;
   if(p.built==='field'||p.built==='hearth'){drawFarm(p,sc);return}
   if(WORK_AT[p.built]){drawWork(p,sc);return}
+  if(p.wall){drawWall(p,sc);return}
   if(p.built==='bed'){inkRect(sc.x-11*z,sc.y-7*z,22*z,8*z,'#8a6a46');inkRect(sc.x-10*z,sc.y-10*z,7*z,4*z,'#d9cfb4');return}
   inkRect(sc.x-13*z,sc.y-20*z,26*z,20*z,'rgba(70,50,30,.25)');
   ctx.strokeStyle='#2c2016';ctx.lineWidth=1.6*z;
@@ -228,7 +231,8 @@ function autoWork(u,dt){
     const empty=nearest(fs.filter(p=>fieldStage(p)===0),u);if(empty&&availItem(u,'seed')){u.cmd=[{t:'sow',node:empty,auto:true}];return true}
     const h=nearest(props.filter(p=>p.built==='hearth'),u);if(h&&availItem(u,'rice')>=2){u.cmd=[{t:'cook',node:h,auto:true}];return true}
     u.state=empty?'耕田 · 冇稻種':'耕田 · 等禾熟';return false}
-  if(j==='craft'){const ws=props.filter(p=>WORK_AT[p.built]);
+  if(j==='craft'){const wr=nearest(props.filter(p=>p.wall&&p.hp<p.max*.7),u);if(wr&&availItem(u,'wood')>=1){u.cmd=[{t:'repair',node:wr,auto:true}];return true}
+    const ws=props.filter(p=>WORK_AT[p.built]);
     if(!ws.length){u.state='做工 · 未有工坊';return false}
     const p=nearest(ws.filter(p=>workReady(u,p)),u);if(p){u.cmd=[{t:'craft',node:p,auto:true}];return true}
     u.state=ws.some(p=>p.q.length)?'做工 · 冇料':'做工 · 隊列空';return false}

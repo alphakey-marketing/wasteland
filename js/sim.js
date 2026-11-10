@@ -105,10 +105,11 @@ function step(u,tx,ty,dt,mul=1){
   const dx=tx-u.x,dy=ty-u.y,d=Math.hypot(dx,dy);if(d<.05)return true;
   let mx=dx/d,my=dy/d;
   // 前面有嘢擋住：沿物件邊行，唔好撞埋去企死
-  for(const p of props){if(p.bed)continue;const px=p.x-u.x,py=p.y-u.y,pd=Math.hypot(px,py),r=p.s*.62+.22;
+  for(const p of props){if(p.bed||p.gate&&u.team==='a')continue;const px=p.x-u.x,py=p.y-u.y,pd=Math.hypot(px,py),r=p.s*.62+.22;
     if(pd>r+.3||pd>d||pd<1e-4||(px*mx+py*my)/pd<.3)continue;
+    if(p.wall&&u.team!=='a')u.wallHit={p,t:simT};
     let tx2=-py/pd,ty2=px/pd;if(tx2*mx+ty2*my<0){tx2=-tx2;ty2=-ty2}mx=tx2;my=ty2;break}
-  const s=Math.min(d,u.spd*mul*legMul(u)*encMul(u)*(u.team==='a'&&u.food<30?.9:1)*dt);u.x+=mx*s;u.y+=my*s;
+  const s=Math.min(d,u.spd*mul*legMul(u)*encMul(u)*(u.team==='a'&&u.food<30?.9:1)*dt);u.x+=mx*s;u.y+=my*s;wallPush(u);
   const sdx=dx-dy;if(Math.abs(sdx)>.01)u.face=sdx>0?1:-1;u.moving=true;
   if(u.team==='a'){const l=load(u),c=cap(u);if(l>c*.5)train(u,'str',dt*.35*l/c)}
   return d<.15;
@@ -153,7 +154,7 @@ function checkWounds(t,pk,pl){
 }
 function engage(u,t,dt){
   const d=dist(u,t);const sdx=(t.x-u.x)-(t.y-u.y);if(Math.abs(sdx)>.01)u.face=sdx>0?1:-1;
-  if(d>range(u)*.95)step(u,t.x,t.y,dt);else if(u.cd<=0)attack(u,t);
+  if(d>range(u)*.95){if(!wallAttack(u,t,dt))step(u,t.x,t.y,dt)}else if(u.cd<=0)attack(u,t);
 }
 function healRate(u){return 2.5+u.sk.aid.lv*.35}
 function useKit(h,amt){h.kitUse+=amt;if(h.kitUse>=20){h.kitUse-=20;useItem(h,'medkit');if(!countItem(h,'medkit')&&h.team==='a')toast(`${h.name} 用晒藥包`)}}
@@ -230,11 +231,11 @@ function runCmd(u,dt,ne,nd){
       if(ne&&nd<3&&!u.carry){u.state='自衛';engage(u,ne,dt);break}
       if(!c.started){
         if(dist(u,c)>1.3){u.state='去起'+d.name;step(u,c.x,c.y,dt);break}
-        const why=placeProblem(c.x,c.y);if(why){u.cmd.shift();toast(why);break}
-        if(!buildPay(c.k)){u.cmd.shift();toast('材料唔夠，建造取消');break}
+        const why=placeProblem(c.x,c.y,c.k);if(why){u.cmd.shift();toast(why);break}
+        if(!buildPay(c.k)){u.cmd.shift();while(u.cmd[0]?.t==='build'&&u.cmd[0].k===c.k)u.cmd.shift();toast('材料唔夠，建造取消');break}
         c.started=true;c.prog=0}
       u.state='起緊'+d.name;c.prog+=dt;
-      if(c.prog>=d.sec){u.cmd.shift();addBuilt(activeArea,c.k,c.x,c.y);float(u,`起好 ${d.name}`,'#a9e08a')}
+      if(c.prog>=d.sec){u.cmd.shift();const nb=addBuilt(activeArea,c.k,c.x,c.y);if(nb&&c.ang!=null)nb.ang=c.ang;float(u,`起好 ${d.name}`,'#a9e08a')}
       break}
     case 'jail':{const b=c.body,cage=c.cage;
       if(!props.includes(cage)||(cageOcc(cage)&&cage.occ!==b)||b.captive||b.dead||(u.carry&&u.carry!==b)){u.cmd.shift();break}
@@ -254,6 +255,7 @@ function runCmd(u,dt,ne,nd){
     case 'loot':if(c.body.carriedBy||(!c.body.pile&&(!c.body.down||!units.includes(c.body)))){u.cmd.shift();toast('目標已起身、離開或被揹起，搜身取消');break}if(dist(u,c.body)>.9){u.state=c.body.pile?'去搜查':'去搜身';step(u,c.body.x,c.body.y,dt)}else{u.cmd.shift();openLoot(u,c.body)}break;
     case 'rescue':{const b=c.body;if(b.dead||!b.down||b.carriedBy||!units.includes(b)){u.cmd.shift();break}
       if(dist(u,b)>.9){u.state='去救人';step(u,b.x,b.y,dt);break}u.cmd.shift();rescueWounded(u,b);break}
+    case 'repair':case 'demolish':wallCmd(u,c,dt);break;
     case 'carry':if(c.body.carriedBy||!c.body.down||u.carry){u.cmd.shift();break}if(dist(u,c.body)>.9){u.state='去揹人';step(u,c.body.x,c.body.y,dt)}else{u.cmd.shift();pickUp(u,c.body)}break;
   }
 }
@@ -263,7 +265,7 @@ function steer(u,goal,dt,threats=[],mul=1,obstacles=props){
   for(const turn of [0,.45,-.45,.9,-.9,1.5,-1.5,2.2,-2.2,Math.PI]){
     const a=heading+turn,p={x:u.x+Math.cos(a)*.85,y:u.y+Math.sin(a)*.85};
     if(p.x<.6||p.y<.6||p.x>MAP-.6||p.y>MAP-.6)continue;
-    if(obstacles.some(o=>!o.bed&&[.25,.5,.85].some(r=>dist({x:u.x+Math.cos(a)*r,y:u.y+Math.sin(a)*r},o)<o.s*.62+.25)))continue;
+    if(obstacles.some(o=>!o.bed&&!(o.gate&&u.team==='a')&&[.25,.5,.85].some(r=>dist({x:u.x+Math.cos(a)*r,y:u.y+Math.sin(a)*r},o)<o.s*.62+.25)))continue;
     const safety=threats.length?Math.min(...threats.map(e=>dist(p,e))):0;
     const s=safety*2.5-dist(p,goal)*.65-Math.abs(turn)*.08;
     if(s>score){score=s;best=p}
@@ -393,7 +395,7 @@ function simArea(dt){
   for(let i=0;i<units.length;i++){const a=units[i];if(a.down)continue;
     for(let j=i+1;j<units.length;j++){const b=units[j];if(b.down)continue;const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);
       if(d<.55&&d>1e-4){const p=(.55-d)/2,fa=pinned(a)?0:pinned(b)?2:1,fb=2-fa;a.x-=dx/d*p*fa;a.y-=dy/d*p*fa;b.x+=dx/d*p*fb;b.y+=dy/d*p*fb}}
-    for(const p of props){if(p.bed)continue;const r=p.s*.62+.22,dx=a.x-p.x,dy=a.y-p.y,d=Math.hypot(dx,dy);if(d<r&&d>1e-4){a.x=p.x+dx/d*r;a.y=p.y+dy/d*r}}
+    for(const p of props){if(p.bed||p.gate&&a.team==='a')continue;const r=p.s*.62+.22,dx=a.x-p.x,dy=a.y-p.y,d=Math.hypot(dx,dy);if(d<r&&d>1e-4){a.x=p.x+dx/d*r;a.y=p.y+dy/d*r}}
     a.x=clamp(a.x,.5,MAP-.5);a.y=clamp(a.y,.5,MAP-.5);}
   fx.floats.forEach(f=>f.t+=dt);fx.floats=fx.floats.filter(f=>f.t<(f.big?1.8:1.1));
   fx.shots.forEach(f=>f.t+=dt);fx.shots=fx.shots.filter(f=>f.t<.18);

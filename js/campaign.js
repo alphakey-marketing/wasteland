@@ -140,7 +140,7 @@ function campaignEscortReady(party,gate=AREAS[activeArea].gate){
   return npc.carriedBy?party.includes(npc.carriedBy):!npc.down&&dist(npc,gate)<=2.4;
 }
 function tickCampaign(dt){
-  tickOutpost(dt);tickRaids(dt);tickWanted(dt);tickLife(dt);tickEncounters(dt);campaignClockTotal+=dt;campaignClock+=dt;if(campaignClock>=1){campaignClock=0;ensureCampaignWorld()}
+  tickOutpost(dt);tickRaids(dt);tickWanted(dt);tickLife(dt);tickEncounters(dt);tickNightRaid(dt);campaignClockTotal+=dt;campaignClock+=dt;if(campaignClock>=1){campaignClock=0;ensureCampaignWorld()}
 }
 function borderTalk(u,npc){
   if(npc.kind==='border_refugee'){if(recruitBorderRefugee(u,npc))return}
